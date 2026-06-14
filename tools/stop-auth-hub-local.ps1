@@ -20,7 +20,7 @@ if ($state.processIds) {
 foreach ($id in ($ids | Sort-Object -Descending -Unique)) {
   $process = Get-Process -Id $id -ErrorAction SilentlyContinue
   if ($process) {
-    Stop-Process -Id $id -Force
+    Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
   }
 }
 
