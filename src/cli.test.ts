@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -30,6 +30,38 @@ test("skill draft --write previews without --yes", () => {
   }
 });
 
+test("skill draft --write --diff previews merge summary without writing", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-diff-preview-"));
+  try {
+    const configDir = path.join(tempRoot, ".ai-link");
+    const targetPath = path.join(configDir, "local.yaml");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(targetPath, "version: 1\nroutes:\n  auto_ops.research:\n    provider: mock\n", "utf8");
+
+    const result = runCli(tempRoot, [
+      "skill",
+      "draft",
+      "--skill",
+      "auto_ops",
+      "--description",
+      "research with Grok, article draft with Kimi",
+      "--write",
+      ".ai-link/local.yaml",
+      "--diff"
+    ]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /# Merge summary/);
+    assert.match(result.stdout, /# routes added: auto_ops\.article_draft/);
+    assert.match(result.stdout, /# routes updated: auto_ops\.research/);
+    assert.match(result.stdout, /# workflows added: auto_ops/);
+    assert.match(result.stdout, /Preview only/);
+    assert.doesNotMatch(readFileSync(targetPath, "utf8"), /article_draft/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("skill draft --write --yes merges into local config", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-write-"));
   try {
@@ -52,6 +84,54 @@ test("skill draft --write --yes merges into local config", () => {
     assert.match(written, /auto_ops\.research/);
     assert.match(written, /auto_ops\.article_draft/);
     assert.match(written, /workflows:/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("skill draft --write --diff --yes writes and prints merge summary", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-diff-write-"));
+  try {
+    const result = runCli(tempRoot, [
+      "skill",
+      "draft",
+      "--skill",
+      "auto_ops",
+      "--description",
+      "research with Grok",
+      "--write",
+      ".ai-link/local.yaml",
+      "--diff",
+      "--yes"
+    ]);
+
+    const targetPath = path.join(tempRoot, ".ai-link", "local.yaml");
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /AI Link skill draft merged/);
+    assert.match(result.stdout, /# Merge summary/);
+    assert.match(result.stdout, /# routes added: auto_ops\.research/);
+    assert.equal(existsSync(targetPath), true);
+    assert.match(readFileSync(targetPath, "utf8"), /auto_ops\.research/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("skill draft --diff requires a write target", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-diff-usage-"));
+  try {
+    const result = runCli(tempRoot, [
+      "skill",
+      "draft",
+      "--skill",
+      "auto_ops",
+      "--description",
+      "research with Grok",
+      "--diff"
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /--diff requires --write/);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }

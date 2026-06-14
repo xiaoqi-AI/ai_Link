@@ -26,6 +26,17 @@ interface ParsedArgs {
   flags: Record<string, string | boolean | string[]>;
 }
 
+interface SkillDraftChangeSet {
+  added: string[];
+  updated: string[];
+}
+
+interface SkillDraftDiffSummary {
+  routes: SkillDraftChangeSet;
+  workflows: SkillDraftChangeSet;
+  policies: SkillDraftChangeSet;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const [command] = args.positional;
@@ -462,7 +473,7 @@ function validateConfigCommand(args: ParsedArgs): void {
 function skillCommand(args: ParsedArgs): void {
   const subcommand = args.positional[1];
   if (subcommand !== "draft-route" && subcommand !== "draft") {
-    throw new AiLinkError("Usage: ai-link skill <draft|draft-route> --description \"...\" [--write path --yes]", "CLI_USAGE");
+    throw new AiLinkError("Usage: ai-link skill <draft|draft-route> --description \"...\" [--write path --diff --yes]", "CLI_USAGE");
   }
 
   const description = stringFlag(args, "description") ?? args.positional.slice(2).join(" ");
@@ -479,6 +490,9 @@ function skillCommand(args: ParsedArgs): void {
     : draftRoutesFromNaturalLanguage(options);
 
   const writeTarget = stringFlag(args, "write");
+  if (booleanFlag(args, "diff") && !writeTarget) {
+    throw new AiLinkError("--diff requires --write <path> so AI Link can compare against the target config.", "CLI_USAGE");
+  }
   if (writeTarget) {
     handleSkillDraftWrite(args, draft, writeTarget);
     return;
@@ -494,6 +508,7 @@ function skillCommand(args: ParsedArgs): void {
 function handleSkillDraftWrite(args: ParsedArgs, draft: AiLinkConfig, writeTarget: string): void {
   const targetPath = path.resolve(process.cwd(), writeTarget);
   const renderedDraft = stringify(draft);
+  const showDiff = booleanFlag(args, "diff");
 
   if (!isAllowedSkillDraftTarget(targetPath)) {
     throw new AiLinkError(
@@ -509,19 +524,69 @@ function handleSkillDraftWrite(args: ParsedArgs, draft: AiLinkConfig, writeTarge
     );
   }
 
+  const existing = existsSync(targetPath) ? readYamlConfig(targetPath) : {};
+  const diffSummary = showDiff ? buildSkillDraftDiffSummary(existing, draft) : undefined;
+
   if (!booleanFlag(args, "yes")) {
     console.log(renderedDraft);
+    if (diffSummary) {
+      printSkillDraftDiffSummary(diffSummary);
+    }
     console.log(`# Preview only. Add --yes to merge this draft into ${writeTarget}.`);
     return;
   }
 
-  const existing = existsSync(targetPath) ? readYamlConfig(targetPath) : {};
   const merged = deepMerge(existing, draft);
   const targetDir = path.dirname(targetPath);
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(targetPath, stringify(merged), "utf8");
 
   console.log(`AI Link skill draft merged into ${writeTarget}.`);
+  if (diffSummary) {
+    printSkillDraftDiffSummary(diffSummary);
+  }
+}
+
+function buildSkillDraftDiffSummary(existing: AiLinkConfig, draft: AiLinkConfig): SkillDraftDiffSummary {
+  return {
+    routes: diffRecordKeys(existing.routes, draft.routes),
+    workflows: diffRecordKeys(existing.workflows, draft.workflows),
+    policies: diffRecordKeys(existing.policies, draft.policies)
+  };
+}
+
+function diffRecordKeys(
+  existing: Record<string, unknown> | undefined,
+  draft: Record<string, unknown> | undefined
+): SkillDraftChangeSet {
+  const existingKeys = new Set(Object.keys(existing ?? {}));
+  const added: string[] = [];
+  const updated: string[] = [];
+
+  for (const key of Object.keys(draft ?? {}).sort()) {
+    if (existingKeys.has(key)) {
+      updated.push(key);
+    } else {
+      added.push(key);
+    }
+  }
+
+  return { added, updated };
+}
+
+function printSkillDraftDiffSummary(summary: SkillDraftDiffSummary): void {
+  console.log("");
+  console.log("# Merge summary");
+  printSkillDraftChangeSet("routes", summary.routes);
+  printSkillDraftChangeSet("workflows", summary.workflows);
+  printSkillDraftChangeSet("policies", summary.policies);
+}
+
+function printSkillDraftChangeSet(label: string, changes: SkillDraftChangeSet): void {
+  const added = changes.added.length === 0 ? "-" : changes.added.join(", ");
+  const updated = changes.updated.length === 0 ? "-" : changes.updated.join(", ");
+  console.log(`# ${label} added: ${added}`);
+  console.log(`# ${label} updated: ${updated}`);
 }
 
 function doctorCommand(args: ParsedArgs): void {

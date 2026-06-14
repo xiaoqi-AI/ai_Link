@@ -28,6 +28,7 @@
 - 统一授权中枢：`docs/20-architecture/auth-hub.md`
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
 - Auto Ops 示例：`examples/auto-ops/`
+- BWS Codex Skill 示例：`examples/codex-skills/bws-secret-mode/SKILL.md`
 - 协作规则：`AGENTS.md`
 - 贡献说明：`CONTRIBUTING.md`
 - 安全反馈：`SECURITY.md`
@@ -41,6 +42,7 @@
 ```powershell
 npm run check
 npm test
+npm run skills:check
 npm run ai-link -- config validate
 npm run bws:plan
 npm run bws:onboard
@@ -76,7 +78,7 @@ npm run ai-link -- runs list
 npm run ai-link -- workflow run auto_ops --dry-run --stages research --input "先做调研" --record
 npm run ai-link -- workflow run auto_ops --dry-run --resume-from latest --input "接着写初稿"
 npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，Codex 负责落地"
-npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi" --write .ai-link/local.yaml
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi" --write .ai-link/local.yaml --diff
 npm run ai-link -- run auto_ops.agent_flow --dry-run --input "验证 Coze agent 工作流"
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
@@ -164,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - route policy 会执行 `allowOutbound` 出站规则、provider type 限制、model pattern gate 和预算 gate；默认真实外部 provider 调用需要 `--approve-policy`、`--approve-stage <stage>` 或 `--approve-all`，`agent_flow` 还会标记为 `external_action` 并在结果/运行记录中保留审计 metadata。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
-- `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。
+- `examples/auto-ops/`、`examples/codex-skills/auto-ops-ai-link/` 和 `examples/codex-skills/bws-secret-mode/` 轻量示例。
 - 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器、mock 平台连接器和连接器合同状态 API；执行器可回传 AI Link `audit` 摘要，Codex 也可用 `ai-link runs submit-audit` 把本地 run record 审计追加到任务详情、控制台审计页和 `GET /api/audit`，审计日志支持按 `eventType` 筛选。
 - GitHub Actions CI、fresh clone 验证脚本和本地安全扫描。
 
