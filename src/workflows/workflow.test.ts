@@ -26,3 +26,44 @@ test("resolveWorkflowStages accepts explicit stage selection", () => {
   assert.deepEqual(stages.map((stage) => stage.name), ["article_draft"]);
   assert.equal(stages[0].task, "auto_ops.article_draft");
 });
+
+test("runWorkflow can pass previous stage output to a later stage", async () => {
+  const result = await runWorkflow({
+    providers: {
+      mock: {
+        type: "mock",
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.first": {
+        provider: "mock"
+      },
+      "demo.second": {
+        provider: "mock"
+      }
+    },
+    workflows: {
+      demo: {
+        stages: [
+          {
+            name: "first",
+            task: "demo.first",
+            inputFrom: "original"
+          },
+          {
+            name: "second",
+            task: "demo.second",
+            inputFrom: "original-and-previous"
+          }
+        ]
+      }
+    }
+  }, {
+    workflow: "demo",
+    input: "seed input"
+  });
+
+  assert.match(result.stages[1].result.output, /Previous stage outputs/);
+  assert.match(result.stages[1].result.output, /task: demo.first/);
+});

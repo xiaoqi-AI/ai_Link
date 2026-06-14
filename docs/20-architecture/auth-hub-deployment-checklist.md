@@ -10,6 +10,7 @@
 npm install
 npm test
 npm run security:scan
+npm run auth-hub:secrets:new
 npm run auth-hub:deploy:check
 npm run auth-hub:local:start
 npm run auth-hub:smoke
@@ -34,6 +35,10 @@ npm run auth-hub:local:stop
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
+- `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
+- `AI_LINK_ALLOWED_ACCESS_EMAILS`
+- `AI_LINK_CLOUDFLARE_ACCESS_AUD`
+- `AI_LINK_CLOUDFLARE_TEAM_DOMAIN` 或 `AI_LINK_CLOUDFLARE_ACCESS_ISSUER`
 - 可选：`AI_LINK_CODEX_TOKEN`
 
 邮件提醒可选配置：
@@ -50,11 +55,7 @@ npm run auth-hub:local:stop
 powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://voice.xiao-qi-ai.com"
 ```
 
-如果已人工确认 Cloudflare Access 生效，可在该终端设置：
-
-```powershell
-$env:AI_LINK_CLOUDFLARE_ACCESS_ENABLED="1"
-```
+生产检查会要求应用自身开启 Cloudflare Access origin guard，并配置 Access JWT 校验所需的 AUD tag 和 team domain/issuer。
 
 ## 3. Cloudflare Access
 
@@ -66,6 +67,8 @@ $env:AI_LINK_CLOUDFLARE_ACCESS_ENABLED="1"
 - 禁止公开匿名访问。
 - 保留应用内登录作为第二层门禁。
 - DNS 指向 Render 后，确认 HTTPS 可用。
+- 记录应用 AUD tag 到 `AI_LINK_CLOUDFLARE_ACCESS_AUD`。
+- 本地执行器如需穿过 Cloudflare Access，创建 Service Auth 凭据，并只在本机或 Bitwarden 中保存 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。
 
 ## 4. 本地执行器
 
@@ -76,6 +79,8 @@ $env:AI_LINK_CLOUDFLARE_ACCESS_ENABLED="1"
 ```powershell
 $env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
+$env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
 npm run auth-hub:executor:start
 ```
 
@@ -114,6 +119,8 @@ npm run auth-hub:executor:start
 $env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
+$env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
 npm run auth-hub:remote:smoke
 ```
 

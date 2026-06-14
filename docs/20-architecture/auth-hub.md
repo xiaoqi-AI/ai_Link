@@ -88,12 +88,22 @@ npm run auth-hub:local:stop
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
+- `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
+- `AI_LINK_ALLOWED_ACCESS_EMAILS`
+- `AI_LINK_CLOUDFLARE_ACCESS_AUD`
+- `AI_LINK_CLOUDFLARE_TEAM_DOMAIN` 或 `AI_LINK_CLOUDFLARE_ACCESS_ISSUER`
 - 可选：`AI_LINK_CODEX_TOKEN`
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
-Cloudflare Access 应限制 `voice.xiao-qi-ai.com` 只能由授权邮箱访问；应用内登录作为第二层门禁。
+Cloudflare Access 应限制 `voice.xiao-qi-ai.com` 只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access header/JWT，应用内登录作为第二层门禁。
 
 部署前检查见 `docs/20-architecture/auth-hub-deployment-checklist.md`。
+
+生成生产随机密钥时只输出到当前终端，不写入文件：
+
+```powershell
+npm run auth-hub:secrets:new
+```
 
 部署前本地预检：
 

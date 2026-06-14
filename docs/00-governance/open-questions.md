@@ -16,6 +16,7 @@
 - 第一阶段公开定位已确认：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。
 - MVP 已采用 Apache-2.0 许可证、TypeScript / Node.js CLI、配置文件和 Codex skill 调用约定。
 - 首批 provider 已覆盖：mock/local-dry-run、openai-compatible、DeepSeek、Kimi、Grok。
+- `ai-link workflow run` 已支持按阶段串联 route，默认 auto_ops 示例为 Grok 调研后交给 Kimi 写草稿。
 - 后续是否需要补充豆包 provider？
 - 扣子真实接入优先走 API、MCP，还是命令行兜底？
 - 是否需要把 `examples/auto-ops/` 扩展成完整示例项目或保持轻量？
@@ -25,7 +26,7 @@
 
 - AI Link CLI 已采用 TypeScript / Node.js；统一授权中枢公开骨架已采用 Node.js / Express。
 - MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
-- Provider dry-run 验收已补充；真实调用验收仍需用户本机或 GitHub Secrets 中配置 provider key。
+- Provider dry-run 验收已补充；真实调用验收仍需用户本机通过 Bitwarden Secrets Manager 注入 provider key，或 GitHub Actions 通过 `BW_ACCESS_TOKEN` 临时读取 Bitwarden secret。
 - 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？
 - 是否为 Render 服务启用付费持久盘，或长期坚持浏览器登录态只放本地执行器？
 - 是否需要移动端、小程序或浏览器插件？

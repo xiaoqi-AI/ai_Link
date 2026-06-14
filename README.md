@@ -74,12 +74,13 @@ powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -Comma
 
 ```powershell
 npm run auth-hub:local:start
+npm run auth-hub:secrets:new
 npm run auth-hub:deploy:check
 npm run auth-hub:smoke
 npm run auth-hub:executor:start
 ```
 
-默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN` 和 Cloudflare Access。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
+默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN` 和 Cloudflare Access origin guard。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
 第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。真实平台连接器应放在私有配置或私有仓中实现。
 

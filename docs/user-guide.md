@@ -61,12 +61,13 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 
 ```powershell
 npm run auth-hub:local:start
+npm run auth-hub:secrets:new
 npm run auth-hub:deploy:check
 npm run auth-hub:smoke
 npm run auth-hub:executor:start
 ```
 
-本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
+本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
 
 停止本地执行器和控制台：
 
