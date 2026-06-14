@@ -31,12 +31,31 @@ try {
 
 function run(command, args, cwd) {
   console.log(`\n> ${command} ${args.join(" ")}`);
-  const result = spawnSync(command, args, {
+  const resolved = resolveCommand(command, args);
+  const result = spawnSync(resolved.command, resolved.args, {
     cwd,
-    stdio: "inherit",
-    shell: process.platform === "win32"
+    stdio: "inherit"
   });
+  if (result.error) {
+    console.error(result.error.message);
+  }
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function resolveCommand(command, args) {
+  if (process.platform !== "win32") {
+    return { command, args };
+  }
+
+  if (command === "npm") {
+    return { command: "cmd.exe", args: ["/d", "/s", "/c", "npm", ...args] };
+  }
+
+  if (command === "git") {
+    return { command: "git.exe", args };
+  }
+
+  return { command, args };
 }
