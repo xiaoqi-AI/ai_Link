@@ -170,7 +170,7 @@ foreach ($projectEntry in $manifest.projects.PSObject.Properties) {
     Add-Line "6. Delete or disable the old Bitwarden access token after checks pass."
   } else {
     Add-Line "3. Run ``npm run bws:session`` or ``npm run bws:activate -- -SkipCi`` in a fresh local session."
-    Add-Line "4. Run ``npm run bws:doctor`` after strict readiness passes."
+    Add-Line "4. Run ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` or ``npm run bws:doctor`` after strict readiness passes."
     Add-Line "5. Delete or disable the old Bitwarden access token after checks pass."
   }
   Add-Line ""
@@ -178,7 +178,7 @@ foreach ($projectEntry in $manifest.projects.PSObject.Properties) {
 
 Add-Line "## Secret value rotation"
 Add-Line ""
-Add-Line "- Provider API keys: rotate in the provider portal first, update the existing Bitwarden secret value, then run ``npm run bws:doctor``."
+Add-Line "- Provider API keys: rotate in the provider portal first, update the existing Bitwarden secret value, then run ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` or ``npm run bws:doctor``."
 Add-Line "- Auth Hub tokens and passwords: generate replacements with ``npm run auth-hub:secrets:new``, update Bitwarden, then restart or redeploy the service that consumes them."
 Add-Line "- GitHub provider-live variables: update only when a Bitwarden secret is recreated and its secret ID changes; editing a secret value should not require changing the secret ID variable."
 Add-Line "- Database and SMTP URLs: rotate with the upstream service first, then update Bitwarden and the deployment environment."
@@ -187,7 +187,7 @@ Add-Line ""
 Add-Line "## Evidence checklist"
 Add-Line ""
 Add-Line "- [ ] ``npm run bws:acceptance:strict`` passes after Bitwarden and GitHub setup are complete."
-Add-Line "- [ ] ``npm run bws:doctor`` confirms local AI Link can read provider keys through ``bws run``."
+Add-Line "- [ ] ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` or ``npm run bws:doctor`` confirms local AI Link can read provider keys through ``bws run``."
 Add-Line "- [ ] ``npm run providers:github:check`` passes."
 Add-Line "- [ ] ``npm run providers:github:remote-check`` passes when remote environment access is available."
 Add-Line "- [ ] Provider live workflow is triggered only after model cost boundaries are confirmed."

@@ -65,6 +65,9 @@ jobs:
       - name: GitHub hardening worksheet
         run: npm run github:hardening
 
+      - name: GitHub hardening next steps
+        run: npm run github:hardening:next
+
       - name: Release plan
         run: npm run release:plan
 

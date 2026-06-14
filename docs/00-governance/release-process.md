@@ -14,8 +14,10 @@ npm run package:install-smoke
 npm run next:actions
 npm run setup:handoff
 npm run bws:next
+npm run bws:run:help
 npm run github:safety
 npm run github:hardening
+npm run github:hardening:next
 npm run release:plan
 npm run release:decisions
 npm run release:decisions:next
@@ -35,8 +37,10 @@ npm run package:install-smoke:json
 npm run next:actions:json
 npm run setup:handoff:json
 npm run bws:next:json
+npm run bws:run:help
 npm run github:safety:json
 npm run github:hardening:json
+npm run github:hardening:next:json
 npm run release:plan:json
 npm run release:decisions:json
 npm run release:decisions:next:json
@@ -63,7 +67,11 @@ Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the or
 
 Use `npm run bws:next` or `npm run bws:next:json` when you need the current Bitwarden setup state and the next safe command. The command is read-only, checks only whether bootstrap variables are present, and never prints token or project-id values.
 
+Use `npm run bws:run:help` before wrapping an approved AI Link command with Bitwarden Secrets Manager. `npm run bws:run -- -CommandLine "..."` requires `BWS_ACCESS_TOKEN` in the current session and does not save or print token values.
+
 Use `npm run github:hardening` to generate the GitHub UI worksheet for branch protection, required `Verify`, secret scanning, push protection, and post-configuration evidence. The default worksheet is written under `runtime/tmp/` and is safe for public logs.
+
+Use `npm run github:hardening:next` or `npm run github:hardening:next:json` when you need the next GitHub hardening actions as UI links, read-only verification commands, and public-safe release decision update previews. The command does not call GitHub APIs by default and does not modify release records.
 
 Use `npm run release:decisions` to review the public-safe v0.1 decision record in `docs/releases/v0.1.0-decisions.json`. Use `npm run release:decisions:next` to generate public-safe preview/write commands for each pending decision. Use `npm run release:decisions:update -- --id <decision-id> --status <status> --evidence "<public-safe evidence>"` to preview a decision update, then add `--yes` only after review. `approved` decisions need public-safe evidence, `waived` decisions need a public-safe note, and the updater rejects common secret-like values without echoing them. Use `npm run release:decisions:strict` only when preparing to tag, publish npm, or claim live provider verification; pending decisions intentionally fail strict mode.
 

@@ -102,6 +102,7 @@ npm run bws:profile
 npm run bws:activate
 npm run bws:check
 npm run bws:session:help
+npm run bws:run:help
 npm run bws:worksheet
 npm run bws:rotation:print
 npm run bws:github-vars:help
@@ -118,12 +119,14 @@ npm run bws:check:strict
 ```powershell
 npm run bws:doctor
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
+npm run bws:run -- -CommandLine "npm run ai-link -- doctor"
 ```
 
 运行 dry-run：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- run auto_ops.research --dry-run --input ""测试"""
+npm run bws:run -- -CommandLine "npm run ai-link -- run auto_ops.research --dry-run --input ""测试"""
 ```
 
 直接使用 `bws` 也可以：
@@ -195,6 +198,7 @@ npm run bws:profile:print
 npm run bws:activate:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:run:help
 npm run bws:worksheet
 npm run bws:rotation:print
 npm run bws:github-vars:help

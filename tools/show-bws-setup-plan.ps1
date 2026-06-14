@@ -29,6 +29,7 @@ $plan = [ordered]@{
       "npm run bws:activate",
       "npm run bws:check",
       "npm run bws:check:strict",
+      "npm run bws:run:help",
       "npm run bws:rotation",
       "npm run bws:github-vars",
       "npm run bws:github-vars:apply-plan",
@@ -37,6 +38,8 @@ $plan = [ordered]@{
       "npm run providers:github:dispatch-plan"
     )
     runExamples = @(
+      'npm run bws:run -- -CommandLine "npm run ai-link -- doctor"',
+      'npm run bws:run -- -CommandLine "npm run providers:live:safe-report"',
       'powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"',
       'powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run providers:live"'
     )
@@ -130,6 +133,12 @@ foreach ($environment in $plan.githubEnvironments) {
   foreach ($check in $environment.checks) {
     Write-Host ("- {0}" -f $check)
   }
+}
+
+Write-Host ""
+Write-Host "5. Run examples"
+foreach ($example in $plan.localSession.runExamples) {
+  Write-Host ("- {0}" -f $example)
 }
 
 Write-Host ""

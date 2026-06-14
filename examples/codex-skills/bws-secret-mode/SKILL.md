@@ -14,6 +14,7 @@ Start with non-secret state only:
 ```powershell
 git status --short --branch
 npm run bws:plan
+npm run bws:next
 npm run bws:onboard:print
 ```
 
@@ -35,6 +36,7 @@ Use these commands in order when preparing local Codex / AI Link access:
 npm run bws:profile:print
 npm run bws:activate:plan
 npm run bws:session
+npm run bws:run:help
 npm run bws:doctor
 ```
 
@@ -43,6 +45,8 @@ Use `npm run bws:session` when a token is needed because it prompts for `BWS_ACC
 For an explicit BWS-wrapped command:
 
 ```powershell
+npm run bws:run -- -CommandLine "npm run ai-link -- doctor"
+npm run bws:run -- -CommandLine "npm run ai-link -- run auto_ops.research --dry-run --input ""<public input>"""
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- run auto_ops.research --dry-run --input ""<public input>"""
 ```

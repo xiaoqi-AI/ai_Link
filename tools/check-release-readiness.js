@@ -87,7 +87,9 @@ for (const file of [
   "tools/check-github-repo-safety.js",
   "tools/show-setup-handoff.js",
   "tools/show-bws-next.js",
+  "tools/with-bitwarden-secrets.ps1",
   "tools/new-github-hardening-worksheet.js",
+  "tools/show-github-hardening-next.js",
   "tools/check-release-decisions.js",
   "tools/show-release-decision-next.js",
   "tools/update-release-decision.js",
@@ -144,10 +146,14 @@ for (const scriptName of [
   "setup:handoff:json",
   "bws:next",
   "bws:next:json",
+  "bws:run",
+  "bws:run:help",
   "github:safety",
   "github:safety:json",
   "github:hardening",
   "github:hardening:json",
+  "github:hardening:next",
+  "github:hardening:next:json",
   "release:plan",
   "release:plan:json",
   "release:decisions",
@@ -180,6 +186,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run bws:next",
   "npm run github:safety",
   "npm run github:hardening",
+  "npm run github:hardening:next",
   "npm run release:plan",
   "npm run release:decisions",
   "npm run release:decisions:next",
@@ -224,6 +231,7 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "packageInstallSmoke",
   "nextActions",
   "githubHardening",
+  "githubHardeningNext",
   "releaseDecisions",
   "releaseDecisionNext",
   "releaseDecisionUpdatePreview",
@@ -238,6 +246,14 @@ checkContains("tools/new-github-hardening-worksheet.js", "GitHub hardening works
   "internal-secret-scanning",
   "Does not read API keys",
   "runtime/tmp"
+]);
+
+checkContains("tools/show-github-hardening-next.js", "GitHub hardening next steps report", [
+  "AI Link GitHub Hardening Next Steps",
+  "github-branch-protection",
+  "github-secret-scanning",
+  "release:decisions:update",
+  "Does not read API keys"
 ]);
 
 checkContains("tools/check-github-repo-safety.js", "GitHub safety REST fallback", [
@@ -271,6 +287,7 @@ checkContains("tools/show-release-decision-next.js", "release decision next comm
 
 checkContains("tools/show-next-actions.js", "next actions report", [
   "github:hardening",
+  "github:hardening:next",
   "record-v0-1-release-decisions",
   "configure-bitwarden-secrets-manager",
   "configure-provider-live-environment",
@@ -284,6 +301,7 @@ checkContains("tools/show-setup-handoff.js", "setup handoff report", [
   "bitwarden-foundation",
   "github-provider-live-wiring",
   "github-hardening",
+  "github:hardening:next",
   "release-decision-record",
   "provider-live-cost-and-verification",
   "release-channel",
@@ -294,8 +312,17 @@ checkContains("tools/show-bws-next.js", "BWS next steps report", [
   "AI Link BWS Next Steps",
   "BWS_ACCESS_TOKEN",
   "present; value not printed",
+  "npm run bws:run",
   "provider-live Environment",
   "Does not read API keys"
+]);
+
+checkContains("tools/with-bitwarden-secrets.ps1", "BWS run wrapper", [
+  "BWS run wrapper",
+  "npm run bws:run",
+  "BWS_ACCESS_TOKEN",
+  "Secret values are never printed",
+  "present; value not printed"
 ]);
 
 checkContains(".github/workflows/provider-live.yml", "provider live safe workflow", [

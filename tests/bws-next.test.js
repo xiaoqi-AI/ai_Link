@@ -54,6 +54,7 @@ describe("BWS next steps report", () => {
     ]);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
     assert.equal(report.phases.every((phase) => phase.commands.length > 0 && phase.evidence.length > 0), true);
+    assert.equal(report.phases.some((phase) => phase.commands.some((command) => command.includes("npm run bws:run"))), true);
   });
 
   it("does not print session token values", async () => {

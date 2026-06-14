@@ -110,6 +110,7 @@ npm run bws:github-vars:apply-plan
 npm run bws:acceptance
 npm run bws:session
 npm run bws:check
+npm run bws:run:help
 ```
 
 普通公开用户建议先用 `npm run onboard:print` 完成本地 dry-run 入场；准备配置真实 provider key 时，再进入 BWS 密钥托管路径。
@@ -128,7 +129,11 @@ npm run release:readiness
 ```powershell
 npm run bws:doctor
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
+npm run bws:run -- -CommandLine "npm run ai-link -- doctor"
+npm run bws:run -- -CommandLine "npm run ai-link -- run auto_ops.research --dry-run --input ""测试"""
 ```
+
+`npm run bws:run` 是 `tools/with-bitwarden-secrets.ps1` 的 npm 入口，用来把任意已审批的 AI Link 命令包进 `bws run`。它要求当前会话已有 `AI_LINK_BWS_PROJECT_ID` 和 `BWS_ACCESS_TOKEN`，不会保存或打印 token；如果需要隐藏输入 token，先用 `npm run bws:session`。
 
 Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ARK_API_KEY`、`XAI_API_KEY`。Secret value 才是真实值。不要把真实 key 写入公开仓库、issue、PR、知识库或聊天记录。完整流程见 `docs/20-architecture/bitwarden-secret-management.md`。
 
@@ -170,8 +175,10 @@ npm run package:install-smoke
 npm run next:actions
 npm run setup:handoff
 npm run bws:next
+npm run bws:run:help
 npm run github:safety
 npm run github:hardening
+npm run github:hardening:next
 npm run release:plan
 npm run release:decisions
 npm run release:decisions:next
@@ -189,11 +196,13 @@ npm run bws:profile:print
 npm run bws:activate:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:run:help
 npm run bws:worksheet
 npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:github-vars:apply-plan
 npm run bws:acceptance:print
+npm run github:hardening:next
 npm run providers:github:dispatch-plan
 npm run security:scan
 npm run verify:fresh

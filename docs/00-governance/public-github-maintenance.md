@@ -18,8 +18,10 @@
 - `npm run package:install-smoke` 是否通过，确认 tarball 安装后的 CLI 能启动。
 - `npm run next:actions` 是否已复核，确认下一步外部动作、owner 和验收证据仍然准确。
 - `npm run bws:next` 是否已复核，确认 Bitwarden 当前状态、下一条安全命令和不打印 token 的边界仍然准确。
+- `npm run bws:run:help` 是否能打开，确认真实调用 wrapper 仍然只使用会话内 bootstrap token，不保存或打印 token。
 - `npm run github:safety` 是否通过；如果输出 manual，是否已在 GitHub UI、已登录 `gh`、或仅当前会话设置的 `GH_TOKEN` / `GITHUB_TOKEN` 环境中确认对应安全项。
 - `npm run github:hardening` 是否已生成并复核 GitHub UI 加固工作单，确认 branch protection、required `Verify`、secret scanning 和 push protection 的 owner 与证据。
+- `npm run github:hardening:next` 是否已复核，确认 GitHub UI 链接、验证命令和 release decision 更新预览仍然准确。
 - `npm run release:plan` 是否通过，且 changelog、GitHub Release 草稿、tag 计划和 npm 决策项是否明确。
 - `npm run release:decisions` 是否已复核，确认 v0.1 发布渠道、GitHub 加固和 provider-live 成本审批仍然是公开安全的 pending/approved/waived 状态。
 - `npm run release:decisions:next` 是否已复核，确认 pending 决策的 preview / write 命令仍然安全且符合当前发布策略。

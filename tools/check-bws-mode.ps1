@@ -69,6 +69,12 @@ function Invoke-Npm {
 
 Set-Location $root
 
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot "with-bitwarden-secrets.ps1")) {
+  Add-Step "BWS run wrapper" "pass" "npm run bws:run can wrap approved AI Link commands"
+} else {
+  Add-Step "BWS run wrapper" "fail" "tools/with-bitwarden-secrets.ps1 was not found"
+}
+
 $bitwardenArgs = @()
 if ($ProjectId) {
   $bitwardenArgs += @("-ProjectId", $ProjectId)

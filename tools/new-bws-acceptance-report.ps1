@@ -200,6 +200,12 @@ if ($npmPath) {
   Add-Check "npm" "fail" "npm was not found"
 }
 
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot "with-bitwarden-secrets.ps1")) {
+  Add-Check "BWS run wrapper" "pass" "npm run bws:run is available for approved AI Link commands"
+} else {
+  Add-Check "BWS run wrapper" "fail" "tools/with-bitwarden-secrets.ps1 was not found"
+}
+
 $bwsPath = Resolve-BwsPath
 if ($bwsPath) {
   $versionResult = Invoke-Capture { & $bwsPath --version }
@@ -367,6 +373,7 @@ if ($warnings.Count -gt 0) {
 }
 if ($failed.Count -eq 0 -and $pending.Count -eq 0 -and $warnings.Count -eq 0) {
   Add-Line "- BWS mode is ready for normal dry-run and approved live workflows."
+  Add-Line "- Use ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` to wrap approved AI Link commands through ``bws run``."
 }
 if (-not $RunProviderLive) {
   Add-Line "- Keep provider live verification disabled until model cost boundaries are confirmed."

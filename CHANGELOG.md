@@ -14,10 +14,12 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Structured JSON handoff for Codex skills, CI, and other agents through `--json` and `--output runtime/tmp/*.json`.
 - Bitwarden Secrets Manager runbooks and checks for keeping provider keys out of Git.
 - BWS next-step report for showing current Bitwarden setup state and the next safe command without printing token values.
+- BWS run wrapper npm entry for running approved AI Link commands through `bws run` without saving token values.
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.
+- GitHub hardening next-step report for UI links, verification commands, and public-safe decision update previews.
 - Public v0.1 release decision record for tracking pending, approved, waived, and blocked release gates.
 - Public-safe release decision next-command report for generating preview/write commands for each pending decision.
 - Public-safe release decision update helper that previews by default and writes only with `--yes`.
@@ -34,7 +36,9 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - `next:actions` is read-only; it does not read secrets, modify GitHub settings, publish packages, or dispatch live providers.
 - `setup:handoff` is read-only; it does not read secrets, modify GitHub settings, publish packages, write Bitwarden secrets, or dispatch live providers.
 - `bws:next` is read-only; it reports token and project-id presence only and does not print values.
+- `bws:run` requires session-scoped BWS credentials and does not save or print token values.
 - `github:safety` is read-only; it does not modify GitHub settings.
+- `github:hardening:next` is read-only; it does not call GitHub APIs or modify GitHub settings.
 - `release:decisions` reads only the public decision record and does not approve gates by itself.
 - `release:decisions:next` reads only the public decision record and prints preview/write commands without modifying files.
 - `release:decisions:update` rejects secret-like input and writes only to the public decision record after explicit `--yes`.

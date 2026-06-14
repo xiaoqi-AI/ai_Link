@@ -57,12 +57,14 @@ const phases = [
       "npm run bws:plan",
       "npm run bws:worksheet",
       "npm run bws:activate",
+      "npm run bws:run:help",
       "npm run bws:acceptance:strict"
     ],
     evidence: [
       "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set to non-sensitive project ids.",
       "npm run bws:next shows the current session state and the next safe command.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
+      "npm run bws:run wraps approved AI Link commands through bws run without storing token values.",
       "npm run bws:acceptance:strict passes after real setup."
     ],
     stopBefore: [
@@ -117,11 +119,13 @@ const phases = [
     ],
     commands: [
       "npm run github:hardening",
+      "npm run github:hardening:next",
       "npm run github:safety:json",
       "npm run release:manual-gates"
     ],
     evidence: [
       "GitHub UI shows the protection settings.",
+      "npm run github:hardening:next shows UI links, verification commands, and public-safe decision update previews.",
       "npm run github:safety:json reports remote protection as pass when gh, GH_TOKEN, or GITHUB_TOKEN can verify it.",
       "docs/releases/v0.1.0-decisions.json records branch protection and secret scanning decisions."
     ],

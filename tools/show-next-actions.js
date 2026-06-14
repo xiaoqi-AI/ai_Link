@@ -35,11 +35,13 @@ const actions = [
     intent: "Turn the public repository safety recommendations into remote GitHub settings.",
     commands: [
       "npm run github:hardening",
+      "npm run github:hardening:next",
       "npm run release:manual-gates",
       "npm run github:safety:json"
     ],
     evidence: [
       "GitHub hardening worksheet is reviewed by the repository maintainer.",
+      "npm run github:hardening:next shows UI links, verification commands, and public-safe decision update previews.",
       "main has branch protection or a repository ruleset.",
       "Verify is a required status check.",
       "Secret scanning and push protection are enabled.",
@@ -78,12 +80,14 @@ const actions = [
       "npm run bws:plan",
       "npm run bws:worksheet",
       "npm run bws:activate",
+      "npm run bws:run:help",
       "npm run bws:acceptance:strict"
     ],
     evidence: [
       "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set to non-sensitive project ids.",
       "npm run bws:next shows the current session state and the next safe command.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
+      "npm run bws:run can wrap real AI Link commands after strict readiness passes.",
       "npm run bws:acceptance:strict passes.",
       "No secret value appears in Git, docs, issues, PRs, logs, or chat."
     ],

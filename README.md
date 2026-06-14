@@ -56,10 +56,13 @@ npm run setup:handoff
 npm run setup:handoff:json
 npm run bws:next
 npm run bws:next:json
+npm run bws:run:help
 npm run github:safety
 npm run github:safety:json
 npm run github:hardening
 npm run github:hardening:json
+npm run github:hardening:next
+npm run github:hardening:next:json
 npm run release:plan
 npm run release:plan:json
 npm run release:decisions
@@ -83,12 +86,14 @@ npm run bws:profile:print
 npm run bws:activate:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:run:help
 npm run bws:worksheet
 npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:github-vars:apply-plan
 npm run bws:acceptance:print
 npm run providers:dry:json
+npm run github:hardening:next
 npm run providers:github:dispatch-plan
 npm run security:scan
 npm run verify:fresh
@@ -130,6 +135,8 @@ npm run bws:session
 npm run bws:check:strict
 npm run bws:acceptance:strict
 npm run bws:doctor
+npm run bws:run -- -CommandLine "npm run ai-link -- doctor"
+npm run bws:run -- -CommandLine "npm run ai-link -- run auto_ops.research --dry-run --input ""测试"""
 npm run providers:live:safe-report
 npm run providers:github:dispatch-plan
 ```
@@ -199,6 +206,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `bws:next` Bitwarden 设置状态导航，显示下一条安全命令且不打印 token 或 project id 值。
 - `github:safety` GitHub 公开仓安全基线检查，支持本地基线、已登录 `gh` 和 `GH_TOKEN` / `GITHUB_TOKEN` 远端只读核验。
 - `github:hardening` GitHub 加固工作单，生成 branch protection、required Verify、secret scanning 和 push protection 的人工配置与验收清单。
+- `github:hardening:next` GitHub 加固下一步导航，显示 UI 链接、验收命令和公开安全的 release decision 更新预览。
 - `release:plan` v0.1 发布计划检查，覆盖 changelog、release notes、tag、npm 决策和发布流程。
 - `release:decisions` v0.1 公开安全决策记录检查，把 GitHub 加固、npm 渠道和 provider-live 成本审批的 pending/approved/waived 状态变成机器可读门槛。
 - `release:decisions:next` v0.1 决策记录下一步命令生成入口，为每个 pending 决策输出 preview / write 命令。

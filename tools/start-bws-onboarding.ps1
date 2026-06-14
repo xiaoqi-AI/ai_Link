@@ -184,6 +184,7 @@ if ($gitStatus.code -eq 0) {
 
 if ($bwsPath -and -not [string]::IsNullOrWhiteSpace($ProjectId) -and -not [string]::IsNullOrWhiteSpace($env:BWS_ACCESS_TOKEN)) {
   Add-Action "Run ``npm run bws:check:strict`` to verify local Bitwarden project access and expected secret keys."
+  Add-Action "Run ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` to verify AI Link can read provider keys through ``bws run``."
 }
 
 if ($bwsPath -and -not [string]::IsNullOrWhiteSpace($CiProjectId) -and -not [string]::IsNullOrWhiteSpace($env:BWS_ACCESS_TOKEN)) {
@@ -279,6 +280,8 @@ Add-Line 'npm run bws:activate:plan'
 Add-Line 'npm run bws:worksheet'
 Add-Line 'npm run bws:rotation'
 Add-Line 'npm run bws:session'
+Add-Line 'npm run bws:run:help'
+Add-Line 'npm run bws:run -- -CommandLine "npm run ai-link -- doctor"'
 Add-Line 'npm run bws:doctor'
 Add-Line 'npm run bws:github-vars'
 Add-Line 'npm run bws:github-vars:apply-plan'

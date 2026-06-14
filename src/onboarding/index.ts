@@ -76,6 +76,8 @@ const REQUIRED_SCRIPTS = [
   "github:safety:json",
   "github:hardening",
   "github:hardening:json",
+  "github:hardening:next",
+  "github:hardening:next:json",
   "release:plan",
   "release:plan:json",
   "release:decisions",
@@ -93,6 +95,8 @@ const REQUIRED_SCRIPTS = [
   "skills:check",
   "bws:next",
   "bws:next:json",
+  "bws:run",
+  "bws:run:help",
   "security:scan",
   "verify:fresh"
 ];
@@ -186,6 +190,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run bws:next:json",
         "npm run github:safety:json",
         "npm run github:hardening:json",
+        "npm run github:hardening:next:json",
         "npm run release:plan:json",
         "npm run release:decisions:json",
         "npm run release:decisions:next:json",
@@ -202,8 +207,10 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
       realProviderKeys: [
         "npm run bws:plan",
         "npm run bws:next",
+        "npm run bws:run:help",
         "npm run bws:onboard:print",
         "npm run bws:acceptance:print",
+        "npm run bws:run -- -CommandLine \"npm run ai-link -- doctor\"",
         "npm run providers:live:safe-report",
         "npm run providers:live:safe-report:strict",
         "npm run providers:github:dispatch-plan"
@@ -216,8 +223,10 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run next:actions",
         "npm run setup:handoff",
         "npm run bws:next",
+        "npm run bws:run:help",
         "npm run github:safety",
         "npm run github:hardening",
+        "npm run github:hardening:next",
         "npm run release:plan",
         "npm run release:decisions",
         "npm run release:decisions:next",

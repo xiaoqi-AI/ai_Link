@@ -150,6 +150,7 @@ try {
   runJsonStep("packageInstallSmoke", "Package install smoke", [process.execPath, "tools/check-package-install.js", "--json"], { heavy: true });
   runJsonStep("githubSafety", "GitHub repository safety", [process.execPath, "tools/check-github-repo-safety.js", "--json"]);
   runJsonStep("githubHardening", "GitHub hardening worksheet", [process.execPath, "tools/new-github-hardening-worksheet.js", "--json"]);
+  runJsonStep("githubHardeningNext", "GitHub hardening next steps", [process.execPath, "tools/show-github-hardening-next.js", "--json"]);
   runJsonStep("releasePlan", "Release plan", [process.execPath, "tools/check-release-plan.js", "--json"]);
   runJsonStep("releaseDecisions", "Release decisions", [process.execPath, "tools/check-release-decisions.js", "--json"]);
   runJsonStep("releaseDecisionNext", "Release decision next commands", [process.execPath, "tools/show-release-decision-next.js", "--json"]);

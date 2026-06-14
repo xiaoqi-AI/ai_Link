@@ -92,6 +92,7 @@ addPhase({
   commands: [
     "npm run bws:profile:print",
     "npm run bws:session:help",
+    "npm run bws:run:help",
     "npm run bws:session"
   ],
   evidence: [
@@ -110,7 +111,8 @@ addPhase({
   commands: [
     "npm run bws:check:strict",
     "npm run bws:acceptance:strict",
-    "npm run bws:doctor"
+    "npm run bws:doctor",
+    "npm run bws:run -- -CommandLine \"npm run ai-link -- doctor\""
   ],
   evidence: [
     "Strict checks pass after real setup.",
