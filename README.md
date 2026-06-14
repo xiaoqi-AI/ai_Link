@@ -54,6 +54,8 @@ npm run next:actions
 npm run next:actions:json
 npm run github:safety
 npm run github:safety:json
+npm run github:hardening
+npm run github:hardening:json
 npm run release:plan
 npm run release:plan:json
 npm run release:manual-gates
@@ -180,6 +182,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `package:install-smoke` 临时 tarball 安装检查，确认安装后的 CLI 能启动并校验配置。
 - `next:actions` 当前下一步行动图，汇总本地基线、GitHub 加固、Bitwarden 配置、provider-live 和 v0.1 发布决策。
 - `github:safety` GitHub 公开仓安全基线检查，支持本地基线和可选远端只读核验。
+- `github:hardening` GitHub 加固工作单，生成 branch protection、required Verify、secret scanning 和 push protection 的人工配置与验收清单。
 - `release:plan` v0.1 发布计划检查，覆盖 changelog、release notes、tag、npm 决策和发布流程。
 - `release:manual-gates` v0.1 人工门槛计划，列出 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批的 owner、动作与完成证据。
 - `release:evidence` v0.1 发布证据包，汇总安全的机器可读检查摘要并写入 `runtime/tmp/release-evidence.json`。

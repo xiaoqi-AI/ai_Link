@@ -85,6 +85,7 @@ for (const file of [
   "tools/check-package-contents.js",
   "tools/check-package-install.js",
   "tools/check-github-repo-safety.js",
+  "tools/new-github-hardening-worksheet.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js",
@@ -135,6 +136,8 @@ for (const scriptName of [
   "next:actions:json",
   "github:safety",
   "github:safety:json",
+  "github:hardening",
+  "github:hardening:json",
   "release:plan",
   "release:plan:json",
   "release:manual-gates",
@@ -158,6 +161,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run package:install-smoke",
   "npm run next:actions",
   "npm run github:safety",
+  "npm run github:hardening",
   "npm run release:plan",
   "npm run release:manual-gates",
   "npm run release:evidence",
@@ -198,11 +202,22 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "runtime/tmp",
   "packageInstallSmoke",
   "nextActions",
+  "githubHardening",
   "releaseManualGates",
   "Does not read API keys"
 ]);
 
+checkContains("tools/new-github-hardening-worksheet.js", "GitHub hardening worksheet", [
+  "AI Link GitHub Hardening Worksheet",
+  "public-main-ruleset",
+  "public-secret-scanning",
+  "internal-secret-scanning",
+  "Does not read API keys",
+  "runtime/tmp"
+]);
+
 checkContains("tools/show-next-actions.js", "next actions report", [
+  "github:hardening",
   "configure-bitwarden-secrets-manager",
   "configure-provider-live-environment",
   "approve-provider-live-cost",

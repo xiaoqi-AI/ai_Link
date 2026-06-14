@@ -19,10 +19,12 @@ const gates = [
     ],
     evidence: [
       "GitHub UI shows main protection or ruleset is active.",
+      "npm run github:hardening has been reviewed by the repository maintainer.",
       "npm run github:safety:json reports GitHub branch protection as pass.",
       "npm run github:safety:json reports required status check Verify as pass."
     ],
     commands: [
+      "npm run github:hardening",
       "npm run github:safety",
       "npm run github:safety:json",
       "npm run release:readiness:json"
@@ -44,10 +46,12 @@ const gates = [
     evidence: [
       "GitHub UI shows secret scanning enabled for the public repository.",
       "GitHub UI shows push protection enabled for the public repository.",
+      "npm run github:hardening has been reviewed for the public and internal repositories.",
       "npm run github:safety:json reports GitHub secret scanning and push protection as pass when remote metadata is available.",
       "npm run security:scan passes locally."
     ],
     commands: [
+      "npm run github:hardening",
       "npm run security:scan",
       "npm run github:safety:json",
       "npm run release:readiness:json"

@@ -98,7 +98,7 @@ function checkLocalBaseline(packageJson) {
     );
   }
 
-  for (const script of ["github:safety", "github:safety:json", "release:readiness", "security:scan"]) {
+  for (const script of ["github:safety", "github:safety:json", "github:hardening", "github:hardening:json", "release:readiness", "security:scan"]) {
     addCheck(
       `script ${script}`,
       packageJson?.scripts?.[script] ? "pass" : "fail",
@@ -120,6 +120,7 @@ function checkLocalBaseline(packageJson) {
     "Require a pull request before merging",
     "Require status checks to pass before merging",
     "Verify",
+    "github:hardening",
     "Restrict force pushes",
     "Restrict deletions",
     "secret scanning",

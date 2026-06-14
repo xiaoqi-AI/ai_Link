@@ -56,6 +56,9 @@ jobs:
         env:
           AI_LINK_GITHUB_SAFETY_DISABLE_REMOTE: "1"
 
+      - name: GitHub hardening worksheet
+        run: npm run github:hardening
+
       - name: Release plan
         run: npm run release:plan
 

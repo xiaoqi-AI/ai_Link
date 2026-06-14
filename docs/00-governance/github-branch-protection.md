@@ -2,6 +2,8 @@
 
 状态：待在 GitHub UI 配置。当前可用 `npm run github:safety` 做本地基线检查；如果本机安装并登录了 `gh`，脚本还会只读核验远端 branch protection、secret scanning 和 push protection。
 
+配置前可运行 `npm run github:hardening` 生成 `runtime/tmp/github-hardening-worksheet.md`。该工作单列出 GitHub UI 入口、branch protection/ruleset 建议、required `Verify`、secret scanning、push protection 和配置后的验收证据，不会修改 GitHub 远端设置。
+
 ## 建议保护对象
 
 - 仓库：`xiaoqi-AI/ai_Link`
@@ -32,6 +34,8 @@
 ```powershell
 npm run github:safety
 npm run github:safety:json
+npm run github:hardening
+npm run github:hardening:json
 npm run verify:fresh
 npm run security:scan
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1

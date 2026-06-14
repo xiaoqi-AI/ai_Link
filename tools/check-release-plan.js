@@ -106,6 +106,7 @@ for (const file of [
   "docs/00-governance/release-process.md",
   "docs/00-governance/open-questions.md",
   "tools/check-package-install.js",
+  "tools/new-github-hardening-worksheet.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js"
@@ -145,6 +146,7 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run package:check",
   "npm run package:install-smoke",
   "npm run github:safety",
+  "npm run github:hardening",
   "npm run verify:fresh",
   "npm run release:manual-gates",
   "npm run release:evidence",
@@ -164,6 +166,7 @@ checkContains("tools/new-release-evidence.js", "release evidence handoff", [
   "packageContents",
   "nextActions",
   "githubSafety",
+  "githubHardening",
   "releaseReadiness",
   "runtime/tmp"
 ]);
@@ -188,6 +191,8 @@ for (const scriptName of [
   "package:install-smoke",
   "package:install-smoke:json",
   "github:safety",
+  "github:hardening",
+  "github:hardening:json",
   "security:scan",
   "verify:fresh"
 ]) {
@@ -230,6 +235,7 @@ const report = {
     releaseNotes: "docs/releases/v0.1.0.md",
     process: "docs/00-governance/release-process.md",
     manualGates: "tools/show-release-manual-gates.js",
+    githubHardening: "tools/new-github-hardening-worksheet.js",
     evidence: "tools/new-release-evidence.js"
   },
   summary: {

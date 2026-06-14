@@ -10,6 +10,7 @@
 - 是否给私有仓 `ai_Link-internal` 配置独立 branch protection 或 ruleset？
 - GitHub Actions CI 已补充，是否将其纳入 branch protection 必需检查？
 - Branch protection 建议清单已写入 `docs/00-governance/github-branch-protection.md`，并已补充 `github:safety` / `github:safety:json` 只读检查；远端保护、secret scanning 和 push protection 仍需在 GitHub UI 配置或用已登录 `gh` 核验。
+- MVP 已补充 `github:hardening` / `github:hardening:json`，用于生成 GitHub UI 加固工作单；它只写 `runtime/tmp/`，不修改 GitHub 设置。
 
 ## 产品方向
 
@@ -30,6 +31,7 @@
 - MVP 已补充 `package:install-smoke` / `package:install-smoke:json`，用于在不发布 npm 的前提下安装本地 tarball 并验证安装后的 CLI。
 - MVP 已补充 `next:actions` / `next:actions:json`，用于汇总本地基线、GitHub 加固、Bitwarden 配置、provider-live 和 v0.1 发布决策的下一步行动。
 - MVP 已补充 `github:safety` / `github:safety:json`，用于检查公开仓本地治理基线并在可用时只读核验 GitHub 远端安全设置。
+- MVP 已补充 `github:hardening` / `github:hardening:json`，用于把 branch protection、required `Verify`、secret scanning 和 push protection 的人工配置证据单独输出。
 - MVP 已补充 `release:plan` / `release:plan:json`，用于检查 changelog、release notes、发布流程、tag 计划和 npm 发布决策项。
 - MVP 已补充 `release:manual-gates` / `release:manual-gates:json`，用于把 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批拆成 owner、动作和完成证据。
 - MVP 已补充 `release:evidence` / `release:evidence:json`，用于生成脱敏发布证据包并限制默认输出到 `runtime/tmp/`。

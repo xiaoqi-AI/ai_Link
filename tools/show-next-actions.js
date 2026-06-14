@@ -33,10 +33,12 @@ const actions = [
     owner: "Repository maintainer",
     intent: "Turn the public repository safety recommendations into remote GitHub settings.",
     commands: [
+      "npm run github:hardening",
       "npm run release:manual-gates",
       "npm run github:safety:json"
     ],
     evidence: [
+      "GitHub hardening worksheet is reviewed by the repository maintainer.",
       "main has branch protection or a repository ruleset.",
       "Verify is a required status check.",
       "Secret scanning and push protection are enabled.",

@@ -31,6 +31,8 @@
     "next:actions:json": "node tools/show-next-actions.js --json",
     "github:safety": "node tools/check-github-repo-safety.js",
     "github:safety:json": "node tools/check-github-repo-safety.js --json",
+    "github:hardening": "node tools/new-github-hardening-worksheet.js",
+    "github:hardening:json": "node tools/new-github-hardening-worksheet.js --json",
     "release:plan": "node tools/check-release-plan.js",
     "release:plan:json": "node tools/check-release-plan.js --json",
     "release:manual-gates": "node tools/show-release-manual-gates.js",

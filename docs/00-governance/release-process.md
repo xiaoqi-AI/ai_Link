@@ -13,6 +13,7 @@ npm run package:check
 npm run package:install-smoke
 npm run next:actions
 npm run github:safety
+npm run github:hardening
 npm run release:plan
 npm run release:manual-gates
 npm run release:evidence
@@ -28,6 +29,7 @@ npm run package:check:json
 npm run package:install-smoke:json
 npm run next:actions:json
 npm run github:safety:json
+npm run github:hardening:json
 npm run release:plan:json
 npm run release:manual-gates:json
 npm run release:evidence:json
@@ -46,6 +48,8 @@ Before publishing v0.1, confirm:
 - The GitHub Release draft in `docs/releases/v0.1.0.md` matches the final public scope.
 
 Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to print the owner, action list, evidence, and safety boundary for each manual gate. The command is read-only: it does not change GitHub settings, create tags, publish npm packages, read secrets, or dispatch provider-live checks.
+
+Use `npm run github:hardening` to generate the GitHub UI worksheet for branch protection, required `Verify`, secret scanning, push protection, and post-configuration evidence. The default worksheet is written under `runtime/tmp/` and is safe for public logs.
 
 Use `npm run release:evidence` to generate a sanitized release evidence bundle at `runtime/tmp/release-evidence.json`. Use `npm run release:evidence:json` when another agent or CI needs machine-readable output without writing the default file.
 

@@ -25,6 +25,8 @@ const commands = [
   ["npm", ["run", "next:actions:json"], clonePath],
   ["npm", ["run", "github:safety"], clonePath],
   ["npm", ["run", "github:safety:json"], clonePath],
+  ["npm", ["run", "github:hardening"], clonePath],
+  ["npm", ["run", "github:hardening:json"], clonePath],
   ["npm", ["run", "release:plan"], clonePath],
   ["npm", ["run", "release:plan:json"], clonePath],
   ["npm", ["run", "release:manual-gates"], clonePath],

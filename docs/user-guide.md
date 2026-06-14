@@ -166,6 +166,7 @@ npm run package:check
 npm run package:install-smoke
 npm run next:actions
 npm run github:safety
+npm run github:hardening
 npm run release:plan
 npm run release:manual-gates
 npm run release:evidence
