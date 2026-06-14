@@ -90,6 +90,33 @@ export function createApiRouter() {
     res.json({ task: publicTask(retried) });
   });
 
+  router.post("/tasks/:id/audit", requireApiScope("audit:write"), async (req, res) => {
+    const task = await req.app.locals.store.getTask(req.params.id);
+    if (!task) {
+      res.status(404).json({ error: "task_not_found" });
+      return;
+    }
+
+    const aiLinkAudit = extractAiLinkAudit(req.body || {});
+    if (!aiLinkAudit) {
+      res.status(400).json({ error: "missing_ai_link_audit" });
+      return;
+    }
+
+    const auditEvent = await req.app.locals.store.appendAudit({
+      taskId: task.id,
+      actor: actorName(req),
+      eventType: "ai_link.audit",
+      detail: {
+        status: req.body?.status || "submitted",
+        recordId: req.body?.recordId || "",
+        source: req.body?.source || "ai-link-cli",
+        audit: aiLinkAudit
+      }
+    });
+    res.status(201).json({ task: publicTask(task), auditEvent: publicAuditEvent(auditEvent) });
+  });
+
   router.post("/executor/lease", requireApiScope("executor:lease"), async (req, res) => {
     const executorId = req.body?.executorId || actorName(req);
     const task = await req.app.locals.store.leaseTask({

@@ -19,6 +19,7 @@ const commands = [
   ["npm", ["run", "bws:plan"], clonePath],
   ["npm", ["run", "bws:onboard:print"], clonePath],
   ["npm", ["run", "bws:profile:print"], clonePath],
+  ["npm", ["run", "bws:activate:plan"], clonePath],
   ["npm", ["run", "bws:check"], clonePath],
   ["npm", ["run", "bws:session:help"], clonePath],
   ["npm", ["run", "bws:worksheet"], clonePath],

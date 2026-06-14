@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 
 const cliPath = path.resolve("dist", "cli.js");
 
@@ -241,6 +242,78 @@ test("runs list and show read local run records", () => {
     assert.equal(record.audit.providerType, "grok");
     assert.equal(record.audit.usageEstimate.inputTokens > 0, true);
   } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runs submit-audit posts a local run record audit to auth hub", async () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-submit-audit-"));
+  const requests: Array<{ url: string | undefined; authorization: string | undefined; body: Record<string, unknown> }> = [];
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+      requests.push({
+        url: request.url,
+        authorization: request.headers.authorization,
+        body
+      });
+      response.writeHead(201, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        auditEvent: {
+          id: "audit-1",
+          eventType: "ai_link.audit",
+          detail: {
+            audit: body.audit
+          }
+        }
+      }));
+    });
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const create = runCli(tempRoot, [
+      "run",
+      "auto_ops.research",
+      "--dry-run",
+      "--input",
+      "fresh audit submit check",
+      "--record"
+    ]);
+    assert.equal(create.status, 0);
+
+    const index = JSON.parse(runCli(tempRoot, ["runs", "list", "--json"]).stdout);
+    const submit = await runCliAsync(tempRoot, [
+      "runs",
+      "submit-audit",
+      index.records[0].id,
+      "--task-id",
+      "task-123",
+      "--base-url",
+      baseUrl
+    ], {
+      AI_LINK_CODEX_TOKEN: "codex-submit-token"
+    });
+
+    assert.equal(submit.status, 0);
+    assert.match(submit.stdout, /AI Link audit submitted/);
+    assert.equal(submit.stdout.includes("codex-submit-token"), false);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "/api/tasks/task-123/audit");
+    assert.equal(requests[0].authorization, "Bearer codex-submit-token");
+    assert.equal(requests[0].body.recordId, index.records[0].id);
+    assert.equal(requests[0].body.source, "ai-link-cli");
+    assert.equal((requests[0].body.audit as { provider?: string }).provider, "grok");
+    assert.equal(JSON.stringify(requests[0].body).includes("fresh audit submit check"), false);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
     rmSync(tempRoot, { recursive: true, force: true });
   }
 });
@@ -562,14 +635,45 @@ test("structured output refuses paths outside runtime tmp", () => {
   }
 });
 
-function runCli(cwd: string, args: string[]): { status: number | null; stdout: string; stderr: string } {
+function runCli(cwd: string, args: string[], env: Record<string, string> = {}): { status: number | null; stdout: string; stderr: string } {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd,
-    encoding: "utf8"
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...env
+    }
   });
   return {
     status: result.status,
     stdout: result.stdout,
     stderr: result.stderr
   };
+}
+
+function runCliAsync(cwd: string, args: string[], env: Record<string, string> = {}): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cliPath, ...args], {
+      cwd,
+      env: {
+        ...process.env,
+        ...env
+      },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (status) => {
+      resolve({ status, stdout, stderr });
+    });
+  });
 }

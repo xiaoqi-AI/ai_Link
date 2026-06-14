@@ -26,6 +26,7 @@ $plan = [ordered]@{
     checks = @(
       "npm run bws:onboard",
       "npm run bws:profile",
+      "npm run bws:activate",
       "npm run bws:check",
       "npm run bws:check:strict",
       "npm run bws:github-vars",

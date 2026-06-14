@@ -248,6 +248,54 @@ describe("AI Link task flow", () => {
     assert.equal(JSON.stringify(auditList.data).includes("sk-should"), false);
   });
 
+  it("lets Codex append AI Link audit without changing task state", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "read_detect",
+        input: { text: "public audit append test", title: "audit append" }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const appended = await requestJson(server.baseUrl, `/api/tasks/${created.data.task.id}/audit`, {
+      token: "codex-token",
+      method: "POST",
+      body: {
+        recordId: "record-1",
+        status: "submitted",
+        audit: {
+          kind: "run",
+          task: "auto_ops.research",
+          provider: "grok",
+          providerType: "grok",
+          model: "grok-4.3",
+          policy: "default",
+          usageEstimate: {
+            inputTokens: 10,
+            outputTokens: 20
+          },
+          rawSecret: "placeholder"
+        }
+      }
+    });
+
+    assert.equal(appended.response.status, 201);
+    assert.equal(appended.data.task.status, "queued");
+    assert.equal(appended.data.auditEvent.eventType, "ai_link.audit");
+    assert.equal(appended.data.auditEvent.detail.recordId, "record-1");
+    assert.equal(appended.data.auditEvent.detail.audit.provider, "grok");
+    assert.equal(appended.data.auditEvent.detail.audit.usageEstimate.inputTokens, 10);
+    assert.equal(JSON.stringify(appended.data).includes("placeholder"), false);
+
+    const current = await requestJson(server.baseUrl, `/api/tasks/${created.data.task.id}`, {
+      token: "admin-token"
+    });
+    assert.equal(current.data.task.status, "queued");
+    assert.ok(current.data.auditEvents.some((event) => event.eventType === "ai_link.audit"));
+  });
+
   it("can mark a task action_required and retry it", async () => {
     const created = await requestJson(server.baseUrl, "/api/tasks", {
       token: "admin-token",
@@ -259,14 +307,7 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
-    const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
-      token: "executor-token",
-      method: "POST",
-      body: { executorId: "action-test-executor" }
-    });
-    assert.equal(leased.data.task.id, created.data.task.id);
-
-    const actionRequired = await requestJson(server.baseUrl, `/api/executor/tasks/${leased.data.task.id}/result`, {
+    const actionRequired = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
       body: {
@@ -284,17 +325,17 @@ describe("AI Link task flow", () => {
       token: "admin-token"
     });
     assert.equal(filtered.response.status, 200);
-    assert.ok(filtered.data.tasks.some((task) => task.id === leased.data.task.id));
+    assert.ok(filtered.data.tasks.some((task) => task.id === created.data.task.id));
     assert.ok(filtered.data.tasks.every((task) => task.status === "action_required"));
 
-    const deniedRetry = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/retry`, {
+    const deniedRetry = await requestJson(server.baseUrl, `/api/tasks/${created.data.task.id}/retry`, {
       token: "codex-token",
       method: "POST",
       body: { note: "codex cannot requeue high-risk actions" }
     });
     assert.equal(deniedRetry.response.status, 403);
 
-    const retried = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/retry`, {
+    const retried = await requestJson(server.baseUrl, `/api/tasks/${created.data.task.id}/retry`, {
       token: "admin-token",
       method: "POST",
       body: { note: "login refreshed" }

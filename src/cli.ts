@@ -41,7 +41,7 @@ async function main(): Promise<void> {
       await workflowCommand(args);
       return;
     case "runs":
-      runsCommand(args);
+      await runsCommand(args);
       return;
     case "config":
       configCommand(args);
@@ -172,7 +172,7 @@ async function runCommand(args: ParsedArgs): Promise<void> {
   });
 }
 
-function runsCommand(args: ParsedArgs): void {
+async function runsCommand(args: ParsedArgs): Promise<void> {
   const subcommand = args.positional[1] ?? "list";
   if (subcommand === "list") {
     listRunRecordsCommand(args);
@@ -182,7 +182,11 @@ function runsCommand(args: ParsedArgs): void {
     showRunRecordCommand(args);
     return;
   }
-  throw new AiLinkError("Usage: ai-link runs <list|show> [id]", "CLI_USAGE");
+  if (subcommand === "submit-audit") {
+    await submitRunRecordAuditCommand(args);
+    return;
+  }
+  throw new AiLinkError("Usage: ai-link runs <list|show|submit-audit> [id]", "CLI_USAGE");
 }
 
 function listRunRecordsCommand(args: ParsedArgs): void {
@@ -229,6 +233,70 @@ function showRunRecordCommand(args: ParsedArgs): void {
   }
 
   printRunRecord(record, path.relative(process.cwd(), targetPath).replaceAll("\\", "/"));
+}
+
+async function submitRunRecordAuditCommand(args: ParsedArgs): Promise<void> {
+  const selector = args.positional[2] ?? "latest";
+  const taskId = stringFlag(args, "task-id") ?? stringFlag(args, "task");
+  if (!taskId) {
+    throw new AiLinkError("Usage: ai-link runs submit-audit <id|latest> --task-id <auth-hub-task-id>", "CLI_USAGE");
+  }
+
+  const { record } = readRunRecordBySelector(selector);
+  const audit = isRecord(record.audit) ? record.audit : undefined;
+  if (!audit) {
+    throw new AiLinkError(`Run record has no AI Link audit summary: ${selector}`, "RUN_RECORD_AUDIT_MISSING");
+  }
+
+  const baseUrl = resolveAuthHubBaseUrl(args);
+  const payload = {
+    recordId: stringValue(record.id) || selector,
+    source: "ai-link-cli",
+    status: stringFlag(args, "status") ?? "submitted",
+    audit
+  };
+
+  if (booleanFlag(args, "dry-run")) {
+    const preview = {
+      method: "POST",
+      url: `${baseUrl}/api/tasks/${encodeURIComponent(taskId)}/audit`,
+      body: payload
+    };
+    console.log(JSON.stringify(preview, null, 2));
+    return;
+  }
+
+  const token = resolveAuthHubToken(args, baseUrl);
+  const response = await fetch(`${baseUrl}/api/tasks/${encodeURIComponent(taskId)}/audit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+  const responseBody = await readJsonResponse(response);
+
+  if (!response.ok) {
+    throw new AiLinkError(
+      `Auth hub audit submit failed with HTTP ${response.status}.`,
+      "AUTH_HUB_AUDIT_SUBMIT_FAILED",
+      responseBody
+    );
+  }
+
+  if (booleanFlag(args, "json")) {
+    console.log(JSON.stringify(responseBody, null, 2));
+    return;
+  }
+
+  const auditEvent = isRecord(responseBody.auditEvent) ? responseBody.auditEvent : {};
+  console.log("AI Link audit submitted");
+  console.log(`Task: ${taskId}`);
+  console.log(`Record: ${payload.recordId}`);
+  if (typeof auditEvent.id === "string") {
+    console.log(`Audit event: ${auditEvent.id}`);
+  }
 }
 
 async function providersCommand(args: ParsedArgs): Promise<void> {
@@ -534,6 +602,49 @@ function loadFromArgs(args: ParsedArgs): LoadedConfig {
   return loadConfig({
     extraConfigPaths: arrayFlag(args, "config")
   });
+}
+
+function resolveAuthHubBaseUrl(args: ParsedArgs): string {
+  return (stringFlag(args, "base-url") ?? process.env.AI_LINK_BASE_URL ?? "http://localhost:10000")
+    .replace(/\/+$/, "");
+}
+
+function resolveAuthHubToken(args: ParsedArgs, baseUrl: string): string {
+  const tokenEnv = stringFlag(args, "token-env") ?? "AI_LINK_CODEX_TOKEN";
+  const token = process.env[tokenEnv];
+  if (token) {
+    return token;
+  }
+
+  if (tokenEnv === "AI_LINK_CODEX_TOKEN" && isLocalAuthHubBaseUrl(baseUrl)) {
+    return "dev-codex-token";
+  }
+
+  throw new AiLinkError(
+    `Missing auth hub token. Set ${tokenEnv} or pass --token-env <env-var>.`,
+    "AUTH_HUB_TOKEN_MISSING"
+  );
+}
+
+function isLocalAuthHubBaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
+  const text = await response.text();
+  if (!text.trim()) {
+    return {};
+  }
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { body: text };
+  }
 }
 
 async function readInput(args: ParsedArgs): Promise<string | undefined> {
@@ -1101,6 +1212,7 @@ Usage:
   ai-link workflow run <workflow> [--approve-stage stage|--approve-all]
   ai-link runs list [--limit 10] [--json]
   ai-link runs show <id|latest> [--json]
+  ai-link runs submit-audit <id|latest> --task-id <auth-hub-task-id> [--base-url url]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain

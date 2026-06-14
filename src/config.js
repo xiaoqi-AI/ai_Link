@@ -68,20 +68,21 @@ export function loadConfig(env = process.env) {
           "tasks:read",
           "tasks:approve",
           "connectors:read",
-          "audit:read"
+          "audit:read",
+          "audit:write"
         ]
       },
       {
         name: "executor",
         token: executorToken,
-        scopes: ["executor:lease", "executor:result"]
+        scopes: ["executor:lease", "executor:result", "audit:write"]
       },
       {
         name: "codex",
         token: codexToken,
         scopes: readCsv(env.AI_LINK_CODEX_SCOPES).length
           ? readCsv(env.AI_LINK_CODEX_SCOPES)
-          : ["tasks:create", "tasks:read", "connectors:read"]
+          : ["tasks:create", "tasks:read", "connectors:read", "audit:write"]
       }
     ].filter((item) => item.token)
   };
