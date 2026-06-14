@@ -14,9 +14,11 @@ Run the configured workflow first:
 ```powershell
 npm run ai-link -- workflow run auto_ops --dry-run --input "<public task brief>"
 npm run ai-link -- workflow run auto_ops --dry-run --input "<public task brief>" --output runtime/tmp/auto-ops-workflow.json
+npm run ai-link -- workflow run auto_ops --dry-run --input "<public task brief>" --record
 ```
 
 Use `--output runtime/tmp/*.json` when the next step needs structured handoff. AI Link refuses output paths outside `runtime/tmp/`; the output file is local runtime state and should not be committed.
+Use `--record` when the next step needs a local run index for audit or continuation. Records live under `runtime/tmp/ai-link-runs/`, do not store the original input, and should not be committed.
 
 For a real provider call, remove `--dry-run` only after the user has approved outbound content and provider keys are available through the configured secret manager.
 

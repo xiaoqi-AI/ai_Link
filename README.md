@@ -42,6 +42,7 @@
 npm run check
 npm test
 npm run ai-link -- config validate
+npm run bws:plan
 npm run bws:check
 npm run security:scan
 npm run verify:fresh
@@ -60,6 +61,7 @@ npm run ai-link -- providers list
 npm run providers:dry
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --output runtime/tmp/auto-ops-workflow.json
+npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --record
 npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，Codex 负责落地"
 npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi" --write .ai-link/local.yaml
 npm run ai-link -- run auto_ops.agent_flow --dry-run --input "验证 Coze agent 工作流"
@@ -72,6 +74,7 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 $env:BWS_ACCESS_TOKEN="<machine-account-access-token>"
+npm run bws:plan
 npm run bws:check:strict
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
 ```
@@ -130,6 +133,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link providers verify` provider dry-run / live 验收。
 - `ai-link workflow run` 多阶段工作流串联，默认示例支持 Grok 调研后交给 Kimi 写草稿。
 - `ai-link run` / `ai-link workflow run` 支持 `--json` 和 `--output runtime/tmp/*.json`，方便 Codex skill 稳定读取结构化结果。
+- `ai-link run` / `ai-link workflow run` 支持 `--record`，把本地运行记录写入 `runtime/tmp/ai-link-runs/`，用于自动化复盘和交接。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
 - `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。

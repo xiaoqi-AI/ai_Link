@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -161,6 +161,45 @@ test("workflow run writes structured JSON output for skill handoff", () => {
     assert.equal(written.workflow, "auto_ops");
     assert.equal(written.stages.length, 3);
     assert.deepEqual(written.stages.map((stage: { name: string }) => stage.name), ["research", "article_draft", "agent_flow"]);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("workflow run records local run history without storing original input", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-workflow-record-"));
+  try {
+    const input = "fresh workflow record check";
+    const result = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--input",
+      input,
+      "--record"
+    ]);
+
+    const recordsDir = path.join(tempRoot, "runtime", "tmp", "ai-link-runs");
+    const indexPath = path.join(recordsDir, "index.json");
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Run record saved/);
+    assert.equal(existsSync(indexPath), true);
+
+    const index = JSON.parse(readFileSync(indexPath, "utf8"));
+    assert.equal(index.records.length, 1);
+    assert.equal(index.records[0].kind, "workflow");
+    assert.equal(index.records[0].workflow, "auto_ops");
+    assert.match(index.records[0].path, /^runtime\/tmp\/ai-link-runs\/.+\.json$/);
+
+    const recordFiles = readdirSync(recordsDir).filter((name) => name.endsWith(".json") && name !== "index.json");
+    assert.equal(recordFiles.length, 1);
+    const record = JSON.parse(readFileSync(path.join(recordsDir, recordFiles[0]), "utf8"));
+    assert.equal(record.kind, "workflow");
+    assert.equal(record.request.inputLength, input.length);
+    assert.equal(record.request.inputStored, false);
+    assert.equal("input" in record.request, false);
+    assert.equal(record.result.stages.length, 3);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }

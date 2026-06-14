@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { stringify } from "yaml";
@@ -11,7 +12,7 @@ import {
   draftSkillConfigFromNaturalLanguage
 } from "./skills/naturalLanguage.js";
 import { runWorkflow } from "./workflows/index.js";
-import type { AiLinkConfig, LoadedConfig, ProviderConfig, WorkflowRunResult } from "./types.js";
+import type { AiLinkConfig, LoadedConfig, ProviderConfig, RunResult, WorkflowRunResult } from "./types.js";
 
 interface ParsedArgs {
   positional: string[];
@@ -83,12 +84,26 @@ async function workflowCommand(args: ParsedArgs): Promise<void> {
 
   if (booleanFlag(args, "json")) {
     writeStructuredOutput(args, result);
+    writeRunRecord(args, {
+      kind: "workflow",
+      workflow,
+      stages: parseStageFlags(args),
+      input,
+      result
+    });
     console.log(JSON.stringify(result, null, 2));
     return;
   }
 
   printWorkflowResult(result);
   writeStructuredOutput(args, result);
+  writeRunRecord(args, {
+    kind: "workflow",
+    workflow,
+    stages: parseStageFlags(args),
+    input,
+    result
+  });
 }
 
 async function runCommand(args: ParsedArgs): Promise<void> {
@@ -111,6 +126,12 @@ async function runCommand(args: ParsedArgs): Promise<void> {
 
   if (booleanFlag(args, "json")) {
     writeStructuredOutput(args, result);
+    writeRunRecord(args, {
+      kind: "run",
+      task,
+      input,
+      result
+    });
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -123,6 +144,12 @@ async function runCommand(args: ParsedArgs): Promise<void> {
   console.log("");
   console.log(result.output);
   writeStructuredOutput(args, result);
+  writeRunRecord(args, {
+    kind: "run",
+    task,
+    input,
+    result
+  });
 }
 
 async function providersCommand(args: ParsedArgs): Promise<void> {
@@ -566,6 +593,131 @@ function writeStructuredOutput(args: ParsedArgs, value: unknown): void {
   }
 }
 
+interface RunRecordInput {
+  kind: "run" | "workflow";
+  task?: string;
+  workflow?: string;
+  stages?: string[];
+  input?: string;
+  result: RunResult | WorkflowRunResult;
+}
+
+interface RunRecordIndexEntry {
+  id: string;
+  path: string;
+  createdAt: string;
+  kind: "run" | "workflow";
+  task?: string;
+  workflow?: string;
+  dryRun: boolean;
+}
+
+interface RunRecordIndex {
+  schemaVersion: 1;
+  updatedAt: string;
+  records: RunRecordIndexEntry[];
+}
+
+function writeRunRecord(args: ParsedArgs, recordInput: RunRecordInput): void {
+  if (!booleanFlag(args, "record") && !booleanFlag(args, "record-run")) {
+    return;
+  }
+
+  const now = new Date();
+  const id = `${formatTimestamp(now)}-${safeRecordName(recordInput.workflow ?? recordInput.task ?? recordInput.kind)}-${randomUUID().slice(0, 8)}`;
+  const relativePath = path.join("runtime", "tmp", "ai-link-runs", `${id}.json`);
+  const targetPath = path.resolve(process.cwd(), relativePath);
+  const dryRun = "dryRun" in recordInput.result ? Boolean(recordInput.result.dryRun) : false;
+  const record = {
+    schemaVersion: 1,
+    id,
+    createdAt: now.toISOString(),
+    kind: recordInput.kind,
+    command: recordInput.kind === "workflow" ? "workflow run" : "run",
+    request: {
+      task: recordInput.task,
+      workflow: recordInput.workflow,
+      stages: recordInput.stages?.length ? recordInput.stages : undefined,
+      provider: stringFlag(args, "provider") ?? stringFlag(args, "model-provider"),
+      model: stringFlag(args, "model"),
+      dryRun,
+      inputLength: recordInput.input?.length ?? 0,
+      inputStored: false,
+      outputPath: stringFlag(args, "output") ?? stringFlag(args, "output-file")
+    },
+    result: recordInput.result
+  };
+
+  mkdirSync(path.dirname(targetPath), { recursive: true });
+  writeFileSync(targetPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  updateRunRecordIndex({
+    id,
+    path: relativePath.replaceAll("\\", "/"),
+    createdAt: record.createdAt,
+    kind: recordInput.kind,
+    task: recordInput.task,
+    workflow: recordInput.workflow,
+    dryRun
+  });
+
+  if (!booleanFlag(args, "json")) {
+    console.log(`Run record saved to ${relativePath.replaceAll("\\", "/")}.`);
+  }
+}
+
+function updateRunRecordIndex(entry: RunRecordIndexEntry): void {
+  const indexPath = path.resolve(process.cwd(), "runtime", "tmp", "ai-link-runs", "index.json");
+  const existing = readRunRecordIndex(indexPath);
+  const records = [entry, ...existing.records.filter((record) => record.id !== entry.id)].slice(0, 50);
+  const index: RunRecordIndex = {
+    schemaVersion: 1,
+    updatedAt: new Date().toISOString(),
+    records
+  };
+  writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+}
+
+function readRunRecordIndex(indexPath: string): RunRecordIndex {
+  if (!existsSync(indexPath)) {
+    return { schemaVersion: 1, updatedAt: "", records: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(indexPath, "utf8")) as Partial<RunRecordIndex>;
+    if (parsed.schemaVersion === 1 && Array.isArray(parsed.records)) {
+      return {
+        schemaVersion: 1,
+        updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+        records: parsed.records.filter(isRunRecordIndexEntry)
+      };
+    }
+  } catch {
+    return { schemaVersion: 1, updatedAt: "", records: [] };
+  }
+
+  return { schemaVersion: 1, updatedAt: "", records: [] };
+}
+
+function isRunRecordIndexEntry(value: unknown): value is RunRecordIndexEntry {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const entry = value as Partial<RunRecordIndexEntry>;
+  return typeof entry.id === "string"
+    && typeof entry.path === "string"
+    && typeof entry.createdAt === "string"
+    && (entry.kind === "run" || entry.kind === "workflow")
+    && typeof entry.dryRun === "boolean";
+}
+
+function formatTimestamp(value: Date): string {
+  return value.toISOString().replace(/\.\d{3}Z$/, "Z").replace(/[:.]/g, "-");
+}
+
+function safeRecordName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "record";
+}
+
 function isRuntimeTmpOutputTarget(targetPath: string): boolean {
   const runtimeTmpPath = path.resolve(process.cwd(), "runtime", "tmp");
   const relative = path.relative(runtimeTmpPath, targetPath);
@@ -593,8 +745,8 @@ function printHelp(): void {
   console.log(`AI Link
 
 Usage:
-  ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json]
-  ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json]
+  ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
+  ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain
