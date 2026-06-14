@@ -136,6 +136,8 @@ Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOON
 npm run ai-link -- config validate
 ```
 
+公开配置安全门禁由 `npm run security:scan` 执行，会专门检查 `.ai-link/project.yaml` 和 `examples/**/project.yaml`。公开配置中禁止出现 `apiKey`、`token`、`secret`、`password`、`command`、`args`、`authorization`、`cookie`、`runtime/private/`、`.env` 或本机用户路径。`apiKeyEnv` 这类环境变量名仍然允许。
+
 校验会覆盖：
 
 - 默认 provider / policy 是否存在。
