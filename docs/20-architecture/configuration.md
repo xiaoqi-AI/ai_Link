@@ -158,6 +158,7 @@ npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
+npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --output runtime/tmp/auto-ops-workflow.json
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```

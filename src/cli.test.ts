@@ -101,6 +101,92 @@ test("skill draft refuses writes outside ai-link config files", () => {
   }
 });
 
+test("run writes structured output without overwriting by default", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-run-output-"));
+  try {
+    const outputPath = path.join("runtime", "tmp", "run-result.json");
+    const result = runCli(tempRoot, [
+      "run",
+      "auto_ops.research",
+      "--dry-run",
+      "--input",
+      "fresh output check",
+      "--output",
+      outputPath
+    ]);
+
+    const targetPath = path.join(tempRoot, outputPath);
+    assert.equal(result.status, 0);
+    assert.equal(existsSync(targetPath), true);
+    const written = JSON.parse(readFileSync(targetPath, "utf8"));
+    assert.equal(written.task, "auto_ops.research");
+    assert.equal(written.dryRun, true);
+    assert.match(result.stdout, /Structured result saved/);
+
+    const overwrite = runCli(tempRoot, [
+      "run",
+      "auto_ops.research",
+      "--dry-run",
+      "--input",
+      "fresh output check",
+      "--output",
+      outputPath
+    ]);
+    assert.notEqual(overwrite.status, 0);
+    assert.match(overwrite.stderr, /Output file already exists/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("workflow run writes structured JSON output for skill handoff", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-workflow-output-"));
+  try {
+    const outputPath = path.join("runtime", "tmp", "workflow-result.json");
+    const result = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--input",
+      "fresh workflow output check",
+      "--output",
+      outputPath
+    ]);
+
+    const targetPath = path.join(tempRoot, outputPath);
+    assert.equal(result.status, 0);
+    assert.equal(existsSync(targetPath), true);
+    const written = JSON.parse(readFileSync(targetPath, "utf8"));
+    assert.equal(written.workflow, "auto_ops");
+    assert.equal(written.stages.length, 3);
+    assert.deepEqual(written.stages.map((stage: { name: string }) => stage.name), ["research", "article_draft", "agent_flow"]);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("structured output refuses paths outside runtime tmp", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-run-output-guard-"));
+  try {
+    const result = runCli(tempRoot, [
+      "run",
+      "auto_ops.research",
+      "--dry-run",
+      "--input",
+      "fresh output guard check",
+      "--output",
+      "docs/result.json"
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /outside runtime\/tmp/);
+    assert.equal(existsSync(path.join(tempRoot, "docs", "result.json")), false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 function runCli(cwd: string, args: string[]): { status: number | null; stdout: string; stderr: string } {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd,

@@ -79,11 +79,13 @@ GitHub Environment Variables 保存 Bitwarden secret ID：
 
 ```powershell
 npm run providers:github:check
+npm run bws:check
 ```
 
 配置完 GitHub Environment 后，可以在本机提供 `GH_TOKEN` 或 `GITHUB_TOKEN`，只检查远端 environment、variable 和 secret 名称是否齐全：
 ```powershell
 npm run providers:github:remote-check
+powershell -ExecutionPolicy Bypass -File tools/check-bws-mode.ps1 -CheckRemote
 ```
 
 远端检查不会读取或输出 secret value；GitHub environment secrets API 只返回 secret 名称，environment variables API 会返回变量值，但脚本只比对变量名、不打印变量值。

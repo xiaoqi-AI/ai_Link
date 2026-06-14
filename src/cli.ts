@@ -82,11 +82,13 @@ async function workflowCommand(args: ParsedArgs): Promise<void> {
   });
 
   if (booleanFlag(args, "json")) {
+    writeStructuredOutput(args, result);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
 
   printWorkflowResult(result);
+  writeStructuredOutput(args, result);
 }
 
 async function runCommand(args: ParsedArgs): Promise<void> {
@@ -108,6 +110,7 @@ async function runCommand(args: ParsedArgs): Promise<void> {
   });
 
   if (booleanFlag(args, "json")) {
+    writeStructuredOutput(args, result);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -119,6 +122,7 @@ async function runCommand(args: ParsedArgs): Promise<void> {
   console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
   console.log("");
   console.log(result.output);
+  writeStructuredOutput(args, result);
 }
 
 async function providersCommand(args: ParsedArgs): Promise<void> {
@@ -535,6 +539,39 @@ function isAllowedSkillDraftTarget(targetPath: string): boolean {
   ].includes(targetPath);
 }
 
+function writeStructuredOutput(args: ParsedArgs, value: unknown): void {
+  const outputPath = stringFlag(args, "output") ?? stringFlag(args, "output-file");
+  if (!outputPath) {
+    return;
+  }
+
+  const targetPath = path.resolve(process.cwd(), outputPath);
+  if (!isRuntimeTmpOutputTarget(targetPath)) {
+    throw new AiLinkError(
+      "Refusing to write structured output outside runtime/tmp. Use --json for stdout consumers.",
+      "OUTPUT_WRITE_GUARD"
+    );
+  }
+
+  if (existsSync(targetPath) && !booleanFlag(args, "force")) {
+    throw new AiLinkError(`Output file already exists: ${outputPath}. Add --force to overwrite.`, "OUTPUT_EXISTS");
+  }
+
+  mkdirSync(path.dirname(targetPath), { recursive: true });
+  writeFileSync(targetPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+
+  if (!booleanFlag(args, "json")) {
+    console.log("");
+    console.log(`Structured result saved to ${outputPath}.`);
+  }
+}
+
+function isRuntimeTmpOutputTarget(targetPath: string): boolean {
+  const runtimeTmpPath = path.resolve(process.cwd(), "runtime", "tmp");
+  const relative = path.relative(runtimeTmpPath, targetPath);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
 function printWorkflowResult(result: WorkflowRunResult): void {
   console.log("AI Link workflow result");
   console.log(`Workflow: ${result.workflow}`);
@@ -556,8 +593,8 @@ function printHelp(): void {
   console.log(`AI Link
 
 Usage:
-  ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run]
-  ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run]
+  ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json]
+  ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain

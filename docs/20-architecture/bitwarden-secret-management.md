@@ -85,6 +85,15 @@ powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 
 检查脚本会读取 `.ai-link/bitwarden-secrets.manifest.json`，在 `BWS_ACCESS_TOKEN` 和 `AI_LINK_BWS_PROJECT_ID` 存在时验证预期 secret key 是否都已创建。它不会打印 secret value。
 
+也可以使用总检查入口：
+
+```powershell
+npm run bws:check
+npm run bws:check:strict
+```
+
+`bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 或项目 ID 时会输出 warning；`bws:check:strict` 用于配置完成后的正式验收。
+
 检查 AI Link provider 状态：
 
 ```powershell
@@ -159,7 +168,7 @@ jobs:
 
 ```powershell
 git status --short
-powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
+npm run bws:check
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
 powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
 powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
