@@ -28,9 +28,11 @@
 - MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
 - MVP 已补充 `package:check` / `package:check:json`，用于在不发布 npm 的前提下模拟打包并检查公开包内容。
 - MVP 已补充 `package:install-smoke` / `package:install-smoke:json`，用于在不发布 npm 的前提下安装本地 tarball 并验证安装后的 CLI。
+- MVP 已补充 `next:actions` / `next:actions:json`，用于汇总本地基线、GitHub 加固、Bitwarden 配置、provider-live 和 v0.1 发布决策的下一步行动。
 - MVP 已补充 `github:safety` / `github:safety:json`，用于检查公开仓本地治理基线并在可用时只读核验 GitHub 远端安全设置。
 - MVP 已补充 `release:plan` / `release:plan:json`，用于检查 changelog、release notes、发布流程、tag 计划和 npm 发布决策项。
 - MVP 已补充 `release:manual-gates` / `release:manual-gates:json`，用于把 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批拆成 owner、动作和完成证据。
+- MVP 已补充 `release:evidence` / `release:evidence:json`，用于生成脱敏发布证据包并限制默认输出到 `runtime/tmp/`。
 - MVP 已补充 `release:readiness` / `release:readiness:json`，用于区分仓库内发布基线和 GitHub UI / npm 发布决策等人工确认项。
 - MVP 已补充 `docs/quickstart.md`，用于公开用户无密钥、无真实模型调用的 5 分钟试用路径。
 - Provider dry-run 验收已补充；真实调用验收仍需用户本机通过 Bitwarden Secrets Manager 注入 provider key，或 GitHub Actions 通过 `BW_ACCESS_TOKEN` 临时读取 Bitwarden secret。

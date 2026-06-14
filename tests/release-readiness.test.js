@@ -40,8 +40,12 @@ describe("release readiness report", () => {
     assert.equal(report.summary.counts.fail, 0);
     assert.equal(report.summary.manualOpen > 0, true);
     assert.equal(report.checks.some((check) => check.name === "script release:readiness" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "script next:actions" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "next actions report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script release:manual-gates" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release manual gates report" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "script release:evidence" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "release evidence report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "provider live safe workflow" && check.status === "pass"), true);
   });
 

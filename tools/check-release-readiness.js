@@ -87,6 +87,8 @@ for (const file of [
   "tools/check-github-repo-safety.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
+  "tools/new-release-evidence.js",
+  "tools/show-next-actions.js",
   "docs/quickstart.md",
   "docs/user-guide.md",
   "docs/releases/v0.1.0.md",
@@ -129,12 +131,16 @@ for (const scriptName of [
   "package:check:json",
   "package:install-smoke",
   "package:install-smoke:json",
+  "next:actions",
+  "next:actions:json",
   "github:safety",
   "github:safety:json",
   "release:plan",
   "release:plan:json",
   "release:manual-gates",
   "release:manual-gates:json",
+  "release:evidence",
+  "release:evidence:json",
   "release:readiness",
   "release:readiness:json"
 ]) {
@@ -150,9 +156,11 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run security:scan",
   "npm run package:check",
   "npm run package:install-smoke",
+  "npm run next:actions",
   "npm run github:safety",
   "npm run release:plan",
   "npm run release:manual-gates",
+  "npm run release:evidence",
   "npm run release:readiness",
   "npm audit --omit=dev --audit-level=high"
 ]);
@@ -182,6 +190,23 @@ checkContains("tools/show-release-manual-gates.js", "release manual gates report
   "github-secret-scanning",
   "npm-publish-decision",
   "provider-live-credentials",
+  "Does not read API keys"
+]);
+
+checkContains("tools/new-release-evidence.js", "release evidence report", [
+  "release-evidence.json",
+  "runtime/tmp",
+  "packageInstallSmoke",
+  "nextActions",
+  "releaseManualGates",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-next-actions.js", "next actions report", [
+  "configure-bitwarden-secrets-manager",
+  "configure-provider-live-environment",
+  "approve-provider-live-cost",
+  "decide-v0-1-release-channel",
   "Does not read API keys"
 ]);
 

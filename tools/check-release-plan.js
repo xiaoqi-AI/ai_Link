@@ -107,7 +107,8 @@ for (const file of [
   "docs/00-governance/open-questions.md",
   "tools/check-package-install.js",
   "tools/check-release-plan.js",
-  "tools/show-release-manual-gates.js"
+  "tools/show-release-manual-gates.js",
+  "tools/new-release-evidence.js"
 ]) {
   checkFile(file);
 }
@@ -146,6 +147,7 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run github:safety",
   "npm run verify:fresh",
   "npm run release:manual-gates",
+  "npm run release:evidence",
   "git tag -a v0.1.0",
   "npm publish --dry-run --access public"
 ]);
@@ -155,6 +157,15 @@ checkContains("tools/show-release-manual-gates.js", "release manual gates handof
   "github-secret-scanning",
   "npm-publish-decision",
   "provider-live-credentials"
+]);
+
+checkContains("tools/new-release-evidence.js", "release evidence handoff", [
+  "release-evidence.json",
+  "packageContents",
+  "nextActions",
+  "githubSafety",
+  "releaseReadiness",
+  "runtime/tmp"
 ]);
 
 checkContains("docs/00-governance/open-questions.md", "release open questions", [
@@ -169,6 +180,8 @@ for (const scriptName of [
   "release:plan:json",
   "release:manual-gates",
   "release:manual-gates:json",
+  "release:evidence",
+  "release:evidence:json",
   "release:readiness",
   "release:readiness:json",
   "package:check",
@@ -216,7 +229,8 @@ const report = {
     changelog: "CHANGELOG.md",
     releaseNotes: "docs/releases/v0.1.0.md",
     process: "docs/00-governance/release-process.md",
-    manualGates: "tools/show-release-manual-gates.js"
+    manualGates: "tools/show-release-manual-gates.js",
+    evidence: "tools/new-release-evidence.js"
   },
   summary: {
     ok: counts.fail === 0,

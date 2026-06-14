@@ -48,6 +48,9 @@ jobs:
       - name: Package install smoke
         run: npm run package:install-smoke
 
+      - name: Next actions
+        run: npm run next:actions
+
       - name: GitHub repository safety baseline
         run: npm run github:safety
         env:
@@ -58,6 +61,9 @@ jobs:
 
       - name: Release manual gates
         run: npm run release:manual-gates
+
+      - name: Release evidence
+        run: npm run release:evidence
 
       - name: Release readiness
         run: npm run release:readiness

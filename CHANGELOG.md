@@ -15,8 +15,10 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Bitwarden Secrets Manager runbooks and checks for keeping provider keys out of Git.
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
+- Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Release manual gates report for GitHub protection, secret scanning, npm publish decision, and provider-live cost approval.
-- Public onboarding, package contents, package install smoke, GitHub repository safety, provider verification, release planning, release manual gates, release readiness, fresh clone, skill, and security checks.
+- Release evidence bundle for sanitized v0.1 readiness handoff under `runtime/tmp/`.
+- Public onboarding, package contents, package install smoke, GitHub repository safety, provider verification, release planning, release manual gates, release evidence, release readiness, fresh clone, skill, and security checks.
 
 ### Safety
 
@@ -24,8 +26,10 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Public repo checks avoid reading `.env`, tokens, login state, provider responses, QR codes, browser state, or `runtime/private`.
 - `package:check` uses `npm pack --dry-run` and does not publish.
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.
+- `next:actions` is read-only; it does not read secrets, modify GitHub settings, publish packages, or dispatch live providers.
 - `github:safety` is read-only; it does not modify GitHub settings.
-- `release:plan`, `release:manual-gates`, and `release:readiness` do not create tags, publish npm packages, modify GitHub settings, or trigger live provider calls.
+- `release:evidence` writes only to `runtime/tmp/` by default and does not read secret values.
+- `release:plan`, `release:manual-gates`, `release:evidence`, and `release:readiness` do not create tags, publish npm packages, modify GitHub settings, or trigger live provider calls.
 
 ### Pending Decisions
 
