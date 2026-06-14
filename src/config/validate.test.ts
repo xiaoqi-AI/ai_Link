@@ -39,3 +39,27 @@ test("validateConfig warns on inline apiKey", () => {
 
   assert.ok(issues.some((issue) => issue.severity === "warning" && issue.path === "providers.risky.apiKey"));
 });
+
+test("validateConfig catches workflow stages without routes", () => {
+  const issues = validateConfig({
+    providers: {
+      mock: {
+        type: "mock"
+      }
+    },
+    routes: {},
+    workflows: {
+      auto_ops: {
+        stages: [
+          {
+            name: "research",
+            task: "auto_ops.research"
+          }
+        ]
+      }
+    }
+  });
+
+  assert.ok(issues.some((issue) => issue.severity === "error"));
+  assert.ok(issues.some((issue) => issue.path === "workflows.auto_ops.stages.0.task"));
+});

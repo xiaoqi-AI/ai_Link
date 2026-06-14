@@ -2,6 +2,10 @@ param(
   [string]$BaseUrl = "",
   [string]$AdminToken = "",
   [string]$ExecutorToken = "",
+  [string]$CfAccessClientId = "",
+  [string]$CfAccessClientSecret = "",
+  [string]$CfAccessJwt = "",
+  [string]$CfAccessEmail = "",
   [switch]$SkipExecutor,
   [switch]$ExpectAccessGate
 )
@@ -24,6 +28,46 @@ if (-not $AdminToken) {
 
 if (-not $ExecutorToken) {
   $ExecutorToken = $env:AI_LINK_EXECUTOR_TOKEN
+}
+
+if (-not $CfAccessClientId) {
+  $CfAccessClientId = $env:CF_ACCESS_CLIENT_ID
+}
+
+if (-not $CfAccessClientSecret) {
+  $CfAccessClientSecret = $env:CF_ACCESS_CLIENT_SECRET
+}
+
+if (-not $CfAccessJwt) {
+  $CfAccessJwt = $env:AI_LINK_CF_ACCESS_TEST_JWT
+}
+
+if (-not $CfAccessEmail) {
+  $CfAccessEmail = $env:AI_LINK_CF_ACCESS_TEST_EMAIL
+}
+
+function New-CommonHeaders {
+  $headers = @{}
+  if ($CfAccessClientId -and $CfAccessClientSecret) {
+    $headers["CF-Access-Client-Id"] = $CfAccessClientId
+    $headers["CF-Access-Client-Secret"] = $CfAccessClientSecret
+  }
+  if ($CfAccessJwt) {
+    $headers["cf-access-jwt-assertion"] = $CfAccessJwt
+  }
+  if ($CfAccessEmail) {
+    $headers["cf-access-authenticated-user-email"] = $CfAccessEmail
+  }
+  return $headers
+}
+
+function New-AuthHeaders {
+  param([string]$Token)
+  $headers = New-CommonHeaders
+  if ($Token) {
+    $headers["Authorization"] = "Bearer $Token"
+  }
+  return $headers
 }
 
 function Invoke-Json {
@@ -57,7 +101,7 @@ function Add-Check {
 }
 
 try {
-  $health = Invoke-Json -Uri "$BaseUrl/healthz"
+  $health = Invoke-Json -Uri "$BaseUrl/healthz" -Headers (New-CommonHeaders)
   if ($health.ok) {
     Add-Check "healthz" "pass" "Remote health endpoint returned ok."
   } else {
@@ -68,7 +112,7 @@ try {
 }
 
 try {
-  $login = Invoke-WebRequest -Uri "$BaseUrl/login" -UseBasicParsing -MaximumRedirection 0 -TimeoutSec 30 -ErrorAction Stop
+  $login = Invoke-WebRequest -Uri "$BaseUrl/login" -Headers (New-CommonHeaders) -UseBasicParsing -MaximumRedirection 0 -TimeoutSec 30 -ErrorAction Stop
   if ($ExpectAccessGate) {
     Add-Check "access gate" "warn" "Login page is directly reachable; verify Cloudflare Access policy manually."
   } elseif ($login.StatusCode -eq 200) {
@@ -86,7 +130,7 @@ try {
 }
 
 if ($AdminToken) {
-  $adminHeaders = @{ Authorization = "Bearer $AdminToken" }
+  $adminHeaders = New-AuthHeaders $AdminToken
   try {
     $createBody = @(
       "{"
@@ -106,6 +150,10 @@ if ($AdminToken) {
       } else {
         $env:AI_LINK_BASE_URL = $BaseUrl
         $env:AI_LINK_EXECUTOR_TOKEN = $ExecutorToken
+        if ($CfAccessClientId -and $CfAccessClientSecret) {
+          $env:CF_ACCESS_CLIENT_ID = $CfAccessClientId
+          $env:CF_ACCESS_CLIENT_SECRET = $CfAccessClientSecret
+        }
         $run = npm run auth-hub:executor:once
         $taskDetail = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $adminHeaders
         if ($taskDetail.task.status -eq "completed") {

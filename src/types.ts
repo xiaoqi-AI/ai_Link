@@ -37,6 +37,20 @@ export interface RouteConfig {
   policy?: string;
 }
 
+export interface WorkflowStageConfig {
+  name: string;
+  task?: string;
+  provider?: string;
+  model?: string;
+  system?: string;
+  inputFrom?: "original" | "previous" | "original-and-previous";
+}
+
+export interface WorkflowConfig {
+  description?: string;
+  stages?: WorkflowStageConfig[];
+}
+
 export interface PolicyConfig {
   blockSensitive?: boolean;
   allowOutbound?: "never" | "user-approved" | "always";
@@ -56,6 +70,7 @@ export interface AiLinkConfig {
   };
   providers?: Record<string, ProviderConfig>;
   routes?: Record<string, RouteConfig>;
+  workflows?: Record<string, WorkflowConfig>;
   policies?: Record<string, PolicyConfig>;
   skills?: Record<string, SkillConfig>;
 }
@@ -115,4 +130,28 @@ export interface RunResult {
   dryRun: boolean;
   attempts: RunAttempt[];
   metadata: Record<string, unknown>;
+}
+
+export interface WorkflowRunRequest {
+  workflow: string;
+  stages?: string[];
+  input?: string;
+  system?: string;
+  provider?: string;
+  model?: string;
+  dryRun?: boolean;
+  allowSensitive?: boolean;
+}
+
+export interface WorkflowStageResult {
+  name: string;
+  task: string;
+  inputFrom: "original" | "previous" | "original-and-previous";
+  result: RunResult;
+}
+
+export interface WorkflowRunResult {
+  workflow: string;
+  dryRun: boolean;
+  stages: WorkflowStageResult[];
 }

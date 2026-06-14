@@ -39,6 +39,36 @@ providers:
     model: grok-4.3
 ```
 
+## 工作流配置
+
+`routes` 描述单个任务应该交给哪个 provider，`workflows` 描述一个 skill 或业务流程由哪些任务阶段串起来。
+
+```yaml
+workflows:
+  auto_ops:
+    description: Research with Grok, then draft with Kimi while Codex keeps execution control.
+    stages:
+      - name: research
+        task: auto_ops.research
+        inputFrom: original
+      - name: article_draft
+        task: auto_ops.article_draft
+        inputFrom: original-and-previous
+```
+
+`inputFrom` 支持：
+
+- `original`：只使用用户原始输入。
+- `previous`：只使用前序阶段输出。
+- `original-and-previous`：把用户原始输入和前序阶段输出一起交给当前阶段。
+
+运行示例：
+
+```powershell
+npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
+npm run ai-link -- workflow run auto_ops --stages research,article_draft --dry-run --input "调研一个公开选题并写初稿"
+```
+
 ## 本机私有配置
 
 本机私有配置用于覆盖公开配置，适合放本机专属模型、endpoint 或策略。这个文件默认被 `.gitignore` 忽略。
@@ -86,6 +116,7 @@ npm run ai-link -- config validate
 
 - 默认 provider / policy 是否存在。
 - route 的主 provider 和 fallback provider 是否已配置。
+- workflow stage 指向的 route 和 provider 是否已配置。
 - provider type 是否受支持。
 - 模型 provider 是否配置了 `baseUrl` 或 `endpoint`。
 - 自定义策略正则是否有效。
@@ -100,6 +131,7 @@ npm install
 npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
+npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```

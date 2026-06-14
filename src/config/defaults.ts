@@ -61,6 +61,23 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       capabilities: ["text", "code_reasoning"]
     }
   },
+  workflows: {
+    auto_ops: {
+      description: "Research with Grok, then draft with Kimi while Codex keeps execution control.",
+      stages: [
+        {
+          name: "research",
+          task: "auto_ops.research",
+          inputFrom: "original"
+        },
+        {
+          name: "article_draft",
+          task: "auto_ops.article_draft",
+          inputFrom: "original-and-previous"
+        }
+      ]
+    }
+  },
   policies: {
     default: {
       blockSensitive: true,

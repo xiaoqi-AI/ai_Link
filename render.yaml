@@ -25,6 +25,16 @@ services:
         sync: false
       - key: AI_LINK_CODEX_TOKEN
         sync: false
+      - key: AI_LINK_REQUIRE_CLOUDFLARE_ACCESS
+        value: "true"
+      - key: AI_LINK_ALLOWED_ACCESS_EMAILS
+        sync: false
+      - key: AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN
+        value: "true"
+      - key: AI_LINK_CLOUDFLARE_ACCESS_AUD
+        sync: false
+      - key: AI_LINK_CLOUDFLARE_TEAM_DOMAIN
+        sync: false
 
 databases:
   - name: ai-link-postgres

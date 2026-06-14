@@ -46,6 +46,14 @@ export function loadConfig(env = process.env) {
       artifactDays: Number(env.AI_LINK_ARTIFACT_RETENTION_DAYS || 7),
       auditDays: Number(env.AI_LINK_AUDIT_RETENTION_DAYS || 180)
     },
+    access: {
+      requireCloudflareAccess: ["1", "true", "yes"].includes(String(env.AI_LINK_REQUIRE_CLOUDFLARE_ACCESS || "").toLowerCase()),
+      allowedEmails: readCsv(env.AI_LINK_ALLOWED_ACCESS_EMAILS).map((item) => item.toLowerCase()),
+      allowServiceTokens: ["1", "true", "yes"].includes(String(env.AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN || "").toLowerCase()),
+      audience: env.AI_LINK_CLOUDFLARE_ACCESS_AUD || "",
+      issuer: env.AI_LINK_CLOUDFLARE_ACCESS_ISSUER || "",
+      teamDomain: env.AI_LINK_CLOUDFLARE_TEAM_DOMAIN || ""
+    },
     email: {
       smtpUrl: env.SMTP_URL || "",
       to: env.APPROVAL_EMAIL_TO || "",

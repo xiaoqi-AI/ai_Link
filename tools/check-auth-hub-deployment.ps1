@@ -22,7 +22,16 @@ $optionalEnv = @(
   "DATABASE_URL",
   "SMTP_URL",
   "APPROVAL_EMAIL_TO",
-  "APPROVAL_EMAIL_FROM"
+  "APPROVAL_EMAIL_FROM",
+  "AI_LINK_ALLOWED_ACCESS_EMAILS",
+  "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN",
+  "AI_LINK_CLOUDFLARE_ACCESS_ISSUER",
+  "AI_LINK_CLOUDFLARE_TEAM_DOMAIN"
+)
+
+$requiredProductionAccessEnv = @(
+  "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
+  "AI_LINK_CLOUDFLARE_ACCESS_AUD"
 )
 
 $weakValues = @(
@@ -63,7 +72,19 @@ $results = New-Object System.Collections.Generic.List[object]
 if (Test-Path -LiteralPath $renderPath) {
   Add-Result $results "render.yaml" "pass" "Render blueprint file exists."
   $renderText = Get-Content -LiteralPath $renderPath -Raw
-  foreach ($name in @("AI_LINK_BASE_URL", "DATABASE_URL", "AI_LINK_APP_PASSWORD", "AI_LINK_SESSION_SECRET", "AI_LINK_ADMIN_TOKEN", "AI_LINK_EXECUTOR_TOKEN")) {
+  foreach ($name in @(
+    "AI_LINK_BASE_URL",
+    "DATABASE_URL",
+    "AI_LINK_APP_PASSWORD",
+    "AI_LINK_SESSION_SECRET",
+    "AI_LINK_ADMIN_TOKEN",
+    "AI_LINK_EXECUTOR_TOKEN",
+    "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
+    "AI_LINK_ALLOWED_ACCESS_EMAILS",
+    "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN",
+    "AI_LINK_CLOUDFLARE_ACCESS_AUD",
+    "AI_LINK_CLOUDFLARE_TEAM_DOMAIN"
+  )) {
     if ($renderText -match [regex]::Escape($name)) {
       Add-Result $results "render env $name" "pass" "Referenced by render.yaml."
     } else {
@@ -111,6 +132,16 @@ foreach ($name in $optionalEnv) {
   }
 }
 
+foreach ($name in $requiredProductionAccessEnv) {
+  $value = Get-EnvValue $name
+  if ($value) {
+    Add-Result $results "production access env $name" "pass" "Set without exposing value."
+  } else {
+    $status = if ($Production) { "fail" } else { "info" }
+    Add-Result $results "production access env $name" $status "Required when checking production deployment."
+  }
+}
+
 $effectiveBaseUrl = $BaseUrl
 if (-not $effectiveBaseUrl) {
   $effectiveBaseUrl = Get-EnvValue "AI_LINK_BASE_URL"
@@ -133,11 +164,29 @@ if ($effectiveBaseUrl) {
 }
 
 if ($Production) {
-  $accessFlag = Get-EnvValue "AI_LINK_CLOUDFLARE_ACCESS_ENABLED"
-  if ($accessFlag -eq "1" -or $accessFlag -eq "true") {
-    Add-Result $results "Cloudflare Access" "pass" "Marked enabled by AI_LINK_CLOUDFLARE_ACCESS_ENABLED."
+  $accessFlag = ([string](Get-EnvValue "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS")).ToLowerInvariant()
+  if ($accessFlag -eq "1" -or $accessFlag -eq "true" -or $accessFlag -eq "yes") {
+    Add-Result $results "Cloudflare Access origin guard" "pass" "Application requires Cloudflare Access headers."
   } else {
-    Add-Result $results "Cloudflare Access" "warn" "Cannot verify Cloudflare Access from local env; set AI_LINK_CLOUDFLARE_ACCESS_ENABLED=1 after manual verification."
+    Add-Result $results "Cloudflare Access origin guard" "fail" "Set AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true for production."
+  }
+
+  $issuer = Get-EnvValue "AI_LINK_CLOUDFLARE_ACCESS_ISSUER"
+  $teamDomain = Get-EnvValue "AI_LINK_CLOUDFLARE_TEAM_DOMAIN"
+  if ($issuer -or $teamDomain) {
+    Add-Result $results "Cloudflare Access issuer" "pass" "Issuer or team domain is configured."
+  } else {
+    Add-Result $results "Cloudflare Access issuer" "fail" "Set AI_LINK_CLOUDFLARE_TEAM_DOMAIN or AI_LINK_CLOUDFLARE_ACCESS_ISSUER for JWT validation."
+  }
+
+  $allowedEmails = Get-EnvValue "AI_LINK_ALLOWED_ACCESS_EMAILS"
+  $serviceTokens = ([string](Get-EnvValue "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN")).ToLowerInvariant()
+  if ($allowedEmails) {
+    Add-Result $results "Cloudflare Access allowed emails" "pass" "Allowed email list is configured."
+  } elseif ($serviceTokens -eq "1" -or $serviceTokens -eq "true" -or $serviceTokens -eq "yes") {
+    Add-Result $results "Cloudflare Access allowed emails" "warn" "Only service-token access appears configured; set allowed emails for browser operators."
+  } else {
+    Add-Result $results "Cloudflare Access allowed emails" "fail" "Set AI_LINK_ALLOWED_ACCESS_EMAILS or explicitly allow service tokens."
   }
 }
 

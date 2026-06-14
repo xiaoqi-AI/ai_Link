@@ -5,6 +5,7 @@ import { seedConfiguredTokens } from "./security/auth.js";
 import { createApiRouter } from "./routes/api.js";
 import { createUiRouter } from "./routes/ui.js";
 import { NotificationService } from "./notifications/email.js";
+import { requireCloudflareAccess } from "./security/cloudflareAccess.js";
 
 export async function createApp(options = {}) {
   const config = options.config || loadConfig(options.env || process.env);
@@ -26,6 +27,7 @@ export async function createApp(options = {}) {
     res.json({ ok: true, service: "ai-link-auth-hub" });
   });
 
+  app.use(requireCloudflareAccess(config));
   app.use("/api", createApiRouter());
   app.use(createUiRouter());
 

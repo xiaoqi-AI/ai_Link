@@ -1,4 +1,11 @@
-import type { AiLinkConfig, PolicyConfig, ProviderConfig, ProviderType, RouteConfig } from "../types.js";
+import type {
+  AiLinkConfig,
+  PolicyConfig,
+  ProviderConfig,
+  ProviderType,
+  RouteConfig,
+  WorkflowConfig
+} from "../types.js";
 
 export type ValidationSeverity = "error" | "warning";
 
@@ -23,6 +30,7 @@ export function validateConfig(config: AiLinkConfig): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const providers = config.providers ?? {};
   const routes = config.routes ?? {};
+  const workflows = config.workflows ?? {};
   const policies = config.policies ?? {};
 
   if (config.version !== undefined && config.version !== 1) {
@@ -44,11 +52,61 @@ export function validateConfig(config: AiLinkConfig): ValidationIssue[] {
     validateRoute(name, route, providers, policies, issues);
   }
 
+  for (const [name, workflow] of Object.entries(workflows)) {
+    validateWorkflow(name, workflow, routes, providers, issues);
+  }
+
   for (const [name, policy] of Object.entries(policies)) {
     validatePolicy(name, policy, issues);
   }
 
   return issues;
+}
+
+function validateWorkflow(
+  name: string,
+  workflow: WorkflowConfig,
+  routes: Record<string, RouteConfig>,
+  providers: Record<string, ProviderConfig>,
+  issues: ValidationIssue[]
+): void {
+  for (const [index, stage] of (workflow.stages ?? []).entries()) {
+    if (!stage.name) {
+      issues.push({
+        severity: "error",
+        path: `workflows.${name}.stages.${index}.name`,
+        message: "Workflow stages need a stable name."
+      });
+    }
+
+    const task = stage.task ?? `${name}.${stage.name}`;
+    if (!routes[task]) {
+      issues.push({
+        severity: "error",
+        path: `workflows.${name}.stages.${index}.task`,
+        message: `Workflow stage task "${task}" is not configured in routes.`
+      });
+    }
+
+    if (stage.provider && !providers[stage.provider]) {
+      issues.push({
+        severity: "error",
+        path: `workflows.${name}.stages.${index}.provider`,
+        message: `Workflow stage provider "${stage.provider}" is not configured.`
+      });
+    }
+
+    if (
+      stage.inputFrom &&
+      !["original", "previous", "original-and-previous"].includes(stage.inputFrom)
+    ) {
+      issues.push({
+        severity: "error",
+        path: `workflows.${name}.stages.${index}.inputFrom`,
+        message: "inputFrom must be original, previous, or original-and-previous."
+      });
+    }
+  }
 }
 
 export function hasValidationErrors(issues: ValidationIssue[]): boolean {

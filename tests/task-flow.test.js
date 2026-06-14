@@ -170,4 +170,59 @@ describe("AI Link task flow", () => {
     assert.equal(value.nested.rawHtml, "[redacted-content]");
     assert.equal(value.nested.safe, "visible");
   });
+
+  it("can require Cloudflare Access headers before API access", async () => {
+    const config = loadConfig({
+      NODE_ENV: "test",
+      AI_LINK_APP_PASSWORD: "test-password",
+      AI_LINK_SESSION_SECRET: "test-session-secret",
+      AI_LINK_ADMIN_TOKEN: "admin-token",
+      AI_LINK_EXECUTOR_TOKEN: "executor-token",
+      AI_LINK_REQUIRE_CLOUDFLARE_ACCESS: "1",
+      AI_LINK_ALLOWED_ACCESS_EMAILS: "owner@example.com"
+    });
+    const { app } = await createApp({
+      config,
+      store: new MemoryStore(),
+      notifier: { approvalRequested: async () => {} }
+    });
+    const local = await new Promise((resolve) => {
+      const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+    });
+    const baseUrl = `http://127.0.0.1:${local.address().port}`;
+    try {
+      const denied = await fetch(`${baseUrl}/api/tasks`, {
+        headers: { authorization: "Bearer admin-token" }
+      });
+      assert.equal(denied.status, 403);
+
+      const allowed = await fetch(`${baseUrl}/api/tasks`, {
+        headers: {
+          authorization: "Bearer admin-token",
+          "cf-access-authenticated-user-email": "owner@example.com",
+          "cf-access-jwt-assertion": "placeholder-jwt"
+        }
+      });
+      assert.equal(allowed.status, 200);
+
+      const wrongEmail = await fetch(`${baseUrl}/api/tasks`, {
+        headers: {
+          authorization: "Bearer admin-token",
+          "cf-access-authenticated-user-email": "other@example.com",
+          "cf-access-jwt-assertion": "placeholder-jwt"
+        }
+      });
+      assert.equal(wrongEmail.status, 403);
+
+      const missingEmail = await fetch(`${baseUrl}/api/tasks`, {
+        headers: {
+          authorization: "Bearer admin-token",
+          "cf-access-jwt-assertion": "placeholder-jwt"
+        }
+      });
+      assert.equal(missingEmail.status, 403);
+    } finally {
+      await new Promise((resolve) => local.close(resolve));
+    }
+  });
 });

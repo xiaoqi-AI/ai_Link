@@ -55,6 +55,7 @@ npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
 npm run providers:dry
+npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```
@@ -117,9 +118,10 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `mock/local-dry-run`、`openai-compatible`、`deepseek`、`kimi`、`grok` provider。
 - `ai-link config validate` 配置校验。
 - `ai-link providers verify` provider dry-run / live 验收。
+- `ai-link workflow run` 多阶段工作流串联，默认示例支持 Grok 调研后交给 Kimi 写草稿。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选路由。
-- `examples/auto-ops/` 轻量示例。
+- `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。
 - 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器和 mock 平台连接器。
 - GitHub Actions CI、fresh clone 验证脚本和本地安全扫描。
 

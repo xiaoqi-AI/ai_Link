@@ -26,12 +26,20 @@ async function writeState(statePath, state) {
 }
 
 async function requestJson(url, { token, method = "GET", body } = {}) {
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${token}`
+  };
+  const cfAccessClientId = readEnv("CF_ACCESS_CLIENT_ID", "");
+  const cfAccessClientSecret = readEnv("CF_ACCESS_CLIENT_SECRET", "");
+  if (cfAccessClientId && cfAccessClientSecret) {
+    headers["CF-Access-Client-Id"] = cfAccessClientId;
+    headers["CF-Access-Client-Secret"] = cfAccessClientSecret;
+  }
+
   const response = await fetch(url, {
     method,
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await response.json().catch(() => ({}));

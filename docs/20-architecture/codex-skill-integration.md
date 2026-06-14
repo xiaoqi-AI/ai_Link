@@ -55,6 +55,36 @@ routes:
 
 第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。
 
+## Skill 调用工作流
+
+当 skill 已经有 route 和 workflow 配置时，Codex 可以直接调用 AI Link 工作流：
+
+```powershell
+npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
+```
+
+只运行其中几个阶段：
+
+```powershell
+npm run ai-link -- workflow run auto_ops --stages research,article_draft --dry-run --input "调研一个公开选题并写初稿"
+```
+
+第一版工作流按顺序执行 stage，并把前序 stage 的输出交给后续 stage。比如 `auto_ops` 默认是：
+
+```yaml
+workflows:
+  auto_ops:
+    stages:
+      - name: research
+        task: auto_ops.research
+        inputFrom: original
+      - name: article_draft
+        task: auto_ops.article_draft
+        inputFrom: original-and-previous
+```
+
+可复制的 Codex skill 示例见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`。
+
 ## 会话覆盖
 
 会话指令可以覆盖默认路由：

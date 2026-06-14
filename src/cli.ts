@@ -7,7 +7,8 @@ import { hasValidationErrors, validateConfig } from "./config/validate.js";
 import { AiLinkError } from "./errors.js";
 import { runAiLink } from "./router/index.js";
 import { draftRoutesFromNaturalLanguage } from "./skills/naturalLanguage.js";
-import type { AiLinkConfig, LoadedConfig, ProviderConfig } from "./types.js";
+import { runWorkflow } from "./workflows/index.js";
+import type { AiLinkConfig, LoadedConfig, ProviderConfig, WorkflowRunResult } from "./types.js";
 
 interface ParsedArgs {
   positional: string[];
@@ -24,6 +25,9 @@ async function main(): Promise<void> {
       return;
     case "providers":
       await providersCommand(args);
+      return;
+    case "workflow":
+      await workflowCommand(args);
       return;
     case "config":
       configCommand(args);
@@ -48,6 +52,38 @@ async function main(): Promise<void> {
     default:
       throw new AiLinkError(`Unknown command: ${command}`, "CLI_USAGE");
   }
+}
+
+async function workflowCommand(args: ParsedArgs): Promise<void> {
+  const subcommand = args.positional[1] ?? "run";
+  if (subcommand !== "run") {
+    throw new AiLinkError("Usage: ai-link workflow run <workflow> [--stages a,b]", "CLI_USAGE");
+  }
+
+  const workflow = args.positional[2];
+  if (!workflow) {
+    throw new AiLinkError("Usage: ai-link workflow run <workflow> [--stages a,b]", "CLI_USAGE");
+  }
+
+  const loaded = loadFromArgs(args);
+  const input = await readInput(args);
+  const result = await runWorkflow(loaded.config, {
+    workflow,
+    stages: parseStageFlags(args),
+    input,
+    system: stringFlag(args, "system"),
+    provider: stringFlag(args, "provider"),
+    model: stringFlag(args, "model"),
+    dryRun: booleanFlag(args, "dry-run"),
+    allowSensitive: booleanFlag(args, "allow-sensitive")
+  });
+
+  if (booleanFlag(args, "json")) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  printWorkflowResult(result);
 }
 
 async function runCommand(args: ParsedArgs): Promise<void> {
@@ -426,6 +462,13 @@ function arrayFlag(args: ParsedArgs, name: string): string[] {
   return typeof value === "string" ? [value] : [];
 }
 
+function parseStageFlags(args: ParsedArgs): string[] {
+  return [...arrayFlag(args, "stage"), ...arrayFlag(args, "stages")]
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 function booleanFlag(args: ParsedArgs, name: string): boolean {
   return args.flags[name] === true;
 }
@@ -440,11 +483,29 @@ function redactConfig(config: AiLinkConfig): AiLinkConfig {
   return clone;
 }
 
+function printWorkflowResult(result: WorkflowRunResult): void {
+  console.log("AI Link workflow result");
+  console.log(`Workflow: ${result.workflow}`);
+  console.log(`Stages: ${result.stages.length}`);
+  console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+
+  for (const [index, stage] of result.stages.entries()) {
+    console.log("");
+    console.log(`[${index + 1}] ${stage.name}`);
+    console.log(`Task: ${stage.task}`);
+    console.log(`Provider: ${stage.result.provider}`);
+    console.log(`Model: ${stage.result.model ?? "(default)"}`);
+    console.log(`Input: ${stage.inputFrom}`);
+    console.log(stage.result.output);
+  }
+}
+
 function printHelp(): void {
   console.log(`AI Link
 
 Usage:
   ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run]
+  ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain

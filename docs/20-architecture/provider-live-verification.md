@@ -75,6 +75,12 @@ GitHub Environment Variables 保存 Bitwarden secret ID：
 
 真实 API key 仍保留在 Bitwarden Secrets Manager 中。workflow 通过 `bitwarden/sm-action@v2` 临时注入环境变量。
 
+本地可先检查 workflow 是否遵守 BWS 模式：
+
+```powershell
+npm run providers:github:check
+```
+
 建议先用默认非 strict 模式确认 workflow 可运行；确认 secrets 都配置后，再用 strict 模式验收。
 
 ## 记录方式

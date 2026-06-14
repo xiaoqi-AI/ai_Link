@@ -24,6 +24,8 @@
     "verify:fresh": "node tools/verify-fresh-clone.js",
     "providers:dry": "npm run ai-link -- providers verify",
     "providers:live": "npm run ai-link -- providers verify --live",
+    "providers:github:check": "powershell -ExecutionPolicy Bypass -File tools/check-github-provider-live.ps1",
+    "workflow:dry": "npm run ai-link -- workflow run auto_ops --dry-run --input \"fresh workflow check\"",
     "start": "node src/server.js",
     "ai-link": "tsx src/cli.ts",
     "auth-hub:start": "node src/server.js",
@@ -36,11 +38,13 @@
     "auth-hub:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-flow.ps1",
     "auth-hub:deploy:check": "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1",
     "auth-hub:remote:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1",
+    "auth-hub:secrets:new": "powershell -ExecutionPolicy Bypass -File tools/new-auth-hub-secrets.ps1",
     "auth-hub:test": "node --test tests/*.test.js",
     "security:scan": "node tools/security-scan.js"
   },
   "dependencies": {
     "express": "^4.19.2",
+    "jose": "^6.2.3",
     "nodemailer": "^8.0.11",
     "pg": "^8.12.0",
     "yaml": "^2.8.1"
