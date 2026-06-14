@@ -66,6 +66,7 @@ npm run auth-hub:local:stop
 - `GET /api/connectors`：用 `connectors:read` 权限读取公开安全的连接器状态和能力契约，不返回密钥、Cookie、登录态或平台内容。
 - `POST /api/tasks/:id/approve`：确认或拒绝发布等高风险动作。
 - `POST /api/tasks/:id/retry`：人工处理完成后，把 `action_required` 或失败任务重新排队。
+- `POST /api/tasks/:id/audit`：Codex 追加 AI Link run record 审计摘要，不改变任务状态。
 - `POST /api/executor/lease`：本地执行器领取任务。
 - `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果。
 - `GET /api/audit`：读取审计日志。

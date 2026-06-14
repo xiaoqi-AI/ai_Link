@@ -158,7 +158,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
 - `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。
-- 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器、mock 平台连接器和连接器合同状态 API；执行器可回传 AI Link `audit` 摘要并进入任务详情和 `GET /api/audit`。
+- 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器、mock 平台连接器和连接器合同状态 API；执行器可回传 AI Link `audit` 摘要，Codex 也可用 `ai-link runs submit-audit` 把本地 run record 审计追加到任务详情和 `GET /api/audit`。
 - GitHub Actions CI、fresh clone 验证脚本和本地安全扫描。
 
 ## 许可证

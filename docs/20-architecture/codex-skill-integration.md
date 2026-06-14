@@ -176,3 +176,11 @@ npm run ai-link -- workflow run auto_ops --dry-run --resume-from <record-id> --f
 `--output` 会写入完整 JSON 结果，默认不覆盖已有文件；确需覆盖时显式加 `--force`。该参数只允许写入 `runtime/tmp/`，该目录默认不进入 Git，也不进入知识库镜像。需要直接把 JSON 打到 stdout 时，可以继续使用 `--json`。
 
 `--record` 会把本次调用的脱敏运行记录写入 `runtime/tmp/ai-link-runs/`，并维护本地 `index.json`。记录不保存原始 input，只保存 input 长度、配置选择和结构化结果；但 provider 输出仍可能包含任务内容，因此这些记录仍属于本地运行态，不提交 Git、不同步知识库。需要读取完整记录时，先用 `runs list` 找到 id，再运行 `runs show <id> --json`。需要从已有 workflow 记录继续执行时，使用 `workflow run <workflow> --resume-from <id|latest>`；如果记录已经包含后续阶段但需要重跑，可加 `--from-stage <stage>`。
+
+当本次 skill 执行对应授权中枢里的某个 task 时，可以在 `--record` 后追加审计摘要：
+
+```powershell
+npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>
+```
+
+该命令只把 run record 顶层 `audit` 的白名单字段写入授权中枢审计日志，不改变 task 状态，也不会上传原始 input、原始 output、密钥或 token。默认读取 `AI_LINK_CODEX_TOKEN`，本地开发地址可使用默认 dev token；公网地址必须显式配置 token。
