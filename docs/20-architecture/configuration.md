@@ -74,11 +74,31 @@ Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOON
 
 默认策略会扫描出站文本中的常见密钥形态，例如私钥、`sk-...`、Bearer token、`*_API_KEY=...` 等。如果确实需要发送敏感材料，必须由用户在当前命令中显式使用 `--allow-sensitive`，并自行承担数据出站风险。
 
+## 配置校验
+
+可以用 CLI 校验当前合并后的配置：
+
+```powershell
+npm run ai-link -- config validate
+```
+
+校验会覆盖：
+
+- 默认 provider / policy 是否存在。
+- route 的主 provider 和 fallback provider 是否已配置。
+- provider type 是否受支持。
+- 模型 provider 是否配置了 `baseUrl` 或 `endpoint`。
+- 自定义策略正则是否有效。
+- 公开配置中是否疑似内联了 `apiKey`。
+
+校验命令遇到错误会返回非零退出码，适合放入 CI。内联 `apiKey` 当前作为 warning 输出，目的是提醒用户只允许在本机私有配置中使用。
+
 ## 常用命令
 
 ```powershell
 npm install
 npm run ai-link -- doctor
+npm run ai-link -- config validate
 npm run ai-link -- providers list
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"

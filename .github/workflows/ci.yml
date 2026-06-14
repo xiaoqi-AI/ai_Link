@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run check
+
+      - name: Test
+        run: npm test
+
+      - name: Validate AI Link config
+        run: npm run ai-link -- config validate
+
+      - name: Security scan
+        run: npm run security:scan
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

@@ -28,6 +28,7 @@
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - 统一授权中枢说明：`docs/20-architecture/auth-hub.md`
+- 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
 - Auto Ops 示例：`examples/auto-ops/`
 - 项目账本：`docs/project-ledger/`
 - 文档模板：`docs/90-templates/`
@@ -38,6 +39,7 @@
 ```powershell
 npm install
 npm run ai-link -- doctor
+npm run ai-link -- config validate
 npm run ai-link -- providers list
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 ```
@@ -53,11 +55,19 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 授权中枢用于把跨平台任务拆成“云端私有控制台 + 本地执行器 + 人工确认发布”。本地开发可用：
 
 ```powershell
-npm run auth-hub:start
-npm run auth-hub:executor:once
+npm run auth-hub:local:start
+npm run auth-hub:smoke
+npm run auth-hub:executor:start
 ```
 
 本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
+
+停止本地执行器和控制台：
+
+```powershell
+npm run auth-hub:executor:stop
+npm run auth-hub:local:stop
+```
 
 ## 外部模型配置
 
@@ -66,6 +76,7 @@ npm run auth-hub:executor:once
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 $env:BWS_ACCESS_TOKEN="<machine-account-access-token>"
+powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
 ```
 
@@ -93,3 +104,20 @@ Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KE
 - 新需求或想法：使用 `Feature request` issue 模板。
 - 文档问题：使用 `Documentation update` issue 模板。
 - 安全问题：参考 `SECURITY.md`。
+
+## 维护者验证
+
+公开仓维护者提交前建议运行：
+
+```powershell
+npm run check
+npm test
+npm run ai-link -- config validate
+npm run security:scan
+npm run verify:fresh
+powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
+powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
+powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
+```
+
+`npm run verify:fresh` 会把当前 Git 提交克隆到临时目录，重新执行安装、检查、测试、配置校验、CLI dry-run 和安全扫描，用来模拟外部用户 fresh clone 后的体验。

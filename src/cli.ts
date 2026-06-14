@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { stringify } from "yaml";
 import { loadConfig } from "./config/load.js";
+import { hasValidationErrors, validateConfig } from "./config/validate.js";
 import { AiLinkError } from "./errors.js";
 import { runAiLink } from "./router/index.js";
 import { draftRoutesFromNaturalLanguage } from "./skills/naturalLanguage.js";
@@ -107,8 +108,12 @@ function providersCommand(args: ParsedArgs): void {
 
 function configCommand(args: ParsedArgs): void {
   const subcommand = args.positional[1] ?? "explain";
+  if (subcommand === "validate") {
+    validateConfigCommand(args);
+    return;
+  }
   if (subcommand !== "explain") {
-    throw new AiLinkError("Usage: ai-link config explain", "CLI_USAGE");
+    throw new AiLinkError("Usage: ai-link config <explain|validate>", "CLI_USAGE");
   }
 
   const loaded = loadFromArgs(args);
@@ -130,6 +135,29 @@ function configCommand(args: ParsedArgs): void {
     return;
   }
   console.log(stringify(output));
+}
+
+function validateConfigCommand(args: ParsedArgs): void {
+  const loaded = loadFromArgs(args);
+  const issues = validateConfig(loaded.config);
+  const output = {
+    ok: !hasValidationErrors(issues),
+    issues
+  };
+
+  if (booleanFlag(args, "json")) {
+    console.log(JSON.stringify(output, null, 2));
+  } else if (issues.length === 0) {
+    console.log("AI Link config is valid.");
+  } else {
+    for (const issue of issues) {
+      console.log(`[${issue.severity}] ${issue.path}: ${issue.message}`);
+    }
+  }
+
+  if (hasValidationErrors(issues)) {
+    process.exitCode = 2;
+  }
 }
 
 function skillCommand(args: ParsedArgs): void {
@@ -299,6 +327,7 @@ Usage:
   ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run]
   ai-link providers list
   ai-link config explain
+  ai-link config validate
   ai-link skill draft-route --description "research with grok, write with kimi"
   ai-link doctor
 

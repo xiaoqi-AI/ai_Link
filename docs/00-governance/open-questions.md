@@ -5,9 +5,10 @@
 - 仓库已确认为公开 GitHub：`https://github.com/xiaoqi-AI/ai_Link`。
 - 是否要为 `main` 配置 GitHub branch protection 或 ruleset？
 - 是否需要启用 GitHub Discussions？
-- 项目许可证尚未确认，后续需要选择是否添加 `LICENSE`。
+- 项目许可证已采用 Apache-2.0。
 - 是否在 GitHub UI 开启公开仓和私有仓的 secret scanning / push protection？
 - 是否给私有仓 `ai_Link-internal` 配置独立 branch protection 或 ruleset？
+- GitHub Actions CI 已补充，是否将其纳入 branch protection 必需检查？
 
 ## 产品方向
 
@@ -22,6 +23,7 @@
 ## 技术与部署
 
 - AI Link CLI 已采用 TypeScript / Node.js；统一授权中枢公开骨架已采用 Node.js / Express。
+- MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
 - 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？
 - 是否为 Render 服务启用付费持久盘，或长期坚持浏览器登录态只放本地执行器？
 - 是否需要移动端、小程序或浏览器插件？

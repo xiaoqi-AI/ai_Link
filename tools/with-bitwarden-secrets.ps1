@@ -12,7 +12,22 @@ function Fail($message) {
   exit 1
 }
 
-if (-not (Get-Command bws -ErrorAction SilentlyContinue)) {
+function Resolve-BwsPath {
+  $command = Get-Command bws -ErrorAction SilentlyContinue
+  if ($command) {
+    return $command.Source
+  }
+
+  $defaultPath = Join-Path $env:LOCALAPPDATA "Programs\BitwardenSecretsManager\bin\bws.exe"
+  if (Test-Path -LiteralPath $defaultPath) {
+    return $defaultPath
+  }
+
+  return $null
+}
+
+$bwsPath = Resolve-BwsPath
+if (-not $bwsPath) {
   Fail "Bitwarden Secrets Manager CLI (bws) was not found. Install it first: https://bitwarden.com/help/secrets-manager-cli/"
 }
 
@@ -41,5 +56,5 @@ if (-not [string]::IsNullOrWhiteSpace($Shell)) {
 $bwsArgs += @("--", $CommandLine)
 
 Write-Host "Running command with Bitwarden Secrets Manager project: $ProjectId"
-& bws @bwsArgs
+& $bwsPath @bwsArgs
 exit $LASTEXITCODE

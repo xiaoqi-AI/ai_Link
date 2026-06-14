@@ -6,6 +6,8 @@ const root = process.cwd();
 const blockedPathParts = [
   `${path.sep}.env`,
   `${path.sep}runtime${path.sep}private${path.sep}`,
+  `${path.sep}runtime${path.sep}downloads${path.sep}`,
+  `${path.sep}runtime${path.sep}tmp${path.sep}`,
   `${path.sep}node_modules${path.sep}`,
   `${path.sep}coverage${path.sep}`,
   `${path.sep}.git${path.sep}`

@@ -21,13 +21,26 @@
 
 ```powershell
 npm install
-npm run auth-hub:start
+npm run auth-hub:local:start
 ```
 
-另开一个终端执行一次本地执行器：
+执行一次端到端烟测：
 
 ```powershell
-npm run auth-hub:executor:once
+npm run auth-hub:smoke
+```
+
+启动常驻本地执行器：
+
+```powershell
+npm run auth-hub:executor:start
+```
+
+停止本地执行器和控制台：
+
+```powershell
+npm run auth-hub:executor:stop
+npm run auth-hub:local:stop
 ```
 
 开发默认值只适合本机试跑：
@@ -38,6 +51,12 @@ npm run auth-hub:executor:once
 - Codex API token：`dev-codex-token`
 
 公网、Render 或团队环境必须通过环境变量替换为强随机值。
+
+本地运行状态写入 `runtime/tmp/`：
+
+- `auth-hub-local.json`：本地控制台进程、端口和日志。
+- `auth-hub-executor-process.json`：本地执行器进程和日志。
+- `auth-hub-executor.json`：执行器最近一次轮询、任务和错误状态。
 
 ## API 契约
 
@@ -73,6 +92,8 @@ npm run auth-hub:executor:once
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
 Cloudflare Access 应限制 `voice.xiao-qi-ai.com` 只能由授权邮箱访问；应用内登录作为第二层门禁。
+
+部署前检查见 `docs/20-architecture/auth-hub-deployment-checklist.md`。
 
 ## 测试
 

@@ -23,6 +23,7 @@
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - 统一授权中枢：`docs/20-architecture/auth-hub.md`
+- 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
 - Auto Ops 示例：`examples/auto-ops/`
 - 协作规则：`AGENTS.md`
 - 贡献说明：`CONTRIBUTING.md`
@@ -35,6 +36,11 @@
 ## 常用维护命令
 
 ```powershell
+npm run check
+npm test
+npm run ai-link -- config validate
+npm run security:scan
+npm run verify:fresh
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
 powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
 powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
@@ -45,6 +51,7 @@ powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
 ```powershell
 npm install
 npm run ai-link -- doctor
+npm run ai-link -- config validate
 npm run ai-link -- providers list
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
@@ -63,13 +70,21 @@ powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -Comma
 本仓库新增一个私有授权中枢的公开 MVP 骨架，用于减少 Codex 在跨平台运营任务中反复等待人工登录的成本。
 
 ```powershell
-npm run auth-hub:start
-npm run auth-hub:executor:once
+npm run auth-hub:local:start
+npm run auth-hub:smoke
+npm run auth-hub:executor:start
 ```
 
 默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN` 和 Cloudflare Access。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
 第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。真实平台连接器应放在私有配置或私有仓中实现。
+
+停止本地服务：
+
+```powershell
+npm run auth-hub:executor:stop
+npm run auth-hub:local:stop
+```
 
 重要会话结束时可运行：
 
@@ -97,10 +112,12 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link` CLI 本地运行入口。
 - 配置优先级：会话临时指定 > 项目 local 私有配置 > 项目公开配置 > 用户全局配置 > 默认配置。
 - `mock/local-dry-run`、`openai-compatible`、`deepseek`、`kimi`、`grok` provider。
+- `ai-link config validate` 配置校验。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选路由。
 - `examples/auto-ops/` 轻量示例。
 - 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器和 mock 平台连接器。
+- GitHub Actions CI、fresh clone 验证脚本和本地安全扫描。
 
 ## 许可证
 

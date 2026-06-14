@@ -80,6 +80,12 @@ $env:BWS_ACCESS_TOKEN="<machine-account-access-token>"
 检查 provider 状态：
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
+```
+
+检查 AI Link provider 状态：
+
+```powershell
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
 ```
 
@@ -97,6 +103,12 @@ bws run --project-id <ai-link-local-dev-project-id> -- npm run ai-link -- run au
 ```
 
 真实外部模型调用可能产生费用；默认先用 `doctor` 和 `--dry-run` 验证。
+
+如果 `bws` 刚安装后当前 Codex 终端还识别不到 PATH，`tools/with-bitwarden-secrets.ps1` 和 `tools/check-bitwarden-secrets.ps1` 会自动尝试读取默认安装位置：
+
+```text
+%LOCALAPPDATA%\Programs\BitwardenSecretsManager\bin\bws.exe
+```
 
 ## GitHub Actions
 
@@ -139,6 +151,7 @@ jobs:
 
 ```powershell
 git status --short
+powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
 powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
 powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
