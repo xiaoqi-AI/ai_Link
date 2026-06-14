@@ -42,6 +42,7 @@ describe("release plan report", () => {
     assert.equal(report.release.manualGates, "tools/show-release-manual-gates.js");
     assert.equal(report.release.githubHardening, "tools/new-github-hardening-worksheet.js");
     assert.equal(report.release.setupHandoff, "tools/show-setup-handoff.js");
+    assert.equal(report.release.bwsNext, "tools/show-bws-next.js");
     assert.equal(report.release.decisions, "tools/check-release-decisions.js");
     assert.equal(report.release.decisionsNext, "tools/show-release-decision-next.js");
     assert.equal(report.release.evidence, "tools/new-release-evidence.js");
@@ -51,6 +52,7 @@ describe("release plan report", () => {
     assert.equal(report.checks.some((check) => check.name === "public quickstart release path" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release manual gates handoff" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script setup:handoff" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "BWS next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release decision next commands" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release evidence handoff" && check.status === "pass"), true);
     assert.equal(report.summary.manualOpen > 0, true);

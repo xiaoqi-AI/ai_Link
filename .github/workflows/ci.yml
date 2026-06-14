@@ -54,6 +54,9 @@ jobs:
       - name: Setup handoff
         run: npm run setup:handoff
 
+      - name: BWS next steps
+        run: npm run bws:next
+
       - name: GitHub repository safety baseline
         run: npm run github:safety
         env:

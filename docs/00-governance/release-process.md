@@ -13,6 +13,7 @@ npm run package:check
 npm run package:install-smoke
 npm run next:actions
 npm run setup:handoff
+npm run bws:next
 npm run github:safety
 npm run github:hardening
 npm run release:plan
@@ -33,6 +34,7 @@ npm run package:check:json
 npm run package:install-smoke:json
 npm run next:actions:json
 npm run setup:handoff:json
+npm run bws:next:json
 npm run github:safety:json
 npm run github:hardening:json
 npm run release:plan:json
@@ -58,6 +60,8 @@ Before publishing v0.1, confirm:
 Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to print the owner, action list, evidence, and safety boundary for each manual gate. The command is read-only: it does not change GitHub settings, create tags, publish npm packages, read secrets, or dispatch provider-live checks.
 
 Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the ordered handoff across Bitwarden setup, GitHub provider-live wiring, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
+
+Use `npm run bws:next` or `npm run bws:next:json` when you need the current Bitwarden setup state and the next safe command. The command is read-only, checks only whether bootstrap variables are present, and never prints token or project-id values.
 
 Use `npm run github:hardening` to generate the GitHub UI worksheet for branch protection, required `Verify`, secret scanning, push protection, and post-configuration evidence. The default worksheet is written under `runtime/tmp/` and is safe for public logs.
 

@@ -86,6 +86,7 @@ for (const file of [
   "tools/check-package-install.js",
   "tools/check-github-repo-safety.js",
   "tools/show-setup-handoff.js",
+  "tools/show-bws-next.js",
   "tools/new-github-hardening-worksheet.js",
   "tools/check-release-decisions.js",
   "tools/show-release-decision-next.js",
@@ -141,6 +142,8 @@ for (const scriptName of [
   "next:actions:json",
   "setup:handoff",
   "setup:handoff:json",
+  "bws:next",
+  "bws:next:json",
   "github:safety",
   "github:safety:json",
   "github:hardening",
@@ -174,6 +177,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run package:install-smoke",
   "npm run next:actions",
   "npm run setup:handoff",
+  "npm run bws:next",
   "npm run github:safety",
   "npm run github:hardening",
   "npm run release:plan",
@@ -283,6 +287,14 @@ checkContains("tools/show-setup-handoff.js", "setup handoff report", [
   "release-decision-record",
   "provider-live-cost-and-verification",
   "release-channel",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-bws-next.js", "BWS next steps report", [
+  "AI Link BWS Next Steps",
+  "BWS_ACCESS_TOKEN",
+  "present; value not printed",
+  "provider-live Environment",
   "Does not read API keys"
 ]);
 

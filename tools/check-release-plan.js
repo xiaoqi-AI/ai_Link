@@ -108,6 +108,7 @@ for (const file of [
   "tools/check-package-install.js",
   "tools/new-github-hardening-worksheet.js",
   "tools/show-setup-handoff.js",
+  "tools/show-bws-next.js",
   "tools/check-release-decisions.js",
   "tools/show-release-decision-next.js",
   "tools/update-release-decision.js",
@@ -162,6 +163,7 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run github:hardening",
   "npm run release:decisions",
   "npm run release:decisions:next",
+  "npm run bws:next",
   "npm run release:decisions:update",
   "npm run setup:handoff",
   "npm run verify:fresh",
@@ -189,6 +191,14 @@ checkContains("tools/show-release-decision-next.js", "release decision next comm
   "v0.1.0-decisions.json",
   "release:decisions:update",
   "repository-local",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-bws-next.js", "BWS next steps report", [
+  "AI Link BWS Next Steps",
+  "BWS_ACCESS_TOKEN",
+  "present; value not printed",
+  "provider-live Environment",
   "Does not read API keys"
 ]);
 
@@ -224,6 +234,8 @@ for (const scriptName of [
   "release:readiness:json",
   "setup:handoff",
   "setup:handoff:json",
+  "bws:next",
+  "bws:next:json",
   "package:check",
   "package:install-smoke",
   "package:install-smoke:json",
@@ -280,6 +292,7 @@ const report = {
     manualGates: "tools/show-release-manual-gates.js",
     githubHardening: "tools/new-github-hardening-worksheet.js",
     setupHandoff: "tools/show-setup-handoff.js",
+    bwsNext: "tools/show-bws-next.js",
     decisions: "tools/check-release-decisions.js",
     decisionsNext: "tools/show-release-decision-next.js",
     decisionsUpdate: "tools/update-release-decision.js",

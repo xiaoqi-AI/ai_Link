@@ -13,6 +13,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Route policies for outbound approval, provider type gates, model pattern gates, budget gates, sensitive text blocking, and audit metadata.
 - Structured JSON handoff for Codex skills, CI, and other agents through `--json` and `--output runtime/tmp/*.json`.
 - Bitwarden Secrets Manager runbooks and checks for keeping provider keys out of Git.
+- BWS next-step report for showing current Bitwarden setup state and the next safe command without printing token values.
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
@@ -32,6 +33,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.
 - `next:actions` is read-only; it does not read secrets, modify GitHub settings, publish packages, or dispatch live providers.
 - `setup:handoff` is read-only; it does not read secrets, modify GitHub settings, publish packages, write Bitwarden secrets, or dispatch live providers.
+- `bws:next` is read-only; it reports token and project-id presence only and does not print values.
 - `github:safety` is read-only; it does not modify GitHub settings.
 - `release:decisions` reads only the public decision record and does not approve gates by itself.
 - `release:decisions:next` reads only the public decision record and prints preview/write commands without modifying files.

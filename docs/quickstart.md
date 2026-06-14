@@ -77,6 +77,7 @@ Use this path when you want a command that works without provider credentials.
 - Keep a local run record with `--record`, then inspect it with `npm run ai-link -- runs list`.
 - Run `npm run next:actions` when you want the current top-level handoff map.
 - Run `npm run setup:handoff` when you want the ordered Bitwarden, GitHub, provider-live, and release setup checklist.
+- Run `npm run bws:next` when you want the current Bitwarden setup state and the next safe command.
 - Run `npm run github:hardening` when a maintainer is ready to review GitHub branch protection and secret scanning setup.
 - Configure real provider keys through Bitwarden Secrets Manager before using live providers.
 - Run `npm run package:install-smoke` before publishing or distributing a package build.

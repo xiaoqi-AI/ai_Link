@@ -53,6 +53,7 @@ const phases = [
       "Store provider keys and automation credentials as secret values whose keys exactly match the environment variable names."
     ],
     commands: [
+      "npm run bws:next",
       "npm run bws:plan",
       "npm run bws:worksheet",
       "npm run bws:activate",
@@ -60,6 +61,7 @@ const phases = [
     ],
     evidence: [
       "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set to non-sensitive project ids.",
+      "npm run bws:next shows the current session state and the next safe command.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
       "npm run bws:acceptance:strict passes after real setup."
     ],

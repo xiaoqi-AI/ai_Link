@@ -74,6 +74,7 @@ const actions = [
     owner: "Secret owner",
     intent: "Create the real BWS projects, machine accounts, and secret values while keeping the public repo secret-free.",
     commands: [
+      "npm run bws:next",
       "npm run bws:plan",
       "npm run bws:worksheet",
       "npm run bws:activate",
@@ -81,6 +82,7 @@ const actions = [
     ],
     evidence: [
       "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set to non-sensitive project ids.",
+      "npm run bws:next shows the current session state and the next safe command.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
       "npm run bws:acceptance:strict passes.",
       "No secret value appears in Git, docs, issues, PRs, logs, or chat."

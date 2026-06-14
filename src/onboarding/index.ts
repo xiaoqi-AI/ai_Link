@@ -91,6 +91,8 @@ const REQUIRED_SCRIPTS = [
   "release:readiness",
   "release:readiness:json",
   "skills:check",
+  "bws:next",
+  "bws:next:json",
   "security:scan",
   "verify:fresh"
 ];
@@ -181,6 +183,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run package:install-smoke:json",
         "npm run next:actions:json",
         "npm run setup:handoff:json",
+        "npm run bws:next:json",
         "npm run github:safety:json",
         "npm run github:hardening:json",
         "npm run release:plan:json",
@@ -198,6 +201,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
       customizeSkillWrite: "npm run ai-link -- skill draft --skill my_skill --description \"research with Grok, article draft with Kimi, Codex handles implementation\" --write .ai-link/local.yaml --diff --json --yes",
       realProviderKeys: [
         "npm run bws:plan",
+        "npm run bws:next",
         "npm run bws:onboard:print",
         "npm run bws:acceptance:print",
         "npm run providers:live:safe-report",
@@ -211,6 +215,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run package:install-smoke",
         "npm run next:actions",
         "npm run setup:handoff",
+        "npm run bws:next",
         "npm run github:safety",
         "npm run github:hardening",
         "npm run release:plan",

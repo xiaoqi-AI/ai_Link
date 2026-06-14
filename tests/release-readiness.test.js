@@ -42,8 +42,10 @@ describe("release readiness report", () => {
     assert.equal(report.checks.some((check) => check.name === "script release:readiness" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script next:actions" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script setup:handoff" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "script bws:next" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "next actions report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "setup handoff report" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "BWS next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script release:manual-gates" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script release:decisions" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script release:decisions:next" && check.status === "pass"), true);
