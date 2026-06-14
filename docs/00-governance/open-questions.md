@@ -20,7 +20,7 @@
 - 豆包 provider 已按火山方舟 OpenAI-compatible Chat API 接入；真实调用仍需用户配置 `ARK_API_KEY`。
 - 扣子已用本机命令适配作为公开兜底；后续真实接入是否优先走 API 或 MCP 仍需确认。
 - 是否需要把 `examples/auto-ops/` 扩展成完整示例项目或保持轻量？
-- 是否需要发布 npm 包，或继续只支持仓库本地运行？
+- `CHANGELOG.md`、`docs/releases/v0.1.0.md`、`docs/00-governance/release-process.md` 和 `release:plan` 已补充；是否需要发布 npm 包、创建 `v0.1.0` GitHub Release，或继续只支持仓库本地运行？
 
 ## 技术与部署
 
@@ -28,6 +28,7 @@
 - MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
 - MVP 已补充 `package:check` / `package:check:json`，用于在不发布 npm 的前提下模拟打包并检查公开包内容。
 - MVP 已补充 `github:safety` / `github:safety:json`，用于检查公开仓本地治理基线并在可用时只读核验 GitHub 远端安全设置。
+- MVP 已补充 `release:plan` / `release:plan:json`，用于检查 changelog、release notes、发布流程、tag 计划和 npm 发布决策项。
 - MVP 已补充 `release:readiness` / `release:readiness:json`，用于区分仓库内发布基线和 GitHub UI / npm 发布决策等人工确认项。
 - Provider dry-run 验收已补充；真实调用验收仍需用户本机通过 Bitwarden Secrets Manager 注入 provider key，或 GitHub Actions 通过 `BW_ACCESS_TOKEN` 临时读取 Bitwarden secret。
 - 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？

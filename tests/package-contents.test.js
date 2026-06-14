@@ -50,6 +50,7 @@ describe("package contents report", () => {
       await mkdir(path.join(dir, "dist"), { recursive: true });
       await mkdir(path.join(dir, "src"), { recursive: true });
       await writeFile(path.join(dir, "README.md"), "# Test package\n", "utf8");
+      await writeFile(path.join(dir, "CHANGELOG.md"), "# Changelog\n", "utf8");
       await writeFile(path.join(dir, "LICENSE"), "Apache License\nVersion 2.0\n", "utf8");
       await writeFile(path.join(dir, "dist", "cli.js"), "console.log('cli');\n", "utf8");
       await writeFile(path.join(dir, "dist", "index.js"), "export {};\n", "utf8");

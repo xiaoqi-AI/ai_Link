@@ -49,6 +49,7 @@ function checkRequiredFiles(files) {
   for (const file of [
     "package.json",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "dist/cli.js",
     "dist/index.js",
@@ -65,7 +66,7 @@ function checkRequiredFiles(files) {
 }
 
 function checkAllowedPackageSurface(files) {
-  const allowedRootFiles = new Set(["package.json", "README.md", "LICENSE"]);
+  const allowedRootFiles = new Set(["package.json", "README.md", "CHANGELOG.md", "LICENSE"]);
   const allowedRootDirs = new Set(["dist", "docs", "examples"]);
   const unexpected = files.filter((file) => {
     if (allowedRootFiles.has(file)) {
@@ -78,7 +79,7 @@ function checkAllowedPackageSurface(files) {
   addCheck(
     "package surface allowlist",
     unexpected.length === 0 ? "pass" : "fail",
-    unexpected.length === 0 ? "dist, docs, examples, README, LICENSE" : unexpected.join(", "),
+    unexpected.length === 0 ? "dist, docs, examples, README, CHANGELOG, LICENSE" : unexpected.join(", "),
     "security"
   );
 }
@@ -127,7 +128,7 @@ if (!packageJson) {
   addCheck("bin ai-link", packageJson.bin?.["ai-link"] === "dist/cli.js" ? "pass" : "fail", packageJson.bin?.["ai-link"] ?? "missing", "package");
   addCheck(
     "package files allowlist",
-    JSON.stringify(packageJson.files ?? []) === JSON.stringify(["dist", "README.md", "LICENSE", "docs", "examples"]) ? "pass" : "fail",
+    JSON.stringify(packageJson.files ?? []) === JSON.stringify(["dist", "README.md", "CHANGELOG.md", "LICENSE", "docs", "examples"]) ? "pass" : "fail",
     JSON.stringify(packageJson.files ?? []),
     "package"
   );

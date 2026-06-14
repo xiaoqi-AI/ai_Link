@@ -77,13 +77,17 @@ if (!packageJson) {
 
 for (const file of [
   "README.md",
+  "CHANGELOG.md",
   "LICENSE",
   "CONTRIBUTING.md",
   "SECURITY.md",
   "AGENTS.md",
   "tools/check-package-contents.js",
   "tools/check-github-repo-safety.js",
+  "tools/check-release-plan.js",
   "docs/user-guide.md",
+  "docs/releases/v0.1.0.md",
+  "docs/00-governance/release-process.md",
   "docs/20-architecture/configuration.md",
   "docs/20-architecture/provider-adapters.md",
   "docs/20-architecture/provider-live-verification.md",
@@ -122,6 +126,8 @@ for (const scriptName of [
   "package:check:json",
   "github:safety",
   "github:safety:json",
+  "release:plan",
+  "release:plan:json",
   "release:readiness",
   "release:readiness:json"
 ]) {
@@ -137,6 +143,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run security:scan",
   "npm run package:check",
   "npm run github:safety",
+  "npm run release:plan",
   "npm run release:readiness",
   "npm audit --omit=dev --audit-level=high"
 ]);

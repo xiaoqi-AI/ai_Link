@@ -15,6 +15,7 @@
 - `SECURITY.md` 是否说明安全问题不要直接公开细节。
 - `npm run package:check` 是否通过，确认 npm dry-run 包内容不含测试产物、运行态、自动化目录或敏感本地文件。
 - `npm run github:safety` 是否通过；如果输出 manual，是否已在 GitHub UI 或 `gh` 环境中确认对应安全项。
+- `npm run release:plan` 是否通过，且 changelog、GitHub Release 草稿、tag 计划和 npm 决策项是否明确。
 - `npm run release:readiness` 是否通过，且人工确认项是否有明确 owner 或后续动作。
 - 是否有敏感信息、账号信息、二维码、登录态、私密截图或个人数据误入 Git。
 - 本地 `main` 是否已推送并与 `origin/main` 对齐。

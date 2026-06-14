@@ -50,6 +50,9 @@ jobs:
         env:
           AI_LINK_GITHUB_SAFETY_DISABLE_REMOTE: "1"
 
+      - name: Release plan
+        run: npm run release:plan
+
       - name: Release readiness
         run: npm run release:readiness
 

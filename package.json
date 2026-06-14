@@ -10,6 +10,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "docs",
     "examples"
@@ -26,6 +27,8 @@
     "package:check:json": "npm run build && node tools/check-package-contents.js --json",
     "github:safety": "node tools/check-github-repo-safety.js",
     "github:safety:json": "node tools/check-github-repo-safety.js --json",
+    "release:plan": "node tools/check-release-plan.js",
+    "release:plan:json": "node tools/check-release-plan.js --json",
     "release:readiness": "node tools/check-release-readiness.js",
     "release:readiness:json": "node tools/check-release-readiness.js --json",
     "onboard": "npm run ai-link -- onboard",
