@@ -2,9 +2,10 @@
 
 ## GitHub
 
-- 是否使用 `xiaoqi-AI/ai_Link` 作为远端仓库？
-- 仓库是否保持 private？
-- 是否允许登录 GitHub CLI 后由 Codex 创建远端并推送？
+- 仓库已确认为公开 GitHub：`https://github.com/xiaoqi-AI/ai_Link`。
+- 是否要为 `main` 配置 GitHub branch protection 或 ruleset？
+- 是否需要启用 GitHub Discussions？
+- 项目许可证尚未确认，后续需要选择是否添加 `LICENSE`。
 
 ## 产品方向
 
@@ -22,4 +23,3 @@
 
 - 当前已建立项目镜像目录，是否需要进一步更新 `D:\llm-wiki` 的全局索引、图谱和总览？
 - 哪些内容适合长期沉淀，哪些只应保留在项目仓库？
-

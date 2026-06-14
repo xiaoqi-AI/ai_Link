@@ -3,31 +3,30 @@
 ## 真源
 
 - 本地工作区：`G:\codex_workpace\ai_Link`
+- GitHub 远端：`https://github.com/xiaoqi-AI/ai_Link`
+- GitHub 可见性：公开仓库
 - 个人知识库镜像：`D:\llm-wiki\wiki\projects\ai_Link`
-- GitHub 远端：待授权后创建或绑定
 
-多电脑协作时，GitHub 远端应成为项目真源；知识库镜像用于长期上下文和会话交接，不代替 Git。
+多电脑协作时，GitHub 远端是项目真源；知识库镜像用于长期上下文和会话交接，不代替 Git。
 
-## GitHub 初始化建议
+## 每次更新的同步要求
 
-建议使用：
+1. 修改前检查当前 Git 状态。
+2. 修改后运行必要验证。
+3. 如果改动影响用户使用、安装、启动、限制条件或协作方式，同步更新用户指引。
+4. 同步知识库镜像并校验。
+5. 提交到本地 Git。
+6. 推送到 GitHub。
+7. 确认本地分支与 `origin/main` 对齐。
 
-- owner：`xiaoqi-AI`
-- repo：`ai_Link`
-- visibility：private
-- branch：`main`
-
-当前 GitHub CLI 未登录时，只能完成本地 Git 初始化，不能创建远端仓库或推送。
-
-## 提交范围
+## 公开仓库提交范围
 
 可以提交：
 
-- 项目文档
-- 源码
-- 测试
-- 小型配置
-- 已脱敏的会话摘要和治理记录
+- 项目文档、用户指引和治理记录
+- 源码、测试和小型配置
+- `.github` 下的 issue/PR 模板
+- 已脱敏的会话摘要和决策记录
 
 禁止提交：
 
@@ -37,6 +36,13 @@
 - 个人财务或交易信息
 - `runtime/private/`
 - `node_modules/`、构建产物、缓存、日志
+
+## 公开仓库建议
+
+- `main` 保持可用，尽量避免直接提交未验证的破坏性改动。
+- 条件允许时，在 GitHub 设置主分支保护或 ruleset，限制强推和误删。
+- 对用户可见的能力变化，维护 `README.md`、`docs/user-guide.md`、issue 模板和 PR 模板。
+- 许可证未确认前，不要自动添加 `LICENSE`。
 
 ## 换电脑前
 
@@ -49,7 +55,7 @@
 ## 新电脑接手
 
 1. 克隆 GitHub 仓库。
-2. 阅读 `README.md`、`AGENTS.md`、`docs/00-governance/`。
+2. 阅读 `README.md`、`AGENTS.md`、`docs/user-guide.md` 和 `docs/00-governance/`。
 3. 检查 `D:\llm-wiki` 是否存在。
 4. 运行治理检查和必要安装脚本。
 5. 再开始功能开发。

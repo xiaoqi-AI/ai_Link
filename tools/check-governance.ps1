@@ -5,12 +5,22 @@ $required = @(
   "README.md",
   "AGENTS.md",
   ".gitignore",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  ".github/ISSUE_TEMPLATE/bug_report.md",
+  ".github/ISSUE_TEMPLATE/feature_request.md",
+  ".github/ISSUE_TEMPLATE/documentation_update.md",
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  "docs/user-guide.md",
   "docs/00-governance/workspace-governance.md",
   "docs/00-governance/storage-sync-and-git-policy.md",
+  "docs/00-governance/public-github-maintenance.md",
+  "docs/00-governance/user-guidance-policy.md",
   "docs/00-governance/session-closeout-checklist.md",
   "docs/00-governance/open-questions.md",
   "docs/project-ledger/README.md",
   "docs/project-ledger/sessions/2026-06-14-initialization.md",
+  "docs/project-ledger/sessions/2026-06-14-public-github-maintenance.md",
   "docs/90-templates/session-summary.md",
   "docs/90-templates/decision-record.md",
   "tools/check-governance.ps1",
@@ -48,4 +58,3 @@ if (Test-Path -LiteralPath $mirror) {
 }
 
 Write-Host "Governance check passed."
-

@@ -40,6 +40,9 @@ $includeRoots = @(
   "README.md",
   "AGENTS.md",
   ".gitignore",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  ".github",
   "docs",
   "tools"
 )
