@@ -125,3 +125,21 @@ test("validateConfig catches invalid policy approval modes", () => {
   assert.ok(issues.some((issue) => issue.severity === "error"));
   assert.ok(issues.some((issue) => issue.path === "policies.external_action.approval.mode"));
 });
+
+test("validateConfig catches invalid policy provider gates and metadata", () => {
+  const issues = validateConfig({
+    policies: {
+      external_action: {
+        allowedProviderTypes: ["coze", "unknown"],
+        blockedProviderTypes: ["coze"],
+        auditTags: ["ok-tag", "bad tag"],
+        dataClass: "secret"
+      }
+    }
+  } as unknown as Parameters<typeof validateConfig>[0]);
+
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.allowedProviderTypes.1"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.blockedProviderTypes"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.auditTags.1"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.dataClass"));
+});

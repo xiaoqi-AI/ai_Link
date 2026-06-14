@@ -74,6 +74,13 @@ policies:
   external_action:
     blockSensitive: true
     allowOutbound: user-approved
+    allowedProviderTypes:
+      - coze
+      - mock
+    auditTags:
+      - external-action
+      - human-approval
+    dataClass: public
     approval:
       required: true
       mode: live
@@ -90,6 +97,13 @@ policies:
 - `never`：禁止调用非 mock provider，即使加了审批参数也会阻断。
 - `user-approved`：默认推荐值；真实调用非 mock provider 前必须由用户显式批准。
 - `always`：允许真实外部调用，但仍会执行敏感内容扫描，除非用户显式加 `--allow-sensitive`。
+
+policy 也可以继续收紧 provider 类型和审计元数据：
+
+- `allowedProviderTypes`：只允许列出的 provider type；不匹配时会尝试 fallback，显式指定被阻断 provider 时会直接报错。
+- `blockedProviderTypes`：禁止列出的 provider type；不能和 `allowedProviderTypes` 同时包含同一个 type。
+- `auditTags`：稳定审计标签，只允许字母、数字、点、下划线和短横线；会进入运行结果 metadata，方便后续接授权中枢或日志。
+- `dataClass`：数据分类，当前支持 `public`、`internal`、`restricted`；会进入运行结果 metadata，用于后续风控和报表。
 
 运行示例：
 
@@ -180,6 +194,7 @@ npm run ai-link -- config validate
 - route 的主 provider 和 fallback provider 是否已配置。
 - workflow stage 指向的 route 和 provider 是否已配置。
 - workflow stage 和 policy 的 `approval.mode` 是否为 `always` 或 `live`。
+- policy 的 `allowedProviderTypes`、`blockedProviderTypes`、`auditTags` 和 `dataClass` 是否有效。
 - provider type 是否受支持。
 - 模型 provider 是否配置了 `baseUrl` 或 `endpoint`。
 - 自定义策略正则是否有效。

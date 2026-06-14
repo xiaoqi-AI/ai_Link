@@ -56,6 +56,13 @@ policies:
   external_action:
     blockSensitive: true
     allowOutbound: user-approved
+    allowedProviderTypes:
+      - coze
+      - mock
+    auditTags:
+      - external-action
+      - human-approval
+    dataClass: public
     approval:
       required: true
       mode: live
@@ -75,7 +82,7 @@ workflows:
         inputFrom: original-and-previous
 ```
 
-第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。识别到 Agent workflow 时，候选 route 会带上 `external_action` policy；直接 `run` 真实执行需要 `--approve-policy`，workflow 真实执行需要 `--approve-stage <stage>` 或 `--approve-all`。
+第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。识别到 Agent workflow 时，候选 route 会带上 `external_action` policy、provider type gate 和审计 metadata；直接 `run` 真实执行需要 `--approve-policy`，workflow 真实执行需要 `--approve-stage <stage>` 或 `--approve-all`。
 
 推荐先预览，再显式写入本机 local 配置：
 

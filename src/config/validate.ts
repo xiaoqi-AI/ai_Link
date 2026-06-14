@@ -26,6 +26,7 @@ const PROVIDER_TYPES = new Set<ProviderType>([
 
 const POLICY_ALLOW_OUTBOUND = new Set(["never", "user-approved", "always"]);
 const WORKFLOW_APPROVAL_MODES = new Set(["always", "live"]);
+const POLICY_DATA_CLASSES = new Set(["public", "internal", "restricted"]);
 
 export function validateConfig(config: AiLinkConfig): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -257,11 +258,60 @@ function validatePolicy(name: string, policy: PolicyConfig, issues: ValidationIs
     }
   }
 
+  validateProviderTypeList(name, "allowedProviderTypes", policy.allowedProviderTypes, issues);
+  validateProviderTypeList(name, "blockedProviderTypes", policy.blockedProviderTypes, issues);
+
+  const allowed = new Set(policy.allowedProviderTypes ?? []);
+  for (const providerType of policy.blockedProviderTypes ?? []) {
+    if (allowed.has(providerType)) {
+      issues.push({
+        severity: "error",
+        path: `policies.${name}.blockedProviderTypes`,
+        message: `Provider type "${providerType}" cannot be both allowed and blocked.`
+      });
+    }
+  }
+
+  if (policy.dataClass && !POLICY_DATA_CLASSES.has(policy.dataClass)) {
+    issues.push({
+      severity: "error",
+      path: `policies.${name}.dataClass`,
+      message: `dataClass must be one of: ${Array.from(POLICY_DATA_CLASSES).join(", ")}.`
+    });
+  }
+
+  for (const [index, tag] of (policy.auditTags ?? []).entries()) {
+    if (!tag || !/^[A-Za-z0-9._-]+$/.test(tag)) {
+      issues.push({
+        severity: "error",
+        path: `policies.${name}.auditTags.${index}`,
+        message: "auditTags must contain stable names using letters, numbers, dot, underscore, or dash."
+      });
+    }
+  }
+
   if (policy.approval?.mode && !WORKFLOW_APPROVAL_MODES.has(policy.approval.mode)) {
     issues.push({
       severity: "error",
       path: `policies.${name}.approval.mode`,
       message: "approval.mode must be always or live."
     });
+  }
+}
+
+function validateProviderTypeList(
+  policyName: string,
+  field: "allowedProviderTypes" | "blockedProviderTypes",
+  values: ProviderType[] | undefined,
+  issues: ValidationIssue[]
+): void {
+  for (const [index, providerType] of (values ?? []).entries()) {
+    if (!PROVIDER_TYPES.has(providerType)) {
+      issues.push({
+        severity: "error",
+        path: `policies.${policyName}.${field}.${index}`,
+        message: `Provider type "${providerType}" is not supported.`
+      });
+    }
   }
 }

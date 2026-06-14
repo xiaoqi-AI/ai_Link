@@ -148,7 +148,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link workflow run` 多阶段工作流串联，默认示例支持 Grok 调研后交给 Kimi 写草稿。
 - `ai-link run` / `ai-link workflow run` 支持 `--json` 和 `--output runtime/tmp/*.json`，方便 Codex skill 稳定读取结构化结果。
 - `ai-link run` / `ai-link workflow run` 支持 `--record`，把本地运行记录写入 `runtime/tmp/ai-link-runs/`；`ai-link runs list/show` 可查看本地运行索引和单次记录，`workflow run --resume-from` 可从本地 workflow 记录续跑。
-- route policy 会执行 `allowOutbound` 出站规则；默认真实外部 provider 调用需要 `--approve-policy`、`--approve-stage <stage>` 或 `--approve-all`，`agent_flow` 还会标记为 `external_action`。
+- route policy 会执行 `allowOutbound` 出站规则和 provider type 限制；默认真实外部 provider 调用需要 `--approve-policy`、`--approve-stage <stage>` 或 `--approve-all`，`agent_flow` 还会标记为 `external_action` 并保留审计 metadata。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
 - `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。

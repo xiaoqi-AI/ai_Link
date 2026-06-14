@@ -6,11 +6,13 @@
 - 新增 `npm run bws:acceptance`，默认生成 `runtime/tmp/bws-acceptance-report.md`。
 - 新增 `npm run bws:acceptance:print`，用于无文件输出地查看当前验收状态。
 - 新增 `npm run bws:acceptance:strict`，用于 Bitwarden / GitHub 实配完成后的正式验收。
+- 验收报告新增 BWS manifest consistency 检查，确认 GitHub Environment 要用到的 secret key 都已列入对应 Bitwarden 项目的 expected keys。
 
 ## 验收范围
 
 - 本地 `bws` CLI、`AI_LINK_BWS_PROJECT_ID`、`AI_LINK_BWS_CI_PROJECT_ID` 和当前会话 token 是否就绪。
 - GitHub `provider-live` workflow 是否仍通过 Bitwarden Secrets Manager 注入密钥。
+- `.ai-link/bitwarden-secrets.manifest.json` 中 GitHub secret-id 映射是否和 Bitwarden 项目 expected keys 一致。
 - BWS GitHub variable ID helper 是否可用。
 - `external_action` policy 是否在 dry-run 中只提示、在 live 运行中阻断未批准动作。
 - 公开配置安全扫描和 Git 工作区状态。

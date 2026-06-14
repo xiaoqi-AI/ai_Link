@@ -38,6 +38,21 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
     }
 
     const model = request.model ?? route.model ?? provider.model ?? "default";
+    const providerPolicyError = validateProviderTypePolicy({
+      task: request.task,
+      policyName,
+      policy,
+      providerName,
+      provider
+    });
+    if (providerPolicyError) {
+      attempts.push({ provider: providerName, model, ok: false, error: providerPolicyError.message });
+      if (request.provider) {
+        throw providerPolicyError;
+      }
+      continue;
+    }
+
     const approval = resolvePolicyApproval({
       task: request.task,
       policyName,
@@ -65,7 +80,11 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
         attempts,
         metadata: {
           ...result.metadata,
-          policy: policyName
+          policy: policyName,
+          policyDataClass: policy.dataClass,
+          policyAuditTags: policy.auditTags ?? [],
+          allowOutbound: policy.allowOutbound ?? "always",
+          providerType: provider.type
         }
       };
     } catch (error) {
@@ -177,4 +196,44 @@ function resolvePolicyApproval(input: {
 
 function isOutboundProvider(provider: ProviderConfig): boolean {
   return provider.type !== "mock";
+}
+
+function validateProviderTypePolicy(input: {
+  task: string;
+  policyName: string;
+  policy: PolicyConfig;
+  providerName: string;
+  provider: ProviderConfig;
+}): AiLinkError | undefined {
+  const allowed = input.policy.allowedProviderTypes ?? [];
+  if (allowed.length > 0 && !allowed.includes(input.provider.type)) {
+    return new AiLinkError(
+      `Provider "${input.providerName}" is blocked by policy "${input.policyName}" for task "${input.task}".`,
+      "POLICY_PROVIDER_TYPE_BLOCKED",
+      {
+        task: input.task,
+        policy: input.policyName,
+        provider: input.providerName,
+        providerType: input.provider.type,
+        allowedProviderTypes: allowed
+      }
+    );
+  }
+
+  const blocked = input.policy.blockedProviderTypes ?? [];
+  if (blocked.includes(input.provider.type)) {
+    return new AiLinkError(
+      `Provider "${input.providerName}" is blocked by policy "${input.policyName}" for task "${input.task}".`,
+      "POLICY_PROVIDER_TYPE_BLOCKED",
+      {
+        task: input.task,
+        policy: input.policyName,
+        provider: input.providerName,
+        providerType: input.provider.type,
+        blockedProviderTypes: blocked
+      }
+    );
+  }
+
+  return undefined;
 }

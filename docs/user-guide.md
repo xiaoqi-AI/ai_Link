@@ -65,7 +65,7 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 
 `skill draft` 会把自然语言说明转换成候选 `routes` 和 `workflows`；加 `--write .ai-link/local.yaml` 时默认只预览，只有再加 `--yes` 才会写入。`workflow run` 会按配置串联多个阶段。默认 `auto_ops` 示例会依次运行 Grok 调研、Kimi 写稿和 Coze agent workflow dry-run。需要给后续 Codex 步骤稳定交接时，用 `--output runtime/tmp/*.json` 写入结构化结果；需要保留本地运行索引时，可以加 `--record`，记录会写入 `runtime/tmp/ai-link-runs/`，随后用 `runs list` 查看最近记录、用 `runs show <id>` 查看单条记录。多阶段任务可以先用 `--stages research --record` 留下阶段记录，再用 `--resume-from latest` 或 `--resume-from <id>` 续跑剩余阶段；需要从某个阶段重跑时，加 `--from-stage article_draft`。这些运行产物默认不进入 Git；`--record` 不会在 request 里单独保存原始 input，但 provider 输出可能回显任务内容，所以仍只适合留在本地临时目录。Codex skill 示例见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`。
 
-默认 policy 使用 `allowOutbound: user-approved`，所以真实调用 DeepSeek、Kimi、Grok、OpenAI-compatible 或 Coze 等外部 provider 前都需要人工批准；dry-run 只显示审批提示。直接 `run` 真实调用前需要加 `--approve-policy`，通过 workflow 真实运行前需要加对应的 `--approve-stage <stage>`，完整工作流可用 `--approve-all`。`auto_ops.agent_flow` 额外标记为 `external_action` policy，用来提示外部工具、平台自动化或费用风险。
+默认 policy 使用 `allowOutbound: user-approved`，所以真实调用 DeepSeek、Kimi、Grok、OpenAI-compatible 或 Coze 等外部 provider 前都需要人工批准；dry-run 只显示审批提示。直接 `run` 真实调用前需要加 `--approve-policy`，通过 workflow 真实运行前需要加对应的 `--approve-stage <stage>`，完整工作流可用 `--approve-all`。`auto_ops.agent_flow` 额外标记为 `external_action` policy，只允许 `coze` / `mock` 这类 agent workflow 路径，并在结果 metadata 中保留审计标签和数据分类。
 
 ## 统一授权中枢本地试跑
 

@@ -501,6 +501,27 @@ test("run requires approval for user-approved outbound providers", () => {
   }
 });
 
+test("run blocks provider overrides that violate route policy provider types", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-provider-type-policy-"));
+  try {
+    const result = runCli(tempRoot, [
+      "run",
+      "auto_ops.agent_flow",
+      "--provider",
+      "grok",
+      "--dry-run",
+      "--input",
+      "preview agent route"
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /blocked by policy/);
+    assert.match(result.stderr, /allowedProviderTypes/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("runs show refuses paths outside local run records", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-guard-"));
   try {

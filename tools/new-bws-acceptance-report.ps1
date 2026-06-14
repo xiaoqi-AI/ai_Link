@@ -133,6 +133,48 @@ function Escape-MarkdownCell {
   return $Value.Replace("|", "\|").Replace([string][char]0x60, "'")
 }
 
+function Test-BwsManifestConsistency {
+  param([string]$ManifestPath = ".ai-link/bitwarden-secrets.manifest.json")
+
+  $issues = @()
+  if (-not (Test-Path -LiteralPath $ManifestPath)) {
+    return @("Manifest not found: $ManifestPath")
+  }
+
+  try {
+    $manifest = Get-Content -Raw -Encoding UTF8 -LiteralPath $ManifestPath | ConvertFrom-Json
+  } catch {
+    return @("Manifest could not be parsed.")
+  }
+
+  foreach ($environmentEntry in $manifest.githubEnvironments.PSObject.Properties) {
+    $environment = $environmentEntry.Value
+    $matchingProjects = @($manifest.projects.PSObject.Properties | Where-Object {
+      $_.Value.machineAccount -eq $environment.machineAccount
+    })
+
+    if ($matchingProjects.Count -eq 0) {
+      $issues += "GitHub environment '$($environmentEntry.Name)' has no project with machine account '$($environment.machineAccount)'."
+      continue
+    }
+
+    foreach ($projectEntry in $matchingProjects) {
+      $expectedKeys = @($projectEntry.Value.expectedSecretKeys)
+      foreach ($secretVariable in $environment.secretIdVariables.PSObject.Properties) {
+        if ($expectedKeys -notcontains $secretVariable.Name) {
+          $issues += "Project '$($projectEntry.Name)' is missing expectedSecretKeys entry '$($secretVariable.Name)' used by GitHub environment '$($environmentEntry.Name)'."
+        }
+      }
+
+      if ($projectEntry.Value.githubEnvironmentSecret -and $projectEntry.Value.githubEnvironmentSecret -ne $environment.bootstrapSecret) {
+        $issues += "Project '$($projectEntry.Name)' uses GitHub bootstrap secret '$($projectEntry.Value.githubEnvironmentSecret)' but environment '$($environmentEntry.Name)' expects '$($environment.bootstrapSecret)'."
+      }
+    }
+  }
+
+  return $issues
+}
+
 if ($Help) {
   Show-Help
   exit 0
@@ -189,6 +231,13 @@ if ($env:GH_TOKEN -or $env:GITHUB_TOKEN) {
   Add-Check "GitHub API token" "pass" "present in current session; value not printed"
 } else {
   Add-Check "GitHub API token" "pending" "set GH_TOKEN or GITHUB_TOKEN only when checking remote GitHub Environment names"
+}
+
+$manifestIssues = @(Test-BwsManifestConsistency)
+if ($manifestIssues.Count -eq 0) {
+  Add-Check "BWS manifest consistency" "pass" "GitHub environment secret-id mappings match Bitwarden project expected keys"
+} else {
+  Add-Check "BWS manifest consistency" "fail" ($manifestIssues -join "; ")
 }
 
 if ($npmPath) {

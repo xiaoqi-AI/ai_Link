@@ -147,3 +147,89 @@ test("runAiLink blocks outbound providers when policy disallows outbound", async
     /blocked by outbound policy/
   );
 });
+
+test("runAiLink enforces provider type policy and can fall back to an allowed provider", async () => {
+  const config = {
+    providers: {
+      grok: {
+        type: "grok" as const,
+        baseUrl: "https://api.x.ai/v1",
+        model: "grok-test",
+        apiKey: "test-key"
+      },
+      mock: {
+        type: "mock" as const,
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.agent": {
+        provider: "grok",
+        fallback: ["mock"],
+        policy: "external_action"
+      }
+    },
+    policies: {
+      external_action: {
+        allowedProviderTypes: ["coze" as const, "mock" as const],
+        allowOutbound: "user-approved" as const
+      }
+    }
+  };
+
+  const result = await runAiLink(config, {
+    task: "demo.agent",
+    input: "preview",
+    dryRun: true
+  });
+
+  assert.equal(result.provider, "mock");
+  assert.equal(result.attempts[0].ok, false);
+  assert.match(result.attempts[0].error ?? "", /blocked by policy/);
+  assert.deepEqual(result.metadata.policyAuditTags, []);
+
+  await assert.rejects(
+    () => runAiLink(config, {
+      task: "demo.agent",
+      provider: "grok",
+      input: "preview",
+      dryRun: true
+    }),
+    /blocked by policy/
+  );
+});
+
+test("runAiLink exposes policy audit metadata", async () => {
+  const config = {
+    providers: {
+      mock: {
+        type: "mock" as const,
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.local": {
+        provider: "mock",
+        policy: "local_only"
+      }
+    },
+    policies: {
+      local_only: {
+        allowOutbound: "never" as const,
+        auditTags: ["local-only", "no-outbound"],
+        dataClass: "internal" as const
+      }
+    }
+  };
+
+  const result = await runAiLink(config, {
+    task: "demo.local",
+    input: "safe local task"
+  });
+
+  assert.equal(result.metadata.policy, "local_only");
+  assert.equal(result.metadata.policyDataClass, "internal");
+  assert.deepEqual(result.metadata.policyAuditTags, ["local-only", "no-outbound"]);
+  assert.equal(result.metadata.allowOutbound, "never");
+  assert.equal(result.metadata.providerType, "mock");
+});

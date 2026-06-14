@@ -93,11 +93,16 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
   policies: {
     default: {
       blockSensitive: true,
-      allowOutbound: "user-approved"
+      allowOutbound: "user-approved",
+      auditTags: ["default-outbound"],
+      dataClass: "public"
     },
     external_action: {
       blockSensitive: true,
       allowOutbound: "user-approved",
+      allowedProviderTypes: ["coze", "mock"],
+      auditTags: ["external-action", "human-approval"],
+      dataClass: "public",
       approval: {
         required: true,
         mode: "live",

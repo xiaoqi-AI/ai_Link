@@ -9,6 +9,7 @@ export type ProviderType =
 export type ApiStyle = "chat-completions" | "responses";
 
 export type MessageRole = "system" | "user" | "assistant" | "tool";
+export type PolicyDataClass = "public" | "internal" | "restricted";
 
 export interface ChatMessage {
   role: MessageRole;
@@ -63,6 +64,10 @@ export interface WorkflowConfig {
 export interface PolicyConfig {
   blockSensitive?: boolean;
   allowOutbound?: "never" | "user-approved" | "always";
+  allowedProviderTypes?: ProviderType[];
+  blockedProviderTypes?: ProviderType[];
+  auditTags?: string[];
+  dataClass?: PolicyDataClass;
   blockPatterns?: string[];
   approval?: WorkflowStageApprovalConfig;
 }
