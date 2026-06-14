@@ -20,9 +20,10 @@ npm run ai-link -- run auto_ops.research --config examples/auto-ops/project.yaml
 ```powershell
 npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --input-file examples/auto-ops/sample-input.md
 npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --input-file examples/auto-ops/sample-input.md --output runtime/tmp/auto-ops-example.json
+npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --input-file examples/auto-ops/sample-input.md --record
 ```
 
-`--output` 会写入完整 JSON 结果，方便 Codex skill 或后续脚本继续读取；该参数只允许写入 `runtime/tmp/`，不要提交运行产物。
+`--output` 会写入完整 JSON 结果，方便 Codex skill 或后续脚本继续读取；`--record` 会写入本地运行记录并更新 `runtime/tmp/ai-link-runs/index.json`。这些参数只写入 `runtime/tmp/` 下的运行产物，不要提交到 Git。
 
 ## Mock 本地执行
 
