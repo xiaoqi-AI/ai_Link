@@ -11,6 +11,7 @@ export function getProviderAdapter(provider: ProviderConfig): ProviderAdapter {
     case "openai-compatible":
     case "deepseek":
     case "kimi":
+    case "doubao":
     case "grok":
       return openAiCompatibleProvider;
     case "coze":

@@ -14,12 +14,12 @@ const STAGE_HINTS: Array<{ stage: string; patterns: RegExp[]; fallback?: string[
   {
     stage: "research",
     patterns: [/调研|研究|搜索|资料|信息收集|research|survey/i],
-    fallback: ["deepseek", "kimi", "mock"]
+    fallback: ["deepseek", "doubao", "kimi", "mock"]
   },
   {
     stage: "article_draft",
     patterns: [/写作|文章|草稿|撰写|改写|writing|article|draft/i],
-    fallback: ["deepseek", "mock"]
+    fallback: ["deepseek", "doubao", "mock"]
   },
   {
     stage: "agent_flow",
@@ -53,7 +53,7 @@ export function draftRoutesFromNaturalLanguage(options: DraftRouteOptions): AiLi
     routes[routeKey] = {
       provider: provider.name,
       policy: inferPolicy(stage.stage),
-      fallback: stage.fallback,
+      fallback: stage.fallback?.filter((fallback) => fallback !== provider.name),
       capabilities: inferCapabilities(stage.stage)
     };
   }

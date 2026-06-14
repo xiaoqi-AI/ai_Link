@@ -20,6 +20,7 @@ const PROVIDER_TYPES = new Set<ProviderType>([
   "openai-compatible",
   "deepseek",
   "kimi",
+  "doubao",
   "grok",
   "coze"
 ]);

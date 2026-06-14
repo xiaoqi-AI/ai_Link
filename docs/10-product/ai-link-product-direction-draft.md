@@ -93,7 +93,7 @@ ai-link run coze.workflow --provider coze
 
 第一版应支持多种方式，但公开文档默认推荐环境变量：
 
-- 环境变量：例如 `GROK_API_KEY`、`KIMI_API_KEY`、`DEEPSEEK_API_KEY`。
+- 环境变量：例如 `XAI_API_KEY`、`MOONSHOT_API_KEY`、`ARK_API_KEY`、`DEEPSEEK_API_KEY`。
 - 用户全局配置：只存用户本机，不进入项目仓库。
 - 项目 local 私有配置：适合单项目覆盖，必须加入 `.gitignore`。
 - 系统凭据管理器：作为后续增强方向预留。
@@ -168,7 +168,7 @@ routes:
 1. 定义配置文件格式和优先级。
 2. 定义 provider adapter 接口。
 3. 支持至少一个通用 OpenAI-compatible provider。
-4. 支持 DeepSeek 和 Kimi 作为首批示例 provider。
+4. 支持 DeepSeek、Kimi 和豆包作为首批示例 provider。
 5. 支持 Grok provider；为扣子预留 Agent / workflow provider 类型。
 6. 提供 `ai-link run` 的最小命令行入口。
 7. 提供 Codex skill 调用约定。
@@ -185,7 +185,7 @@ routes:
 
 ## 待确认问题
 
-- 是否需要补充豆包 provider。
+- 豆包 provider 已进入 MVP；后续仅需确认是否要补充更细的火山方舟 Responses API / 工具调用能力。
 - 是否需要发布 npm 包，或继续只支持仓库本地运行。
 - 扣子接入优先走 API、命令行、MCP，还是其他方式。
 - 是否需要将 auto-ops 从轻量示例扩展成完整示例项目。

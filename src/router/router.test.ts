@@ -15,6 +15,21 @@ test("runAiLink dry-runs the configured Grok route", async () => {
   assert.match(result.output, /dry-run:grok/);
 });
 
+test("runAiLink dry-runs the configured Doubao provider", async () => {
+  const result = await runAiLink(DEFAULT_CONFIG, {
+    task: "provider.test",
+    provider: "doubao",
+    input: "hello",
+    dryRun: true
+  });
+
+  assert.equal(result.provider, "doubao");
+  assert.equal(result.model, "doubao-seed-1-8-251228");
+  assert.equal(result.metadata.providerType, "doubao");
+  assert.match(result.output, /dry-run:doubao/);
+  assert.match(result.output, /ark\.cn-beijing\.volces\.com\/api\/v3\/chat\/completions/);
+});
+
 test("runAiLink can use the local mock provider", async () => {
   const result = await runAiLink(DEFAULT_CONFIG, {
     task: "unknown.task",

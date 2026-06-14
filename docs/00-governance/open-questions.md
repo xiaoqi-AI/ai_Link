@@ -15,9 +15,9 @@
 
 - 第一阶段公开定位已确认：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。
 - MVP 已采用 Apache-2.0 许可证、TypeScript / Node.js CLI、配置文件和 Codex skill 调用约定。
-- 首批 provider 已覆盖：mock/local-dry-run、openai-compatible、DeepSeek、Kimi、Grok、Coze agent dry-run / local command。
+- 首批 provider 已覆盖：mock/local-dry-run、openai-compatible、DeepSeek、Kimi、豆包、Grok、Coze agent dry-run / local command。
 - `ai-link workflow run` 已支持按阶段串联 route，默认 auto_ops 示例为 Grok 调研、Kimi 写稿、Coze agent workflow。
-- 后续是否需要补充豆包 provider？
+- 豆包 provider 已按火山方舟 OpenAI-compatible Chat API 接入；真实调用仍需用户配置 `ARK_API_KEY`。
 - 扣子已用本机命令适配作为公开兜底；后续真实接入是否优先走 API 或 MCP 仍需确认。
 - 是否需要把 `examples/auto-ops/` 扩展成完整示例项目或保持轻量？
 - 是否需要发布 npm 包，或继续只支持仓库本地运行？

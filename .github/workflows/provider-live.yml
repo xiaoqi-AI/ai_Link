@@ -61,6 +61,14 @@ jobs:
           secrets: |
             ${{ vars.BWS_MOONSHOT_API_KEY_SECRET_ID }} > MOONSHOT_API_KEY
 
+      - name: Get Doubao key from Bitwarden
+        if: ${{ vars.BWS_ARK_API_KEY_SECRET_ID != '' }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BWS_ARK_API_KEY_SECRET_ID }} > ARK_API_KEY
+
       - name: Get Grok key from Bitwarden
         if: ${{ vars.BWS_XAI_API_KEY_SECRET_ID != '' }}
         uses: bitwarden/sm-action@v2

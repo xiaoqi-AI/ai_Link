@@ -65,7 +65,7 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 
 `skill draft` 会把自然语言说明转换成候选 `routes` 和 `workflows`；加 `--write .ai-link/local.yaml` 时默认只预览，只有再加 `--yes` 才会写入。`workflow run` 会按配置串联多个阶段。默认 `auto_ops` 示例会依次运行 Grok 调研、Kimi 写稿和 Coze agent workflow dry-run。需要给后续 Codex 步骤稳定交接时，用 `--output runtime/tmp/*.json` 写入结构化结果；需要保留本地运行索引时，可以加 `--record`，记录会写入 `runtime/tmp/ai-link-runs/`，随后用 `runs list` 查看最近记录、用 `runs show <id>` 查看单条记录。多阶段任务可以先用 `--stages research --record` 留下阶段记录，再用 `--resume-from latest` 或 `--resume-from <id>` 续跑剩余阶段；需要从某个阶段重跑时，加 `--from-stage article_draft`。这些运行产物默认不进入 Git；`--record` 不会在 request 里单独保存原始 input，但 provider 输出可能回显任务内容，所以仍只适合留在本地临时目录。Codex skill 示例见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`。
 
-默认 policy 使用 `allowOutbound: user-approved`，所以真实调用 DeepSeek、Kimi、Grok、OpenAI-compatible 或 Coze 等外部 provider 前都需要人工批准；dry-run 只显示审批提示。直接 `run` 真实调用前需要加 `--approve-policy`，通过 workflow 真实运行前需要加对应的 `--approve-stage <stage>`，完整工作流可用 `--approve-all`。`auto_ops.agent_flow` 额外标记为 `external_action` policy，只允许 `coze` / `mock` 这类 agent workflow 路径，并在结果 metadata 中保留审计标签和数据分类。policy 还可以配置 `allowedModels`、`blockedModels` 和 `budget`，在密钥可用前先限制可用模型与单次调用预算；`--record` 生成的本地运行记录会额外写入顶层 `audit` 摘要，方便后续复盘或接授权中枢。
+默认 policy 使用 `allowOutbound: user-approved`，所以真实调用 DeepSeek、Kimi、豆包、Grok、OpenAI-compatible 或 Coze 等外部 provider 前都需要人工批准；dry-run 只显示审批提示。直接 `run` 真实调用前需要加 `--approve-policy`，通过 workflow 真实运行前需要加对应的 `--approve-stage <stage>`，完整工作流可用 `--approve-all`。`auto_ops.agent_flow` 额外标记为 `external_action` policy，只允许 `coze` / `mock` 这类 agent workflow 路径，并在结果 metadata 中保留审计标签和数据分类。policy 还可以配置 `allowedModels`、`blockedModels` 和 `budget`，在密钥可用前先限制可用模型与单次调用预算；`--record` 生成的本地运行记录会额外写入顶层 `audit` 摘要，方便后续复盘或接授权中枢。
 
 ## 统一授权中枢本地试跑
 
@@ -93,7 +93,7 @@ npm run auth-hub:local:stop
 
 ## 外部模型配置
 
-真实调用 DeepSeek、Kimi、Grok 或 OpenAI-compatible provider 前，推荐进入 BWS 密钥托管模式：API key 放在 Bitwarden Secrets Manager，本地 Codex / AI Link 通过 `bws run` 临时注入环境变量。
+真实调用 DeepSeek、Kimi、豆包、Grok 或 OpenAI-compatible provider 前，推荐进入 BWS 密钥托管模式：API key 放在 Bitwarden Secrets Manager，本地 Codex / AI Link 通过 `bws run` 临时注入环境变量。
 
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
@@ -125,7 +125,7 @@ npm run bws:doctor
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
 ```
 
-Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`。Secret value 才是真实值。不要把真实 key 写入公开仓库、issue、PR、知识库或聊天记录。完整流程见 `docs/20-architecture/bitwarden-secret-management.md`。
+Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ARK_API_KEY`、`XAI_API_KEY`。Secret value 才是真实值。不要把真实 key 写入公开仓库、issue、PR、知识库或聊天记录。完整流程见 `docs/20-architecture/bitwarden-secret-management.md`。
 
 公开仓中的 `.ai-link/bitwarden-secrets.manifest.json` 只记录预期环境变量名，用来帮助 `tools/check-bitwarden-secrets.ps1` 检查 Bitwarden 项目是否配置完整，不包含任何真实密钥。
 
@@ -173,6 +173,7 @@ npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:github-vars:apply-plan
 npm run bws:acceptance:print
+npm run providers:github:dispatch-plan
 npm run security:scan
 npm run verify:fresh
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
