@@ -14,6 +14,8 @@ test("draftRoutesFromNaturalLanguage keeps provider stages separated by clauses"
   assert.equal(draft.routes?.["auto_ops.research"]?.provider, "grok");
   assert.equal(draft.routes?.["auto_ops.article_draft"]?.provider, "kimi");
   assert.equal(draft.routes?.["auto_ops.agent_flow"]?.provider, "coze");
+  assert.equal(draft.routes?.["auto_ops.agent_flow"]?.policy, "external_action");
+  assert.equal(draft.policies?.external_action?.approval?.mode, "live");
   assert.equal(draft.routes?.["auto_ops.general"], undefined);
 });
 

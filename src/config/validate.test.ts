@@ -109,3 +109,19 @@ test("validateConfig catches invalid workflow approval modes", () => {
   assert.ok(issues.some((issue) => issue.severity === "error"));
   assert.ok(issues.some((issue) => issue.path === "workflows.demo.stages.0.approval.mode"));
 });
+
+test("validateConfig catches invalid policy approval modes", () => {
+  const issues = validateConfig({
+    policies: {
+      external_action: {
+        approval: {
+          required: true,
+          mode: "sometimes"
+        }
+      }
+    }
+  } as unknown as Parameters<typeof validateConfig>[0]);
+
+  assert.ok(issues.some((issue) => issue.severity === "error"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.approval.mode"));
+});

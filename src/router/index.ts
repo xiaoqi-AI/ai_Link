@@ -13,7 +13,7 @@ import type {
 
 export async function runAiLink(config: AiLinkConfig, request: RunRequest): Promise<RunResult> {
   const route = resolveRoute(config, request.task);
-  const policy = resolvePolicy(config, route);
+  const { name: policyName, policy } = resolvePolicy(config, route);
   const outboundText = collectOutboundText(request);
 
   if (!request.allowSensitive) {
@@ -38,6 +38,12 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
     }
 
     const model = request.model ?? route.model ?? provider.model ?? "default";
+    const approval = resolvePolicyApproval({
+      task: request.task,
+      policyName,
+      policy,
+      request
+    });
     try {
       const adapter = getProviderAdapter(provider);
       const result = await adapter.run({
@@ -54,8 +60,12 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
         model,
         output: result.output,
         dryRun: request.dryRun ?? false,
+        approval,
         attempts,
-        metadata: result.metadata
+        metadata: {
+          ...result.metadata,
+          policy: policyName
+        }
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -92,7 +102,54 @@ export function resolveProviderCandidates(
   return [...new Set([primary, ...(route.fallback ?? [])])];
 }
 
-function resolvePolicy(config: AiLinkConfig, route: RouteConfig): PolicyConfig {
+function resolvePolicy(config: AiLinkConfig, route: RouteConfig): { name: string; policy: PolicyConfig } {
   const policyName = route.policy ?? config.defaults?.policy ?? "default";
-  return config.policies?.[policyName] ?? {};
+  return {
+    name: policyName,
+    policy: config.policies?.[policyName] ?? {}
+  };
+}
+
+function resolvePolicyApproval(input: {
+  task: string;
+  policyName: string;
+  policy: PolicyConfig;
+  request: RunRequest;
+}): RunResult["approval"] {
+  const approval = input.policy.approval;
+  if (!approval?.required) {
+    return undefined;
+  }
+
+  const mode = approval.mode ?? "always";
+  if (mode === "live" && input.request.dryRun) {
+    return {
+      required: true,
+      approved: false,
+      enforced: false,
+      mode,
+      reason: approval.reason
+    };
+  }
+
+  if (!input.request.approvePolicy) {
+    throw new AiLinkError(
+      `Task "${input.task}" requires policy approval. Add --approve-policy or --approve.`,
+      "POLICY_APPROVAL_REQUIRED",
+      {
+        task: input.task,
+        policy: input.policyName,
+        mode,
+        reason: approval.reason
+      }
+    );
+  }
+
+  return {
+    required: true,
+    approved: true,
+    enforced: true,
+    mode,
+    reason: approval.reason
+  };
 }

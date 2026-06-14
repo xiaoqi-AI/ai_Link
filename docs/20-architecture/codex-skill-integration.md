@@ -47,10 +47,19 @@ routes:
       - text
   auto_ops.agent_flow:
     provider: coze
+    policy: external_action
     fallback:
       - mock
     capabilities:
       - agent_workflow
+policies:
+  external_action:
+    blockSensitive: true
+    allowOutbound: user-approved
+    approval:
+      required: true
+      mode: live
+      reason: External action routes may call tools, automations, or third-party platforms.
 workflows:
   auto_ops:
     description: 调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地
@@ -66,7 +75,7 @@ workflows:
         inputFrom: original-and-previous
 ```
 
-第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。
+第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。识别到 Agent workflow 时，候选 route 会带上 `external_action` policy；直接 `run` 真实执行需要 `--approve-policy`，workflow 真实执行需要 `--approve-stage <stage>` 或 `--approve-all`。
 
 推荐先预览，再显式写入本机 local 配置：
 

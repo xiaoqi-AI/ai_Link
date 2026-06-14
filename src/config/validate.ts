@@ -256,4 +256,12 @@ function validatePolicy(name: string, policy: PolicyConfig, issues: ValidationIs
       });
     }
   }
+
+  if (policy.approval?.mode && !WORKFLOW_APPROVAL_MODES.has(policy.approval.mode)) {
+    issues.push({
+      severity: "error",
+      path: `policies.${name}.approval.mode`,
+      message: "approval.mode must be always or live."
+    });
+  }
 }

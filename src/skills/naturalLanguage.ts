@@ -52,6 +52,7 @@ export function draftRoutesFromNaturalLanguage(options: DraftRouteOptions): AiLi
     const routeKey = `${skillName}.${stage.stage}`;
     routes[routeKey] = {
       provider: provider.name,
+      policy: inferPolicy(stage.stage),
       fallback: stage.fallback,
       capabilities: inferCapabilities(stage.stage)
     };
@@ -59,7 +60,8 @@ export function draftRoutesFromNaturalLanguage(options: DraftRouteOptions): AiLi
 
   return {
     version: 1,
-    routes
+    routes,
+    policies: buildDraftPolicies(routes)
   };
 }
 
@@ -153,6 +155,28 @@ function inferCapabilities(stage: string): string[] {
     default:
       return ["text"];
   }
+}
+
+function inferPolicy(stage: string): string | undefined {
+  return stage === "agent_flow" ? "external_action" : undefined;
+}
+
+function buildDraftPolicies(routes: Record<string, RouteConfig>): AiLinkConfig["policies"] {
+  if (!Object.values(routes).some((route) => route.policy === "external_action")) {
+    return undefined;
+  }
+
+  return {
+    external_action: {
+      blockSensitive: true,
+      allowOutbound: "user-approved",
+      approval: {
+        required: true,
+        mode: "live",
+        reason: "External action routes may call tools, automations, or third-party platforms."
+      }
+    }
+  };
 }
 
 function normalizeSkillName(value: string): string {

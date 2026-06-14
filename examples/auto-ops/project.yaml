@@ -22,6 +22,7 @@ routes:
 
   auto_ops.agent_flow:
     provider: coze
+    policy: external_action
     capabilities:
       - agent_workflow
     fallback:
@@ -40,10 +41,6 @@ workflows:
       - name: agent_flow
         task: auto_ops.agent_flow
         inputFrom: original-and-previous
-        approval:
-          required: true
-          mode: live
-          reason: Agent workflow stages may call external tools or platform automations.
 
 providers:
   coze:
@@ -56,3 +53,10 @@ policies:
   default:
     blockSensitive: true
     allowOutbound: user-approved
+  external_action:
+    blockSensitive: true
+    allowOutbound: user-approved
+    approval:
+      required: true
+      mode: live
+      reason: External action routes may call tools, automations, or third-party platforms.

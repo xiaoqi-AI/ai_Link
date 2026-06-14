@@ -399,6 +399,59 @@ test("workflow run requires and accepts explicit stage approval", () => {
   }
 });
 
+test("run requires and accepts explicit policy approval", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-policy-approval-"));
+  try {
+    const configPath = path.join(tempRoot, "policy.yaml");
+    writeFileSync(configPath, [
+      "version: 1",
+      "providers:",
+      "  mock:",
+      "    type: mock",
+      "    model: mock-echo",
+      "routes:",
+      "  demo.agent:",
+      "    provider: mock",
+      "    policy: external_action",
+      "policies:",
+      "  external_action:",
+      "    approval:",
+      "      required: true",
+      "      mode: live",
+      "      reason: External action needs review.",
+      ""
+    ].join("\n"), "utf8");
+
+    const blocked = runCli(tempRoot, [
+      "run",
+      "demo.agent",
+      "--config",
+      configPath,
+      "--input",
+      "execute"
+    ]);
+    assert.notEqual(blocked.status, 0);
+    assert.match(blocked.stderr, /requires policy approval/);
+
+    const approved = runCli(tempRoot, [
+      "run",
+      "demo.agent",
+      "--config",
+      configPath,
+      "--input",
+      "execute",
+      "--approve-policy",
+      "--json"
+    ]);
+    assert.equal(approved.status, 0);
+    const result = JSON.parse(approved.stdout);
+    assert.equal(result.approval.approved, true);
+    assert.equal(result.approval.enforced, true);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("runs show refuses paths outside local run records", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-guard-"));
   try {

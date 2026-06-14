@@ -20,11 +20,13 @@ $plan = [ordered]@{
   localSession = [ordered]@{
     environmentVariables = @(
       "AI_LINK_BWS_PROJECT_ID=<ai-link-local-dev-project-id>",
+      "AI_LINK_BWS_CI_PROJECT_ID=<ai-link-ci-project-id>",
       "BWS_ACCESS_TOKEN=<ma-ai-link-local-codex-token>"
     )
     checks = @(
       "npm run bws:check",
-      "npm run bws:check:strict"
+      "npm run bws:check:strict",
+      "npm run bws:github-vars"
     )
     runExamples = @(
       'powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"',

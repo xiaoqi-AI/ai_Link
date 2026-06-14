@@ -39,7 +39,8 @@ export async function runWorkflow(
   for (const stage of stagesToRun) {
     const task = stage.task ?? `${request.workflow}.${stage.name}`;
     const inputFrom = stage.inputFrom ?? (results.length === 0 ? "original" : "original-and-previous");
-    const approval = resolveStageApproval(request, stage, task);
+    const stageApproved = isStageApproved(request, stage, task);
+    const approval = resolveStageApproval(request, stage, task, stageApproved);
     const result = await runAiLink(config, {
       task,
       input: buildStageInput(request.input, results, inputFrom),
@@ -47,7 +48,8 @@ export async function runWorkflow(
       provider: request.provider ?? stage.provider,
       model: request.model ?? stage.model,
       dryRun: request.dryRun,
-      allowSensitive: request.allowSensitive
+      allowSensitive: request.allowSensitive,
+      approvePolicy: stageApproved
     });
 
     results.push({
@@ -55,7 +57,7 @@ export async function runWorkflow(
       task,
       inputFrom,
       source: "current",
-      approval,
+      approval: approval ?? result.approval,
       result
     });
   }
@@ -143,7 +145,8 @@ function buildStageInput(
 function resolveStageApproval(
   request: WorkflowRunRequest,
   stage: WorkflowStageConfig,
-  task: string
+  task: string,
+  approved: boolean
 ): WorkflowStageApprovalResult | undefined {
   if (!stage.approval?.required) {
     return undefined;
@@ -159,9 +162,6 @@ function resolveStageApproval(
       reason: stage.approval.reason
     };
   }
-
-  const approved = Boolean(request.approveAll)
-    || (request.approvedStages ?? []).some((value) => value === stage.name || value === task);
 
   if (!approved) {
     throw new AiLinkError(
@@ -184,6 +184,15 @@ function resolveStageApproval(
     mode,
     reason: stage.approval.reason
   };
+}
+
+function isStageApproved(
+  request: WorkflowRunRequest,
+  stage: WorkflowStageConfig,
+  task: string
+): boolean {
+  return Boolean(request.approveAll)
+    || (request.approvedStages ?? []).some((value) => value === stage.name || value === task);
 }
 
 function resolveStartIndex(stages: WorkflowStageConfig[], request: WorkflowRunRequest): number {

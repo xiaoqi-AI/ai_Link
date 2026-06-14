@@ -30,6 +30,8 @@
     "bws:doctor": "powershell -ExecutionPolicy Bypass -File tools/invoke-bws-session.ps1 -UseBwsRun -CommandLine \"npm run ai-link -- doctor\"",
     "bws:worksheet": "powershell -ExecutionPolicy Bypass -File tools/new-bws-setup-worksheet.ps1 -Force",
     "bws:worksheet:print": "powershell -ExecutionPolicy Bypass -File tools/new-bws-setup-worksheet.ps1 -Print",
+    "bws:github-vars": "powershell -ExecutionPolicy Bypass -File tools/export-bws-github-provider-vars.ps1 -Force",
+    "bws:github-vars:help": "powershell -ExecutionPolicy Bypass -File tools/export-bws-github-provider-vars.ps1 -Help",
     "providers:dry": "npm run ai-link -- providers verify",
     "providers:live": "npm run ai-link -- providers verify --live",
     "providers:github:check": "powershell -ExecutionPolicy Bypass -File tools/check-github-provider-live.ps1",

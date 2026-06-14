@@ -62,24 +62,27 @@ workflows:
 - `previous`：只使用前序阶段输出。
 - `original-and-previous`：把用户原始输入和前序阶段输出一起交给当前阶段。
 
-高风险阶段可以增加 `approval`。例如 `agent_flow` 可能调用外部工具或平台自动化，公开默认配置要求真实运行前显式批准：
+高风险 route 或 workflow stage 可以增加 `approval`。推荐把长期有效的风险边界放在 policy 上，这样无论用户通过 `run` 直接调用，还是通过 `workflow run` 间接调用，都能保留同一层人工确认。公开默认配置把 `auto_ops.agent_flow` 标记为 `external_action`：
 
 ```yaml
-workflows:
-  auto_ops:
-    stages:
-      - name: agent_flow
-        task: auto_ops.agent_flow
-        inputFrom: original-and-previous
-        approval:
-          required: true
-          mode: live
-          reason: Agent workflow stages may call external tools or platform automations.
+routes:
+  auto_ops.agent_flow:
+    provider: coze
+    policy: external_action
+
+policies:
+  external_action:
+    blockSensitive: true
+    allowOutbound: user-approved
+    approval:
+      required: true
+      mode: live
+      reason: External action routes may call tools, automations, or third-party platforms.
 ```
 
 `approval.mode` 支持：
 
-- `live`：dry-run 只提示审批状态；真实运行必须加 `--approve-stage <stage>` 或 `--approve-all`。
+- `live`：dry-run 只提示审批状态；直接 `run` 真实调用必须加 `--approve-policy`，workflow 真实调用必须加 `--approve-stage <stage>` 或 `--approve-all`。
 - `always`：dry-run 和真实运行都必须显式批准，适合发布、写入外部系统等动作。
 
 运行示例：
@@ -87,6 +90,7 @@ workflows:
 ```powershell
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- workflow run auto_ops --stages research,article_draft --dry-run --input "调研一个公开选题并写初稿"
+npm run ai-link -- run auto_ops.agent_flow --input "执行外部自动化" --approve-policy
 npm run ai-link -- workflow run auto_ops --input "执行外部自动化" --approve-stage agent_flow
 ```
 
@@ -135,12 +139,14 @@ AI Link 会把任务信息作为 stdin JSON 传给本机命令。命令可以返
 
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
+$env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"
 npm run bws:worksheet
+npm run bws:github-vars
 npm run bws:session
 npm run bws:doctor
 ```
 
-`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/`；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
+`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/`；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 和 `AI_LINK_BWS_CI_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
 
 Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`、`AI_LINK_EXECUTOR_TOKEN`。Secret value 才是真实值。
 
@@ -165,7 +171,7 @@ npm run ai-link -- config validate
 - 默认 provider / policy 是否存在。
 - route 的主 provider 和 fallback provider 是否已配置。
 - workflow stage 指向的 route 和 provider 是否已配置。
-- workflow stage 的 `approval.mode` 是否为 `always` 或 `live`。
+- workflow stage 和 policy 的 `approval.mode` 是否为 `always` 或 `live`。
 - provider type 是否受支持。
 - 模型 provider 是否配置了 `baseUrl` 或 `endpoint`。
 - 自定义策略正则是否有效。

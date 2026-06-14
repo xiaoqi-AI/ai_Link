@@ -149,3 +149,57 @@ test("runWorkflow only warns for live approvals during dry-run", async () => {
   assert.equal(agentStage?.approval?.enforced, false);
   assert.equal(agentStage?.approval?.approved, false);
 });
+
+test("runWorkflow lets route policies require stage approval", async () => {
+  const config = {
+    providers: {
+      mock: {
+        type: "mock" as const,
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.agent": {
+        provider: "mock",
+        policy: "external_action"
+      }
+    },
+    workflows: {
+      demo: {
+        stages: [
+          {
+            name: "agent",
+            task: "demo.agent"
+          }
+        ]
+      }
+    },
+    policies: {
+      external_action: {
+        approval: {
+          required: true,
+          mode: "live" as const,
+          reason: "Agent actions need review."
+        }
+      }
+    }
+  };
+
+  await assert.rejects(
+    () => runWorkflow(config, {
+      workflow: "demo",
+      input: "execute"
+    }),
+    /requires policy approval/
+  );
+
+  const result = await runWorkflow(config, {
+    workflow: "demo",
+    input: "execute",
+    approvedStages: ["agent"]
+  });
+
+  assert.equal(result.stages[0].approval?.approved, true);
+  assert.equal(result.stages[0].approval?.enforced, true);
+  assert.match(result.stages[0].result.output, /task: demo.agent/);
+});

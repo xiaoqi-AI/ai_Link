@@ -59,6 +59,7 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
     },
     "auto_ops.agent_flow": {
       provider: "coze",
+      policy: "external_action",
       capabilities: ["agent_workflow"],
       fallback: ["mock"]
     },
@@ -84,12 +85,7 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
         {
           name: "agent_flow",
           task: "auto_ops.agent_flow",
-          inputFrom: "original-and-previous",
-          approval: {
-            required: true,
-            mode: "live",
-            reason: "Agent workflow stages may call external tools or platform automations."
-          }
+          inputFrom: "original-and-previous"
         }
       ]
     }
@@ -98,6 +94,15 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
     default: {
       blockSensitive: true,
       allowOutbound: "user-approved"
+    },
+    external_action: {
+      blockSensitive: true,
+      allowOutbound: "user-approved",
+      approval: {
+        required: true,
+        mode: "live",
+        reason: "External action routes may call tools, automations, or third-party platforms."
+      }
     }
   }
 };

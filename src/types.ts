@@ -64,6 +64,7 @@ export interface PolicyConfig {
   blockSensitive?: boolean;
   allowOutbound?: "never" | "user-approved" | "always";
   blockPatterns?: string[];
+  approval?: WorkflowStageApprovalConfig;
 }
 
 export interface SkillConfig {
@@ -104,6 +105,7 @@ export interface RunRequest {
   model?: string;
   dryRun?: boolean;
   allowSensitive?: boolean;
+  approvePolicy?: boolean;
 }
 
 export interface ProviderCallInput {
@@ -137,6 +139,7 @@ export interface RunResult {
   model?: string;
   output: string;
   dryRun: boolean;
+  approval?: WorkflowStageApprovalResult;
   attempts: RunAttempt[];
   metadata: Record<string, unknown>;
 }

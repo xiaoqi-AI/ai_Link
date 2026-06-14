@@ -112,8 +112,10 @@ Add-Line "Run these after Bitwarden is configured:"
 Add-Line ""
 Add-Line '```powershell'
 Add-Line '$env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"'
+Add-Line '$env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"'
 Add-Line 'npm run bws:session'
 Add-Line 'npm run bws:doctor'
+Add-Line 'npm run bws:github-vars'
 Add-Line '```'
 Add-Line ""
 Add-Line "Run these after GitHub provider-live is configured:"

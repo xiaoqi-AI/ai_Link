@@ -137,7 +137,8 @@ async function runCommand(args: ParsedArgs): Promise<void> {
     provider: stringFlag(args, "provider") ?? stringFlag(args, "model-provider"),
     model: stringFlag(args, "model"),
     dryRun: booleanFlag(args, "dry-run"),
-    allowSensitive: booleanFlag(args, "allow-sensitive")
+    allowSensitive: booleanFlag(args, "allow-sensitive"),
+    approvePolicy: booleanFlag(args, "approve-policy") || booleanFlag(args, "approve")
   });
 
   if (booleanFlag(args, "json")) {
@@ -157,6 +158,9 @@ async function runCommand(args: ParsedArgs): Promise<void> {
   console.log(`Provider: ${result.provider}`);
   console.log(`Model: ${result.model ?? "(default)"}`);
   console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  if (result.approval) {
+    console.log(`Approval: ${formatApprovalCell(result.approval)}${result.approval.reason ? ` (${result.approval.reason})` : ""}`);
+  }
   console.log("");
   console.log(result.output);
   writeStructuredOutput(args, result);
@@ -1038,7 +1042,7 @@ function printHelp(): void {
   console.log(`AI Link
 
 Usage:
-  ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
+  ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--approve-policy] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link workflow run <workflow> --resume-from <record-id> [--from-stage stage] [--record]
   ai-link workflow run <workflow> [--approve-stage stage|--approve-all]
