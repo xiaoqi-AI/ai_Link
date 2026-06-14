@@ -68,6 +68,19 @@ workflows:
 
 第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。
 
+推荐先预览，再显式写入本机 local 配置：
+
+```powershell
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi" --write .ai-link/local.yaml
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi" --write .ai-link/local.yaml --yes
+```
+
+安全规则：
+
+- 只有加 `--yes` 才会写文件；否则只打印预览。
+- 默认推荐写 `.ai-link/local.yaml`，该文件不进入 Git。
+- 写 `.ai-link/project.yaml` 需要额外加 `--allow-public-config`，避免误改公开配置。
+
 如果只想生成 route，不生成 workflow，可以继续使用兼容命令：
 
 ```powershell

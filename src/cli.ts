@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { stringify } from "yaml";
-import { loadConfig } from "./config/load.js";
+import { deepMerge, loadConfig, readYamlConfig } from "./config/load.js";
 import { hasValidationErrors, validateConfig } from "./config/validate.js";
 import { AiLinkError } from "./errors.js";
 import { runAiLink } from "./router/index.js";
@@ -294,7 +294,7 @@ function validateConfigCommand(args: ParsedArgs): void {
 function skillCommand(args: ParsedArgs): void {
   const subcommand = args.positional[1];
   if (subcommand !== "draft-route" && subcommand !== "draft") {
-    throw new AiLinkError("Usage: ai-link skill <draft|draft-route> --description \"...\"", "CLI_USAGE");
+    throw new AiLinkError("Usage: ai-link skill <draft|draft-route> --description \"...\" [--write path --yes]", "CLI_USAGE");
   }
 
   const description = stringFlag(args, "description") ?? args.positional.slice(2).join(" ");
@@ -310,11 +310,50 @@ function skillCommand(args: ParsedArgs): void {
     ? draftSkillConfigFromNaturalLanguage(options)
     : draftRoutesFromNaturalLanguage(options);
 
+  const writeTarget = stringFlag(args, "write");
+  if (writeTarget) {
+    handleSkillDraftWrite(args, draft, writeTarget);
+    return;
+  }
+
   if (booleanFlag(args, "json")) {
     console.log(JSON.stringify(draft, null, 2));
     return;
   }
   console.log(stringify(draft));
+}
+
+function handleSkillDraftWrite(args: ParsedArgs, draft: AiLinkConfig, writeTarget: string): void {
+  const targetPath = path.resolve(process.cwd(), writeTarget);
+  const renderedDraft = stringify(draft);
+
+  if (!isAllowedSkillDraftTarget(targetPath)) {
+    throw new AiLinkError(
+      "Refusing to write outside .ai-link/local.yaml or .ai-link/project.yaml.",
+      "CONFIG_WRITE_GUARD"
+    );
+  }
+
+  if (isProjectPublicConfig(targetPath) && !booleanFlag(args, "allow-public-config")) {
+    throw new AiLinkError(
+      "Refusing to write .ai-link/project.yaml without --allow-public-config. Prefer .ai-link/local.yaml while drafting.",
+      "CONFIG_WRITE_GUARD"
+    );
+  }
+
+  if (!booleanFlag(args, "yes")) {
+    console.log(renderedDraft);
+    console.log(`# Preview only. Add --yes to merge this draft into ${writeTarget}.`);
+    return;
+  }
+
+  const existing = existsSync(targetPath) ? readYamlConfig(targetPath) : {};
+  const merged = deepMerge(existing, draft);
+  const targetDir = path.dirname(targetPath);
+  mkdirSync(targetDir, { recursive: true });
+  writeFileSync(targetPath, stringify(merged), "utf8");
+
+  console.log(`AI Link skill draft merged into ${writeTarget}.`);
 }
 
 function doctorCommand(args: ParsedArgs): void {
@@ -489,6 +528,17 @@ function redactConfig(config: AiLinkConfig): AiLinkConfig {
   return clone;
 }
 
+function isProjectPublicConfig(targetPath: string): boolean {
+  return targetPath === path.resolve(process.cwd(), ".ai-link", "project.yaml");
+}
+
+function isAllowedSkillDraftTarget(targetPath: string): boolean {
+  return [
+    path.resolve(process.cwd(), ".ai-link", "local.yaml"),
+    path.resolve(process.cwd(), ".ai-link", "project.yaml")
+  ].includes(targetPath);
+}
+
 function printWorkflowResult(result: WorkflowRunResult): void {
   console.log("AI Link workflow result");
   console.log(`Workflow: ${result.workflow}`);
@@ -516,7 +566,7 @@ Usage:
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain
   ai-link config validate
-  ai-link skill draft --description "research with grok, write with kimi"
+  ai-link skill draft --description "research with grok, write with kimi" [--write .ai-link/local.yaml --yes]
   ai-link skill draft-route --description "research with grok, write with kimi"
   ai-link doctor
 

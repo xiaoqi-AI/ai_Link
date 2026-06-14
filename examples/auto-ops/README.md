@@ -35,6 +35,15 @@ npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 G
 
 生成内容会包含 `routes` 和 `workflows`，需要人工确认后再写入项目配置。只想生成 route 时，可以使用 `skill draft-route`。
 
+推荐先预览，再写入本机 local 配置：
+
+```powershell
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地" --write .ai-link/local.yaml
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地" --write .ai-link/local.yaml --yes
+```
+
+没有 `--yes` 时只预览，不写文件。写公开 `.ai-link/project.yaml` 需要额外加 `--allow-public-config`。
+
 ## Codex Skill 示例
 
 可复制的 skill 模板见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`。它展示了 Codex 如何把自然语言 skill 意图交给 AI Link 路由，同时仍由 Codex 负责文件、验证和 Git 收尾。
