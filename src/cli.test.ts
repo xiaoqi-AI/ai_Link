@@ -62,6 +62,42 @@ test("skill draft --write --diff previews merge summary without writing", () => 
   }
 });
 
+test("skill draft --write --diff --json previews machine-readable merge summary without writing", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-json-diff-preview-"));
+  try {
+    const configDir = path.join(tempRoot, ".ai-link");
+    const targetPath = path.join(configDir, "local.yaml");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(targetPath, "version: 1\nroutes:\n  auto_ops.research:\n    provider: mock\n", "utf8");
+
+    const result = runCli(tempRoot, [
+      "skill",
+      "draft",
+      "--skill",
+      "auto_ops",
+      "--description",
+      "research with Grok, article draft with Kimi",
+      "--write",
+      ".ai-link/local.yaml",
+      "--diff",
+      "--json"
+    ]);
+    const output = JSON.parse(result.stdout);
+
+    assert.equal(result.status, 0);
+    assert.equal(output.target, ".ai-link/local.yaml");
+    assert.equal(output.previewOnly, true);
+    assert.equal(output.merged, false);
+    assert.deepEqual(output.diff.routes.added, ["auto_ops.article_draft"]);
+    assert.deepEqual(output.diff.routes.updated, ["auto_ops.research"]);
+    assert.deepEqual(output.diff.workflows.added, ["auto_ops"]);
+    assert.equal(output.draft.routes["auto_ops.article_draft"].provider, "kimi");
+    assert.doesNotMatch(readFileSync(targetPath, "utf8"), /article_draft/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("skill draft --write --yes merges into local config", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-write-"));
   try {
@@ -84,6 +120,36 @@ test("skill draft --write --yes merges into local config", () => {
     assert.match(written, /auto_ops\.research/);
     assert.match(written, /auto_ops\.article_draft/);
     assert.match(written, /workflows:/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("skill draft --write --json --yes writes and prints machine-readable status", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-json-write-"));
+  try {
+    const result = runCli(tempRoot, [
+      "skill",
+      "draft",
+      "--skill",
+      "auto_ops",
+      "--description",
+      "research with Grok",
+      "--write",
+      ".ai-link/local.yaml",
+      "--json",
+      "--yes"
+    ]);
+    const output = JSON.parse(result.stdout);
+
+    const targetPath = path.join(tempRoot, ".ai-link", "local.yaml");
+    assert.equal(result.status, 0);
+    assert.equal(output.previewOnly, false);
+    assert.equal(output.merged, true);
+    assert.equal(output.target, ".ai-link/local.yaml");
+    assert.equal(output.draft.routes["auto_ops.research"].provider, "grok");
+    assert.equal("diff" in output, false);
+    assert.match(readFileSync(targetPath, "utf8"), /auto_ops\.research/);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }

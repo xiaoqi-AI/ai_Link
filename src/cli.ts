@@ -37,6 +37,14 @@ interface SkillDraftDiffSummary {
   policies: SkillDraftChangeSet;
 }
 
+interface SkillDraftWriteOutput {
+  target: string;
+  previewOnly: boolean;
+  merged: boolean;
+  draft: AiLinkConfig;
+  diff?: SkillDraftDiffSummary;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const [command] = args.positional;
@@ -509,6 +517,7 @@ function handleSkillDraftWrite(args: ParsedArgs, draft: AiLinkConfig, writeTarge
   const targetPath = path.resolve(process.cwd(), writeTarget);
   const renderedDraft = stringify(draft);
   const showDiff = booleanFlag(args, "diff");
+  const outputJson = booleanFlag(args, "json");
 
   if (!isAllowedSkillDraftTarget(targetPath)) {
     throw new AiLinkError(
@@ -528,6 +537,16 @@ function handleSkillDraftWrite(args: ParsedArgs, draft: AiLinkConfig, writeTarge
   const diffSummary = showDiff ? buildSkillDraftDiffSummary(existing, draft) : undefined;
 
   if (!booleanFlag(args, "yes")) {
+    if (outputJson) {
+      printSkillDraftWriteJson({
+        target: writeTarget,
+        previewOnly: true,
+        merged: false,
+        draft,
+        diff: diffSummary
+      });
+      return;
+    }
     console.log(renderedDraft);
     if (diffSummary) {
       printSkillDraftDiffSummary(diffSummary);
@@ -540,6 +559,17 @@ function handleSkillDraftWrite(args: ParsedArgs, draft: AiLinkConfig, writeTarge
   const targetDir = path.dirname(targetPath);
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(targetPath, stringify(merged), "utf8");
+
+  if (outputJson) {
+    printSkillDraftWriteJson({
+      target: writeTarget,
+      previewOnly: false,
+      merged: true,
+      draft,
+      diff: diffSummary
+    });
+    return;
+  }
 
   console.log(`AI Link skill draft merged into ${writeTarget}.`);
   if (diffSummary) {
@@ -587,6 +617,10 @@ function printSkillDraftChangeSet(label: string, changes: SkillDraftChangeSet): 
   const updated = changes.updated.length === 0 ? "-" : changes.updated.join(", ");
   console.log(`# ${label} added: ${added}`);
   console.log(`# ${label} updated: ${updated}`);
+}
+
+function printSkillDraftWriteJson(output: SkillDraftWriteOutput): void {
+  console.log(JSON.stringify(output, null, 2));
 }
 
 function doctorCommand(args: ParsedArgs): void {
@@ -1282,7 +1316,7 @@ Usage:
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain
   ai-link config validate
-  ai-link skill draft --description "research with grok, write with kimi" [--write .ai-link/local.yaml --yes]
+  ai-link skill draft --description "research with grok, write with kimi" [--write .ai-link/local.yaml --diff --json --yes]
   ai-link skill draft-route --description "research with grok, write with kimi"
   ai-link doctor
 
