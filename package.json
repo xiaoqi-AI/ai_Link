@@ -55,6 +55,7 @@
     "bws:acceptance:print": "powershell -ExecutionPolicy Bypass -File tools/new-bws-acceptance-report.ps1 -Print",
     "bws:acceptance:strict": "powershell -ExecutionPolicy Bypass -File tools/new-bws-acceptance-report.ps1 -Strict -Force",
     "providers:dry": "npm run ai-link -- providers verify",
+    "providers:dry:json": "npm run ai-link -- providers verify --json",
     "providers:live": "npm run ai-link -- providers verify --live",
     "providers:github:check": "powershell -ExecutionPolicy Bypass -File tools/check-github-provider-live.ps1",
     "providers:github:remote-check": "powershell -ExecutionPolicy Bypass -File tools/check-github-provider-live.ps1 -CheckRemote",

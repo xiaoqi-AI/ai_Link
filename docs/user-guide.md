@@ -49,6 +49,7 @@ npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
 npm run providers:dry
+npm run providers:dry:json
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --output runtime/tmp/auto-ops-workflow.json
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --record
@@ -62,7 +63,7 @@ npm run ai-link -- run auto_ops.agent_flow --dry-run --input "验证 Coze agent 
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 ```
 
-`onboard:print` 会输出一页不含密钥的公开用户入场引导，覆盖当前项目配置、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要 CI/其他 agent 用退出码判定时，用 `npm run onboard:check` 或 `npm run ai-link -- onboard --json --strict`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。
+`onboard:print` 会输出一页不含密钥的公开用户入场引导，覆盖当前项目配置、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要 CI/其他 agent 用退出码判定时，用 `npm run onboard:check` 或 `npm run ai-link -- onboard --json --strict`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。`providers:dry:json` 会输出 provider 验收摘要，包含 `summary.ok`、`summary.counts` 和逐个 provider 状态，适合 Codex skill、CI 或其他 agent 判定 dry-run 是否可用。
 
 如果没有外部模型 API key，可以先使用 `mock`：
 

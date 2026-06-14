@@ -46,6 +46,31 @@ interface SkillDraftWriteOutput {
   diff?: SkillDraftDiffSummary;
 }
 
+type ProviderVerifyStatus = "ok" | "skipped" | "failed";
+
+interface ProviderVerifyRow {
+  name: string;
+  type: string;
+  mode: "dry-run" | "live";
+  status: ProviderVerifyStatus;
+  detail: string;
+}
+
+interface ProviderVerifyReport {
+  summary: {
+    ok: boolean;
+    mode: "dry-run" | "live";
+    strict: boolean;
+    counts: {
+      total: number;
+      ok: number;
+      skipped: number;
+      failed: number;
+    };
+  };
+  providers: ProviderVerifyRow[];
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const [command] = args.positional;
@@ -358,13 +383,11 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
   const strict = booleanFlag(args, "strict");
   const input = stringFlag(args, "input") ?? "AI Link provider verification. Reply briefly.";
   const selected = requested.length > 0 ? requested : Object.keys(providers);
-  const rows: Array<Record<string, string>> = [];
-  let hasFailure = false;
+  const rows: ProviderVerifyRow[] = [];
 
   for (const name of selected) {
     const provider = providers[name];
     if (!provider) {
-      hasFailure = true;
       rows.push({
         name,
         type: "",
@@ -377,9 +400,6 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
 
     const skipReason = live ? liveSkipReason(provider) : "";
     if (skipReason) {
-      if (strict) {
-        hasFailure = true;
-      }
       rows.push({
         name,
         type: provider.type,
@@ -406,7 +426,6 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
         detail: firstLine(result.output)
       });
     } catch (error) {
-      hasFailure = true;
       rows.push({
         name,
         type: provider.type,
@@ -417,15 +436,52 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
     }
   }
 
+  const report = buildProviderVerifyReport(rows, live ? "live" : "dry-run", strict);
+
   if (booleanFlag(args, "json")) {
-    console.log(JSON.stringify(rows, null, 2));
+    console.log(JSON.stringify(report, null, 2));
   } else {
     console.table(rows);
+    printProviderVerifySummary(report);
   }
 
-  if (hasFailure) {
+  if (!report.summary.ok) {
     process.exitCode = 2;
   }
+}
+
+function buildProviderVerifyReport(
+  rows: ProviderVerifyRow[],
+  mode: "dry-run" | "live",
+  strict: boolean
+): ProviderVerifyReport {
+  const counts = {
+    total: rows.length,
+    ok: rows.filter((row) => row.status === "ok").length,
+    skipped: rows.filter((row) => row.status === "skipped").length,
+    failed: rows.filter((row) => row.status === "failed").length
+  };
+
+  return {
+    summary: {
+      ok: counts.failed === 0,
+      mode,
+      strict,
+      counts
+    },
+    providers: rows
+  };
+}
+
+function printProviderVerifySummary(report: ProviderVerifyReport): void {
+  const counts = report.summary.counts;
+  console.log("");
+  console.log(
+    `Summary: ok ${report.summary.ok ? "yes" : "no"}; ` +
+      `mode ${report.summary.mode}; ` +
+      `strict ${report.summary.strict ? "yes" : "no"}; ` +
+      `counts ok ${counts.ok}, skipped ${counts.skipped}, failed ${counts.failed}, total ${counts.total}`
+  );
 }
 
 function configCommand(args: ParsedArgs): void {
@@ -1350,7 +1406,7 @@ Usage:
   ai-link runs show <id|latest> [--json]
   ai-link runs submit-audit <id|latest> --task-id <auth-hub-task-id> [--base-url url]
   ai-link providers list
-  ai-link providers verify [--live] [--strict] [--provider name]
+  ai-link providers verify [--live] [--strict] [--provider name] [--json]
   ai-link onboard [--print] [--json] [--strict] [--output runtime/tmp/ai-link-onboarding.md]
   ai-link config explain
   ai-link config validate

@@ -64,6 +64,43 @@ test("onboard --strict fails when required public entry checks warn", () => {
   }
 });
 
+test("providers verify --json renders a machine-readable summary report", () => {
+  const result = runCli(process.cwd(), ["providers", "verify", "--json"]);
+  const output = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 0);
+  assert.equal(output.summary.ok, true);
+  assert.equal(output.summary.mode, "dry-run");
+  assert.equal(output.summary.strict, false);
+  assert.equal(output.summary.counts.failed, 0);
+  assert.equal(output.summary.counts.total, output.providers.length);
+  assert.equal(output.providers.some((provider: { name: string; status: string }) => provider.name === "grok" && provider.status === "ok"), true);
+});
+
+test("providers verify --live --strict --json reports missing provider keys", () => {
+  const result = runCli(process.cwd(), [
+    "providers",
+    "verify",
+    "--live",
+    "--strict",
+    "--provider",
+    "grok",
+    "--json"
+  ], {
+    XAI_API_KEY: ""
+  });
+  const output = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 2);
+  assert.equal(output.summary.ok, false);
+  assert.equal(output.summary.mode, "live");
+  assert.equal(output.summary.strict, true);
+  assert.equal(output.summary.counts.failed, 1);
+  assert.equal(output.providers[0].name, "grok");
+  assert.equal(output.providers[0].status, "failed");
+  assert.match(output.providers[0].detail, /XAI_API_KEY/);
+});
+
 test("onboard writes markdown only inside runtime tmp", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-onboard-write-"));
   try {

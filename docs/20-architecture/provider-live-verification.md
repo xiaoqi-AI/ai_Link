@@ -12,13 +12,23 @@ dry-run 不访问外部模型，适合公开仓默认验证：
 
 ```powershell
 npm run providers:dry
+npm run providers:dry:json
 ```
 
 也可以只验证某一个 provider：
 
 ```powershell
 npm run ai-link -- providers verify --provider grok
+npm run ai-link -- providers verify --provider grok --json
 ```
+
+`--json` 会输出稳定的机器可读报告：
+
+- `summary.ok`：是否没有失败项。
+- `summary.mode`：`dry-run` 或 `live`。
+- `summary.strict`：是否启用严格模式。
+- `summary.counts`：`ok`、`skipped`、`failed` 和 `total` 计数。
+- `providers`：逐个 provider 的 `name`、`type`、`mode`、`status` 和简短 `detail`。
 
 ## 本地真实调用
 
@@ -48,6 +58,7 @@ powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -Comma
 
 ```powershell
 npm run providers:live -- --strict
+npm run providers:live -- --strict --json
 ```
 
 单 provider 验收：
@@ -131,3 +142,5 @@ npm run providers:github:dispatch-strict
 - 错误类型摘要
 
 不要记录完整请求、完整响应、API key、账号信息、平台原始内容或任何未脱敏数据。
+
+如果使用 `--json` 保存验收证据，只保留 `summary`、provider 名称和状态；live 模式下的 provider `detail` 可能包含模型返回的第一行摘要，不要直接复制到公开 issue、PR 或知识库。

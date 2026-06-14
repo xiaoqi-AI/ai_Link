@@ -59,6 +59,7 @@ export interface BuildOnboardingReportOptions {
 const REQUIRED_SCRIPTS = [
   "ai-link",
   "providers:dry",
+  "providers:dry:json",
   "workflow:dry",
   "onboard:check",
   "skills:check",
@@ -141,6 +142,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run onboard:print",
         "npm run ai-link -- config validate",
         "npm run providers:dry",
+        "npm run providers:dry:json",
         "npm run workflow:dry",
         "npm run ai-link -- skill draft --skill auto_ops --description \"research with Grok, article draft with Kimi\" --write .ai-link/local.yaml --diff --json",
         "npm run ai-link -- run auto_ops.research --dry-run --input \"fresh onboarding check\"",

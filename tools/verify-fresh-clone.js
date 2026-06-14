@@ -19,6 +19,7 @@ const commands = [
   ["npm", ["test"], clonePath],
   ["npm", ["run", "ai-link", "--", "config", "validate"], clonePath],
   ["npm", ["run", "providers:dry"], clonePath],
+  ["npm", ["run", "providers:dry:json"], clonePath],
   ["npm", ["run", "providers:github:check"], clonePath],
   ["npm", ["run", "bws:plan"], clonePath],
   ["npm", ["run", "bws:onboard:print"], clonePath],
