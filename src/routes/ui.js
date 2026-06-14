@@ -35,11 +35,16 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard", requireAppSession, async (req, res) => {
-    const [tasks, approvals] = await Promise.all([
+    const [tasks, actionTasks, approvals] = await Promise.all([
       req.app.locals.store.listTasks({ limit: 50 }),
+      req.app.locals.store.listTasks({ status: "action_required", limit: 20 }),
       req.app.locals.store.listApprovals({ status: "pending" })
     ]);
-    res.send(dashboardPage({ tasks: tasks.map(publicTask), approvals }));
+    res.send(dashboardPage({
+      tasks: tasks.map(publicTask),
+      actionTasks: actionTasks.map(publicTask),
+      approvals
+    }));
   });
 
   router.get("/dashboard/new", requireAppSession, (req, res) => {

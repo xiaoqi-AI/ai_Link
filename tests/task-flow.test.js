@@ -188,6 +188,13 @@ describe("AI Link task flow", () => {
     assert.equal(actionRequired.data.task.status, "action_required");
     assert.equal(actionRequired.data.task.error.message, "login_required");
 
+    const filtered = await requestJson(server.baseUrl, "/api/tasks?status=action_required", {
+      token: "admin-token"
+    });
+    assert.equal(filtered.response.status, 200);
+    assert.ok(filtered.data.tasks.some((task) => task.id === leased.data.task.id));
+    assert.ok(filtered.data.tasks.every((task) => task.status === "action_required"));
+
     const deniedRetry = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/retry`, {
       token: "codex-token",
       method: "POST",

@@ -38,6 +38,9 @@ export function layout({ title, body }) {
     input, textarea, select { width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font:inherit; background:#fff; }
     label { display:block; margin:12px 0 6px; color:var(--muted); font-size:14px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin:14px 0; }
+    .stat { border:1px solid var(--line); border-radius:8px; background:#fff; padding:12px; }
+    .stat strong { display:block; font-size:22px; margin-bottom:4px; }
     .muted { color:var(--muted); }
     .error { color:var(--danger); }
   </style>
@@ -69,7 +72,8 @@ export function loginPage({ error = "", next = "/dashboard" } = {}) {
   });
 }
 
-export function dashboardPage({ tasks, approvals }) {
+export function dashboardPage({ tasks, actionTasks = [], approvals }) {
+  const statusCounts = countTaskStatuses(tasks);
   const taskRows = tasks.map((task) => `<tr>
     <td><a href="/dashboard/tasks/${escapeHtml(task.id)}">${escapeHtml(task.id.slice(0, 8))}</a></td>
     <td>${escapeHtml(task.workflow)}</td>
@@ -85,6 +89,13 @@ export function dashboardPage({ tasks, approvals }) {
     <td><span class="status ${escapeHtml(approval.status)}">${escapeHtml(approval.status)}</span></td>
   </tr>`).join("");
 
+  const actionRows = actionTasks.map((task) => `<tr>
+    <td><a href="/dashboard/tasks/${escapeHtml(task.id)}">${escapeHtml(task.id.slice(0, 8))}</a></td>
+    <td>${escapeHtml(task.workflow)}</td>
+    <td>${escapeHtml(task.summary || task.error?.message || "需要人工处理")}</td>
+    <td>${escapeHtml(task.updatedAt)}</td>
+  </tr>`).join("");
+
   return layout({
     title: "任务",
     body: `<section class="panel">
@@ -95,13 +106,30 @@ export function dashboardPage({ tasks, approvals }) {
         </div>
         <a class="button" href="/dashboard/new">新建任务</a>
       </div>
+      <div class="stats">
+        <div class="stat"><strong>${escapeHtml(statusCounts.queued || 0)}</strong><span class="muted">排队</span></div>
+        <div class="stat"><strong>${escapeHtml(statusCounts.running || 0)}</strong><span class="muted">执行中</span></div>
+        <div class="stat"><strong>${escapeHtml(statusCounts.action_required || 0)}</strong><span class="muted">待人工处理</span></div>
+        <div class="stat"><strong>${escapeHtml(statusCounts.approval_required || 0)}</strong><span class="muted">待确认发布</span></div>
+      </div>
       <table><thead><tr><th>ID</th><th>流程</th><th>状态</th><th>摘要</th><th>更新时间</th></tr></thead><tbody>${taskRows || "<tr><td colspan=\"5\">暂无任务</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>待人工处理</h2>
+      <table><thead><tr><th>ID</th><th>流程</th><th>事项</th><th>更新时间</th></tr></thead><tbody>${actionRows || "<tr><td colspan=\"4\">暂无待人工处理事项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>待确认动作</h2>
       <table><thead><tr><th>ID</th><th>动作</th><th>摘要</th><th>状态</th></tr></thead><tbody>${approvalRows || "<tr><td colspan=\"4\">暂无待确认事项</td></tr>"}</tbody></table>
     </section>`
   });
+}
+
+function countTaskStatuses(tasks) {
+  return tasks.reduce((counts, task) => {
+    counts[task.status] = (counts[task.status] || 0) + 1;
+    return counts;
+  }, {});
 }
 
 export function newTaskPage() {

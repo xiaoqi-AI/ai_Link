@@ -70,8 +70,9 @@ export class MemoryStore {
     return clone(this.tasks.get(id));
   }
 
-  async listTasks({ limit = 50 } = {}) {
+  async listTasks({ limit = 50, status = "" } = {}) {
     return [...this.tasks.values()]
+      .filter((item) => !status || item.status === status)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, limit)
       .map(clone);

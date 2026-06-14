@@ -27,7 +27,10 @@ export function createApiRouter() {
   });
 
   router.get("/tasks", requireApiScope("tasks:read"), async (req, res) => {
-    const tasks = await req.app.locals.store.listTasks({ limit: Number(req.query.limit || 50) });
+    const tasks = await req.app.locals.store.listTasks({
+      limit: Number(req.query.limit || 50),
+      status: req.query.status || ""
+    });
     res.json({ tasks: tasks.map(publicTask) });
   });
 

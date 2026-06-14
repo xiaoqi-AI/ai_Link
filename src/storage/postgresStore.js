@@ -225,8 +225,14 @@ export class PostgresStore {
     return rowTask(rows[0]);
   }
 
-  async listTasks({ limit = 50 } = {}) {
-    const { rows } = await this.pool.query("SELECT * FROM tasks ORDER BY created_at DESC LIMIT $1", [limit]);
+  async listTasks({ limit = 50, status = "" } = {}) {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM tasks
+       WHERE ($1::text = '' OR status = $1)
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [status || "", limit]
+    );
     return rows.map(rowTask);
   }
 
