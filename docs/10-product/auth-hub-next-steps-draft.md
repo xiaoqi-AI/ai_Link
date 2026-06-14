@@ -8,6 +8,7 @@
 
 - 控制台、任务 API、审批、审计和 mock 连接器已经进入公开 MVP。
 - 控制台已能单独展示待人工处理任务，并支持处理后重新排队。
+- 连接器能力契约和只读状态 API 已进入公开 MVP，可展示微信、朱雀AI和预留平台的安全状态。
 - Provider live 验收通过 Bitwarden Secrets Manager 管理真实 API key。
 - Render 部署骨架保留，生产部署前必须经过 Cloudflare Access 和应用内登录双门禁。
 - 真实平台登录态、Cookie、二维码、截图和原始平台内容仍只允许放在本机私有目录或私有仓治理材料中。

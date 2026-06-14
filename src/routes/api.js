@@ -1,4 +1,5 @@
 import express from "express";
+import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { requireApiScope } from "../security/auth.js";
 import { publicTask, redact } from "../security/redact.js";
 import { validateTaskInput } from "../domain/workflow.js";
@@ -164,6 +165,10 @@ export function createApiRouter() {
       limit: Number(req.query.limit || 100)
     });
     res.json({ auditEvents: redact(auditEvents) });
+  });
+
+  router.get("/connectors", requireApiScope("connectors:read"), async (req, res) => {
+    res.json(describeConnectorRegistry(req.app.locals.connectorRegistry));
   });
 
   return router;

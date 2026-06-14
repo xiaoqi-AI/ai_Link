@@ -67,6 +67,7 @@ export function loadConfig(env = process.env) {
           "tasks:create",
           "tasks:read",
           "tasks:approve",
+          "connectors:read",
           "audit:read"
         ]
       },
@@ -80,7 +81,7 @@ export function loadConfig(env = process.env) {
         token: codexToken,
         scopes: readCsv(env.AI_LINK_CODEX_SCOPES).length
           ? readCsv(env.AI_LINK_CODEX_SCOPES)
-          : ["tasks:create", "tasks:read"]
+          : ["tasks:create", "tasks:read", "connectors:read"]
       }
     ].filter((item) => item.token)
   };

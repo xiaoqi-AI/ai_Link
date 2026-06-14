@@ -28,6 +28,7 @@
 - Bitwarden 密钥托管模式：`docs/20-architecture/bitwarden-secret-management.md`
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
 - Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
+- 连接器合同：`docs/20-architecture/connector-contracts.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - 统一授权中枢说明：`docs/20-architecture/auth-hub.md`
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
@@ -72,6 +73,8 @@ npm run auth-hub:executor:start
 ```
 
 本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
+
+控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 也可读取平台能力契约，用来确认微信、朱雀AI和预留平台当前是可用、预留还是配置异常。
 
 停止本地执行器和控制台：
 

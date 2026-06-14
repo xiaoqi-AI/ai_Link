@@ -23,6 +23,7 @@
 - Bitwarden 密钥托管模式：`docs/20-architecture/bitwarden-secret-management.md`
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
 - Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
+- 连接器合同：`docs/20-architecture/connector-contracts.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - 统一授权中枢：`docs/20-architecture/auth-hub.md`
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
@@ -86,7 +87,7 @@ npm run auth-hub:executor:start
 
 默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN` 和 Cloudflare Access origin guard。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
-第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。真实平台连接器应放在私有配置或私有仓中实现。
+第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同状态；真实平台连接器应放在私有配置或私有仓中实现。
 
 停止本地服务：
 
@@ -128,7 +129,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
 - `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。
-- 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器和 mock 平台连接器。
+- 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器、mock 平台连接器和连接器合同状态 API。
 - GitHub Actions CI、fresh clone 验证脚本和本地安全扫描。
 
 ## 许可证

@@ -1,8 +1,9 @@
 import express from "express";
+import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { createSessionCookie, clearSessionCookie } from "../security/session.js";
 import { requireAppSession } from "../security/auth.js";
 import { publicTask } from "../security/redact.js";
-import { dashboardPage, loginPage, newTaskPage, taskPage } from "../ui/html.js";
+import { connectorsPage, dashboardPage, loginPage, newTaskPage, taskPage } from "../ui/html.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
 export function createUiRouter() {
@@ -40,15 +41,21 @@ export function createUiRouter() {
       req.app.locals.store.listTasks({ status: "action_required", limit: 20 }),
       req.app.locals.store.listApprovals({ status: "pending" })
     ]);
+    const { connectors } = describeConnectorRegistry(req.app.locals.connectorRegistry);
     res.send(dashboardPage({
       tasks: tasks.map(publicTask),
       actionTasks: actionTasks.map(publicTask),
-      approvals
+      approvals,
+      connectors
     }));
   });
 
   router.get("/dashboard/new", requireAppSession, (req, res) => {
     res.send(newTaskPage());
+  });
+
+  router.get("/dashboard/connectors", requireAppSession, (req, res) => {
+    res.send(connectorsPage(describeConnectorRegistry(req.app.locals.connectorRegistry)));
   });
 
   router.post("/dashboard/tasks", requireAppSession, async (req, res) => {

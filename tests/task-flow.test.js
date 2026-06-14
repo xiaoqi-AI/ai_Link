@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
+import { describeConnectorRegistry } from "../src/connectors/contracts.js";
+import { createConnectorRegistry } from "../src/connectors/registry.js";
 import { MemoryStore } from "../src/storage/memoryStore.js";
 import { runTask } from "../src/executor/runTask.js";
 import { redact } from "../src/security/redact.js";
@@ -212,6 +214,20 @@ describe("AI Link task flow", () => {
     assert.equal(retried.data.task.error, null);
   });
 
+  it("exposes connector contracts to Codex as read-only status", async () => {
+    const result = await requestJson(server.baseUrl, "/api/connectors", {
+      token: "codex-token"
+    });
+
+    assert.equal(result.response.status, 200);
+    const wechat = result.data.connectors.find((connector) => connector.platform === "wechat_official");
+    const douyin = result.data.connectors.find((connector) => connector.platform === "douyin");
+    assert.equal(wechat.status, "available");
+    assert.equal(wechat.capabilities.some((capability) => capability.name === "publish" && capability.available), true);
+    assert.equal(douyin.status, "reserved");
+    assert.equal(result.data.issues.length, 0);
+  });
+
   it("classifies connector login expiry as a manual action", async () => {
     const result = await runTask(
       {
@@ -240,6 +256,48 @@ describe("AI Link task flow", () => {
     assert.equal(result.error.code, "login_expired");
     assert.equal(result.error.platform, "wechat_official");
     assert.equal(result.error.retryable, true);
+  });
+
+  it("describes connector capability contracts without private state", () => {
+    const description = describeConnectorRegistry(createConnectorRegistry());
+    assert.deepEqual(description.issues, []);
+
+    const wechat = description.connectors.find((connector) => connector.platform === "wechat_official");
+    assert.equal(wechat.status, "available");
+    assert.deepEqual(
+      wechat.capabilities.map((capability) => capability.name),
+      ["read_content", "create_draft", "publish", "metrics"]
+    );
+    assert.ok(wechat.capabilities.every((capability) => capability.available));
+
+    const zhuque = description.connectors.find((connector) => connector.platform === "zhuque_ai");
+    assert.equal(zhuque.status, "available");
+    assert.equal(zhuque.capabilities[0].name, "detect");
+
+    const douyin = description.connectors.find((connector) => connector.platform === "douyin");
+    assert.equal(douyin.status, "reserved");
+    assert.ok(douyin.capabilities.every((capability) => !capability.available));
+  });
+
+  it("exposes connector status through a read-only API", async () => {
+    const allowed = await requestJson(server.baseUrl, "/api/connectors", {
+      token: "codex-token"
+    });
+    assert.equal(allowed.response.status, 200);
+    assert.ok(Array.isArray(allowed.data.connectors));
+    assert.ok(allowed.data.connectors.some((connector) => connector.platform === "wechat_official"));
+    assert.ok(allowed.data.connectors.some((connector) => connector.platform === "douyin" && connector.status === "reserved"));
+
+    const serialized = JSON.stringify(allowed.data);
+    assert.equal(serialized.includes("admin-token"), false);
+    assert.equal(serialized.includes("executor-token"), false);
+    assert.equal(serialized.includes("cookie"), false);
+    assert.equal(serialized.includes("profile"), false);
+
+    const denied = await requestJson(server.baseUrl, "/api/connectors", {
+      token: "executor-token"
+    });
+    assert.equal(denied.response.status, 403);
   });
 
   it("redacts sensitive keys and raw content", () => {

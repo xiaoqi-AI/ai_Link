@@ -63,6 +63,7 @@ npm run auth-hub:local:stop
 - `POST /api/tasks`：创建任务，支持 `full_chain`、`read_detect`、`draft_only`、`metrics`。
 - `GET /api/tasks`：读取脱敏任务列表，可用 `status` 查询参数筛选。
 - `GET /api/tasks/:id`：读取脱敏任务状态。
+- `GET /api/connectors`：用 `connectors:read` 权限读取公开安全的连接器状态和能力契约，不返回密钥、Cookie、登录态或平台内容。
 - `POST /api/tasks/:id/approve`：确认或拒绝发布等高风险动作。
 - `POST /api/tasks/:id/retry`：人工处理完成后，把 `action_required` 或失败任务重新排队。
 - `POST /api/executor/lease`：本地执行器领取任务。
@@ -132,5 +133,6 @@ npm audit --audit-level=high
 - 原有 AI Link CLI 路由和 provider 行为。
 - 授权中枢 mock 全链路：创建任务、执行器领取、检测和草稿摘要、审批、发布完成。
 - 待人工处理状态：执行器可回传 `needs_action`，控制台会单独列出 `action_required` 任务，管理员处理后可 retry 重新排队。
+- 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。

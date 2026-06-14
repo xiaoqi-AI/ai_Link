@@ -1,5 +1,6 @@
 import { MockWechatConnector } from "./mockWechat.js";
 import { MockZhuqueConnector } from "./mockZhuque.js";
+import { describeConnectorRegistry } from "./contracts.js";
 
 export function createConnectorRegistry({ mode = "mock" } = {}) {
   if (mode !== "mock") {
@@ -14,4 +15,8 @@ export function createConnectorRegistry({ mode = "mock" } = {}) {
     zhihu: { status: "reserved" },
     toutiao: { status: "reserved" }
   };
+}
+
+export function describeConnectors({ registry = createConnectorRegistry() } = {}) {
+  return describeConnectorRegistry(registry);
 }

@@ -30,9 +30,11 @@ export function layout({ title, body }) {
     pre { padding:12px; overflow:auto; white-space:pre-wrap; }
     .status { display:inline-flex; min-width:96px; justify-content:center; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; color:var(--muted); background:#fff; }
     .status.completed { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
-    .status.failed, .status.cancelled { color:var(--danger); border-color:#fecdca; background:#fef3f2; }
+    .status.failed, .status.cancelled, .status.misconfigured { color:var(--danger); border-color:#fecdca; background:#fef3f2; }
     .status.approval_required { color:#9a6700; border-color:#fedf89; background:#fffaeb; }
     .status.action_required { color:#b54708; border-color:#fed7aa; background:#fff7ed; }
+    .status.available { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
+    .status.reserved { color:var(--muted); border-color:var(--line); background:#f8fafc; }
     button, .button { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; padding:9px 12px; font-weight:600; cursor:pointer; }
     button.secondary { color:var(--text); background:#fff; border-color:var(--line); }
     input, textarea, select { width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font:inherit; background:#fff; }
@@ -48,7 +50,7 @@ export function layout({ title, body }) {
 <body>
   <header>
     <strong>AI Link 授权中枢</strong>
-    <nav><a href="/dashboard">任务</a> · <a href="/logout">退出</a></nav>
+    <nav><a href="/dashboard">任务</a> · <a href="/dashboard/connectors">连接器</a> · <a href="/logout">退出</a></nav>
   </header>
   <main>${body}</main>
 </body>
@@ -72,7 +74,7 @@ export function loginPage({ error = "", next = "/dashboard" } = {}) {
   });
 }
 
-export function dashboardPage({ tasks, actionTasks = [], approvals }) {
+export function dashboardPage({ tasks, actionTasks = [], approvals, connectors = [] }) {
   const statusCounts = countTaskStatuses(tasks);
   const taskRows = tasks.map((task) => `<tr>
     <td><a href="/dashboard/tasks/${escapeHtml(task.id)}">${escapeHtml(task.id.slice(0, 8))}</a></td>
@@ -95,6 +97,8 @@ export function dashboardPage({ tasks, actionTasks = [], approvals }) {
     <td>${escapeHtml(task.summary || task.error?.message || "需要人工处理")}</td>
     <td>${escapeHtml(task.updatedAt)}</td>
   </tr>`).join("");
+
+  const connectorRows = connectorRowsHtml(connectors);
 
   return layout({
     title: "任务",
@@ -119,6 +123,10 @@ export function dashboardPage({ tasks, actionTasks = [], approvals }) {
       <table><thead><tr><th>ID</th><th>流程</th><th>事项</th><th>更新时间</th></tr></thead><tbody>${actionRows || "<tr><td colspan=\"4\">暂无待人工处理事项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
+      <h2>连接器状态</h2>
+      <table><thead><tr><th>平台</th><th>状态</th><th>能力</th><th>问题</th></tr></thead><tbody>${connectorRows || "<tr><td colspan=\"4\">暂无连接器状态</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
       <h2>待确认动作</h2>
       <table><thead><tr><th>ID</th><th>动作</th><th>摘要</th><th>状态</th></tr></thead><tbody>${approvalRows || "<tr><td colspan=\"4\">暂无待确认事项</td></tr>"}</tbody></table>
     </section>`
@@ -130,6 +138,45 @@ function countTaskStatuses(tasks) {
     counts[task.status] = (counts[task.status] || 0) + 1;
     return counts;
   }, {});
+}
+
+function connectorRowsHtml(connectors) {
+  return connectors.map((connector) => `<tr>
+    <td>${escapeHtml(connector.platform)}</td>
+    <td><span class="status ${escapeHtml(connector.status)}">${escapeHtml(connectorStatusLabel(connector.status))}</span></td>
+    <td>${connector.capabilities.map((capability) => `${escapeHtml(capability.name)}：${escapeHtml(capability.available ? "可用" : "待接入")}`).join("<br>")}</td>
+    <td>${connector.issues.length ? escapeHtml(connector.issues.map((issue) => issue.code).join(", ")) : "无"}</td>
+  </tr>`).join("");
+}
+
+function connectorStatusLabel(status) {
+  return {
+    available: "可用",
+    reserved: "预留",
+    misconfigured: "配置异常"
+  }[status] || status;
+}
+
+export function connectorsPage({ connectors = [], issues = [] }) {
+  const issueRows = issues.map((issue) => `<tr>
+    <td>${escapeHtml(issue.platform)}</td>
+    <td>${escapeHtml(issue.severity)}</td>
+    <td>${escapeHtml(issue.code)}</td>
+    <td>${escapeHtml(issue.capability || "")}</td>
+  </tr>`).join("");
+
+  return layout({
+    title: "连接器",
+    body: `<section class="panel">
+      <p><a href="/dashboard">返回任务列表</a></p>
+      <h1>连接器状态</h1>
+      <table><thead><tr><th>平台</th><th>状态</th><th>能力</th><th>问题</th></tr></thead><tbody>${connectorRowsHtml(connectors) || "<tr><td colspan=\"4\">暂无连接器状态</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>契约问题</h2>
+      <table><thead><tr><th>平台</th><th>级别</th><th>代码</th><th>能力</th></tr></thead><tbody>${issueRows || "<tr><td colspan=\"4\">暂无契约问题</td></tr>"}</tbody></table>
+    </section>`
+  });
 }
 
 export function newTaskPage() {
