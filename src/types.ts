@@ -46,6 +46,13 @@ export interface WorkflowStageConfig {
   model?: string;
   system?: string;
   inputFrom?: "original" | "previous" | "original-and-previous";
+  approval?: WorkflowStageApprovalConfig;
+}
+
+export interface WorkflowStageApprovalConfig {
+  required?: boolean;
+  mode?: "always" | "live";
+  reason?: string;
 }
 
 export interface WorkflowConfig {
@@ -140,6 +147,8 @@ export interface WorkflowRunRequest {
   previousStages?: WorkflowStageResult[];
   startAtStage?: string;
   resumeFromRecordId?: string;
+  approvedStages?: string[];
+  approveAll?: boolean;
   input?: string;
   system?: string;
   provider?: string;
@@ -153,7 +162,16 @@ export interface WorkflowStageResult {
   task: string;
   inputFrom: "original" | "previous" | "original-and-previous";
   source?: "current" | "resume";
+  approval?: WorkflowStageApprovalResult;
   result: RunResult;
+}
+
+export interface WorkflowStageApprovalResult {
+  required: boolean;
+  approved: boolean;
+  enforced: boolean;
+  mode: "always" | "live";
+  reason?: string;
 }
 
 export interface WorkflowRunResult {

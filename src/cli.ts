@@ -88,6 +88,8 @@ async function workflowCommand(args: ParsedArgs): Promise<void> {
     previousStages: resume?.stages,
     startAtStage: stringFlag(args, "from-stage") ?? stringFlag(args, "start-at"),
     resumeFromRecordId: resume?.id,
+    approvedStages: arrayFlag(args, "approve-stage"),
+    approveAll: booleanFlag(args, "approve-all"),
     input,
     system: stringFlag(args, "system"),
     provider: stringFlag(args, "provider"),
@@ -734,8 +736,19 @@ function toWorkflowStageResult(value: unknown): WorkflowStageResult | undefined 
     task,
     inputFrom,
     result,
+    approval: isWorkflowStageApprovalResult(value.approval) ? value.approval : undefined,
     source: value.source === "resume" ? "resume" : "current"
   };
+}
+
+function isWorkflowStageApprovalResult(value: unknown): value is NonNullable<WorkflowStageResult["approval"]> {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return typeof value.required === "boolean"
+    && typeof value.approved === "boolean"
+    && typeof value.enforced === "boolean"
+    && (value.mode === "always" || value.mode === "live");
 }
 
 interface RunRecordInput {
@@ -950,7 +963,8 @@ function printRunRecord(record: Record<string, unknown>, relativePath: string): 
         task: stringValue(stageRecord.task),
         provider: stringValue(stageResult.provider),
         model: stringValue(stageResult.model),
-        inputFrom: stringValue(stageRecord.inputFrom)
+        inputFrom: stringValue(stageRecord.inputFrom),
+        approval: formatApprovalCell(stageRecord.approval)
       };
     }));
     return;
@@ -966,6 +980,16 @@ function printRunRecord(record: Record<string, unknown>, relativePath: string): 
       console.log(firstLine(result.output));
     }
   }
+}
+
+function formatApprovalCell(value: unknown): string {
+  if (!isWorkflowStageApprovalResult(value)) {
+    return "";
+  }
+  if (!value.enforced) {
+    return `${value.mode}:dry-run`;
+  }
+  return value.approved ? `${value.mode}:approved` : `${value.mode}:pending`;
 }
 
 function stringValue(value: unknown): string {
@@ -996,6 +1020,12 @@ function printWorkflowResult(result: WorkflowRunResult): void {
     console.log("");
     console.log(`[${index + 1}] ${stage.name}`);
     console.log(`Source: ${stage.source ?? "current"}`);
+    if (stage.approval) {
+      const status = stage.approval.enforced
+        ? (stage.approval.approved ? "approved" : "pending")
+        : "dry-run";
+      console.log(`Approval: ${stage.approval.mode}:${status}${stage.approval.reason ? ` (${stage.approval.reason})` : ""}`);
+    }
     console.log(`Task: ${stage.task}`);
     console.log(`Provider: ${stage.result.provider}`);
     console.log(`Model: ${stage.result.model ?? "(default)"}`);
@@ -1011,6 +1041,7 @@ Usage:
   ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link workflow run <workflow> --resume-from <record-id> [--from-stage stage] [--record]
+  ai-link workflow run <workflow> [--approve-stage stage|--approve-all]
   ai-link runs list [--limit 10] [--json]
   ai-link runs show <id|latest> [--json]
   ai-link providers list

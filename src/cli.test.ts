@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -336,6 +336,64 @@ test("workflow resume refuses completed records unless a stage is selected", () 
         ["agent_flow", "current"]
       ]
     );
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("workflow run requires and accepts explicit stage approval", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-workflow-approval-"));
+  try {
+    const configPath = path.join(tempRoot, "approval.yaml");
+    writeFileSync(configPath, [
+      "version: 1",
+      "providers:",
+      "  mock:",
+      "    type: mock",
+      "    model: mock-echo",
+      "routes:",
+      "  demo.publish:",
+      "    provider: mock",
+      "workflows:",
+      "  demo:",
+      "    stages:",
+      "      - name: publish",
+      "        task: demo.publish",
+      "        approval:",
+      "          required: true",
+      "          mode: always",
+      "          reason: Publish needs review.",
+      ""
+    ].join("\n"), "utf8");
+
+    const blocked = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "demo",
+      "--config",
+      configPath,
+      "--input",
+      "publish this"
+    ]);
+    assert.notEqual(blocked.status, 0);
+    assert.match(blocked.stderr, /requires approval/);
+
+    const approved = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "demo",
+      "--config",
+      configPath,
+      "--input",
+      "publish this",
+      "--approve-stage",
+      "publish",
+      "--json"
+    ]);
+    assert.equal(approved.status, 0);
+    const result = JSON.parse(approved.stdout);
+    assert.equal(result.stages[0].approval.approved, true);
+    assert.equal(result.stages[0].approval.enforced, true);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }

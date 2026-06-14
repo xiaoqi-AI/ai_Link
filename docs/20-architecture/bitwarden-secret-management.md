@@ -96,10 +96,11 @@ powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 npm run bws:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:worksheet
 npm run bws:check:strict
 ```
 
-`bws:plan` 会根据 `.ai-link/bitwarden-secrets.manifest.json` 输出安全设置清单，包括 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables。它只输出名称和占位符，不输出真实值。`bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 或项目 ID 时会输出 warning；`bws:session` 默认执行严格检查，并隐藏输入缺失的 token；`bws:check:strict` 用于配置完成后的正式验收。
+`bws:plan` 会根据 `.ai-link/bitwarden-secrets.manifest.json` 输出安全设置清单，包括 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables。它只输出名称和占位符，不输出真实值。`bws:worksheet` 会生成 `runtime/tmp/bws-setup-worksheet.md`，用于本地勾选 Bitwarden / GitHub 实配进度，不应填写真实 secret value。`bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 或项目 ID 时会输出 warning；`bws:session` 默认执行严格检查，并隐藏输入缺失的 token；`bws:check:strict` 用于配置完成后的正式验收。
 
 检查 AI Link provider 状态：
 
@@ -179,6 +180,7 @@ git status --short
 npm run bws:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:worksheet
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
 powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
 powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1

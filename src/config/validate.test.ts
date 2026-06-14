@@ -77,3 +77,35 @@ test("validateConfig catches workflow stages without routes", () => {
   assert.ok(issues.some((issue) => issue.severity === "error"));
   assert.ok(issues.some((issue) => issue.path === "workflows.auto_ops.stages.0.task"));
 });
+
+test("validateConfig catches invalid workflow approval modes", () => {
+  const issues = validateConfig({
+    providers: {
+      mock: {
+        type: "mock"
+      }
+    },
+    routes: {
+      "demo.publish": {
+        provider: "mock"
+      }
+    },
+    workflows: {
+      demo: {
+        stages: [
+          {
+            name: "publish",
+            task: "demo.publish",
+            approval: {
+              required: true,
+              mode: "sometimes"
+            }
+          }
+        ]
+      }
+    }
+  } as unknown as Parameters<typeof validateConfig>[0]);
+
+  assert.ok(issues.some((issue) => issue.severity === "error"));
+  assert.ok(issues.some((issue) => issue.path === "workflows.demo.stages.0.approval.mode"));
+});

@@ -84,7 +84,12 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
         {
           name: "agent_flow",
           task: "auto_ops.agent_flow",
-          inputFrom: "original-and-previous"
+          inputFrom: "original-and-previous",
+          approval: {
+            required: true,
+            mode: "live",
+            reason: "Agent workflow stages may call external tools or platform automations."
+          }
         }
       ]
     }

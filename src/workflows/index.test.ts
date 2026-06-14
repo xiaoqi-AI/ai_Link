@@ -88,3 +88,64 @@ test("runWorkflow can rerun from a selected stage", async () => {
     ]
   );
 });
+
+test("runWorkflow requires explicit approval before approved stages", async () => {
+  const config = {
+    providers: {
+      mock: {
+        type: "mock" as const,
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.publish": {
+        provider: "mock"
+      }
+    },
+    workflows: {
+      demo: {
+        stages: [
+          {
+            name: "publish",
+            task: "demo.publish",
+            approval: {
+              required: true,
+              mode: "always" as const,
+              reason: "Publishing needs human approval."
+            }
+          }
+        ]
+      }
+    }
+  };
+
+  await assert.rejects(
+    () => runWorkflow(config, {
+      workflow: "demo",
+      input: "publish this"
+    }),
+    /requires approval/
+  );
+
+  const result = await runWorkflow(config, {
+    workflow: "demo",
+    input: "publish this",
+    approvedStages: ["publish"]
+  });
+
+  assert.equal(result.stages[0].approval?.approved, true);
+  assert.equal(result.stages[0].approval?.enforced, true);
+  assert.match(result.stages[0].result.output, /task: demo.publish/);
+});
+
+test("runWorkflow only warns for live approvals during dry-run", async () => {
+  const result = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    dryRun: true
+  });
+
+  const agentStage = result.stages.find((stage) => stage.name === "agent_flow");
+  assert.equal(agentStage?.approval?.mode, "live");
+  assert.equal(agentStage?.approval?.enforced, false);
+  assert.equal(agentStage?.approval?.approved, false);
+});

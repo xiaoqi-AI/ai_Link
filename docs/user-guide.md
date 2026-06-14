@@ -65,6 +65,8 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 
 `skill draft` 会把自然语言说明转换成候选 `routes` 和 `workflows`；加 `--write .ai-link/local.yaml` 时默认只预览，只有再加 `--yes` 才会写入。`workflow run` 会按配置串联多个阶段。默认 `auto_ops` 示例会依次运行 Grok 调研、Kimi 写稿和 Coze agent workflow dry-run。需要给后续 Codex 步骤稳定交接时，用 `--output runtime/tmp/*.json` 写入结构化结果；需要保留本地运行索引时，可以加 `--record`，记录会写入 `runtime/tmp/ai-link-runs/`，随后用 `runs list` 查看最近记录、用 `runs show <id>` 查看单条记录。多阶段任务可以先用 `--stages research --record` 留下阶段记录，再用 `--resume-from latest` 或 `--resume-from <id>` 续跑剩余阶段；需要从某个阶段重跑时，加 `--from-stage article_draft`。这些运行产物默认不进入 Git；`--record` 不会在 request 里单独保存原始 input，但 provider 输出可能回显任务内容，所以仍只适合留在本地临时目录。Codex skill 示例见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`。
 
+涉及真实平台、外部工具或可能产生费用的 workflow 阶段会保留人工批准门。默认 `auto_ops.agent_flow` 在 dry-run 中只显示审批提示；真实运行前需要显式加 `--approve-stage agent_flow` 或 `--approve-all`。
+
 ## 统一授权中枢本地试跑
 
 授权中枢用于把跨平台任务拆成“云端私有控制台 + 本地执行器 + 人工确认发布”。本地开发可用：
@@ -95,11 +97,12 @@ npm run auth-hub:local:stop
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 npm run bws:plan
+npm run bws:worksheet
 npm run bws:session
 npm run bws:check
 ```
 
-`npm run bws:plan` 会根据公开 manifest 输出需要创建的 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables，不输出真实 secret value。`npm run bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时使用，并默认执行严格检查。`npm run bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 时会给出 warning；等 Bitwarden 项目和 machine account token 都配置好后，再用严格模式确认：
+`npm run bws:plan` 会根据公开 manifest 输出需要创建的 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables，不输出真实 secret value。`npm run bws:worksheet` 会生成不含真实密钥的本地工作单到 `runtime/tmp/bws-setup-worksheet.md`，方便逐项勾选 Bitwarden / GitHub UI 配置。`npm run bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时使用，并默认执行严格检查。`npm run bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 时会给出 warning；等 Bitwarden 项目和 machine account token 都配置好后，再用严格模式确认：
 
 ```powershell
 npm run bws:check:strict
@@ -152,6 +155,7 @@ npm run workflow:dry
 npm run bws:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:worksheet
 npm run security:scan
 npm run verify:fresh
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1

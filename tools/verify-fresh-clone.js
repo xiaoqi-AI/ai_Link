@@ -19,6 +19,7 @@ const commands = [
   ["npm", ["run", "bws:plan"], clonePath],
   ["npm", ["run", "bws:check"], clonePath],
   ["npm", ["run", "bws:session:help"], clonePath],
+  ["npm", ["run", "bws:worksheet"], clonePath],
   ["npm", ["run", "workflow:dry"], clonePath],
   ["npm", ["run", "ai-link", "--", "workflow", "run", "auto_ops", "--dry-run", "--input", "fresh clone output check", "--output", "runtime/tmp/auto-ops-workflow.json"], clonePath],
   ["npm", ["run", "ai-link", "--", "workflow", "run", "auto_ops", "--dry-run", "--input", "fresh clone record check", "--record"], clonePath],

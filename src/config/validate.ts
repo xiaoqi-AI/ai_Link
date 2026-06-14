@@ -25,6 +25,7 @@ const PROVIDER_TYPES = new Set<ProviderType>([
 ]);
 
 const POLICY_ALLOW_OUTBOUND = new Set(["never", "user-approved", "always"]);
+const WORKFLOW_APPROVAL_MODES = new Set(["always", "live"]);
 
 export function validateConfig(config: AiLinkConfig): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -104,6 +105,14 @@ function validateWorkflow(
         severity: "error",
         path: `workflows.${name}.stages.${index}.inputFrom`,
         message: "inputFrom must be original, previous, or original-and-previous."
+      });
+    }
+
+    if (stage.approval?.mode && !WORKFLOW_APPROVAL_MODES.has(stage.approval.mode)) {
+      issues.push({
+        severity: "error",
+        path: `workflows.${name}.stages.${index}.approval.mode`,
+        message: "approval.mode must be always or live."
       });
     }
   }

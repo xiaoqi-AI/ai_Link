@@ -45,6 +45,7 @@ npm run ai-link -- config validate
 npm run bws:plan
 npm run bws:check
 npm run bws:session:help
+npm run bws:worksheet
 npm run security:scan
 npm run verify:fresh
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
@@ -78,12 +79,13 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 npm run bws:plan
+npm run bws:worksheet
 npm run bws:session
 npm run bws:check:strict
 npm run bws:doctor
 ```
 
-`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`。
+`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/bws-setup-worksheet.md`；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`。
 
 ## 统一授权中枢 MVP
 
@@ -140,6 +142,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link workflow run` 多阶段工作流串联，默认示例支持 Grok 调研后交给 Kimi 写草稿。
 - `ai-link run` / `ai-link workflow run` 支持 `--json` 和 `--output runtime/tmp/*.json`，方便 Codex skill 稳定读取结构化结果。
 - `ai-link run` / `ai-link workflow run` 支持 `--record`，把本地运行记录写入 `runtime/tmp/ai-link-runs/`；`ai-link runs list/show` 可查看本地运行索引和单次记录，`workflow run --resume-from` 可从本地 workflow 记录续跑。
+- `workflow` 阶段支持 `approval` 门禁；默认 `agent_flow` 真实运行前需要 `--approve-stage agent_flow` 或 `--approve-all`。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
 - `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。

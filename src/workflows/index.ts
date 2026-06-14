@@ -4,6 +4,7 @@ import type {
   AiLinkConfig,
   WorkflowRunRequest,
   WorkflowRunResult,
+  WorkflowStageApprovalResult,
   WorkflowStageConfig,
   WorkflowStageResult
 } from "../types.js";
@@ -38,6 +39,7 @@ export async function runWorkflow(
   for (const stage of stagesToRun) {
     const task = stage.task ?? `${request.workflow}.${stage.name}`;
     const inputFrom = stage.inputFrom ?? (results.length === 0 ? "original" : "original-and-previous");
+    const approval = resolveStageApproval(request, stage, task);
     const result = await runAiLink(config, {
       task,
       input: buildStageInput(request.input, results, inputFrom),
@@ -53,6 +55,7 @@ export async function runWorkflow(
       task,
       inputFrom,
       source: "current",
+      approval,
       result
     });
   }
@@ -135,6 +138,52 @@ function buildStageInput(
   }
 
   return original || undefined;
+}
+
+function resolveStageApproval(
+  request: WorkflowRunRequest,
+  stage: WorkflowStageConfig,
+  task: string
+): WorkflowStageApprovalResult | undefined {
+  if (!stage.approval?.required) {
+    return undefined;
+  }
+
+  const mode = stage.approval.mode ?? "always";
+  if (mode === "live" && request.dryRun) {
+    return {
+      required: true,
+      approved: false,
+      enforced: false,
+      mode,
+      reason: stage.approval.reason
+    };
+  }
+
+  const approved = Boolean(request.approveAll)
+    || (request.approvedStages ?? []).some((value) => value === stage.name || value === task);
+
+  if (!approved) {
+    throw new AiLinkError(
+      `Workflow stage "${stage.name}" requires approval. Add --approve-stage ${stage.name} or --approve-all.`,
+      "WORKFLOW_APPROVAL_REQUIRED",
+      {
+        workflow: request.workflow,
+        stage: stage.name,
+        task,
+        mode,
+        reason: stage.approval.reason
+      }
+    );
+  }
+
+  return {
+    required: true,
+    approved: true,
+    enforced: true,
+    mode,
+    reason: stage.approval.reason
+  };
 }
 
 function resolveStartIndex(stages: WorkflowStageConfig[], request: WorkflowRunRequest): number {

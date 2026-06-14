@@ -28,6 +28,8 @@ npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml
 
 `--output` 会写入完整 JSON 结果，方便 Codex skill 或后续脚本继续读取；`--record` 会写入本地运行记录并更新 `runtime/tmp/ai-link-runs/index.json`，之后可用 `runs list` / `runs show <id>` 查看，也可用 `workflow run --resume-from <id|latest>` 续跑剩余阶段。运行产物只写入 `runtime/tmp/`，不要提交到 Git。
 
+`auto_ops.agent_flow` 默认带有 live 审批门。dry-run 只显示审批状态；真实执行前需要显式加 `--approve-stage agent_flow` 或 `--approve-all`。
+
 ## Mock 本地执行
 
 ```powershell
