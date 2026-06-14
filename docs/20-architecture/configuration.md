@@ -84,6 +84,30 @@ routes:
     provider: kimi
 ```
 
+Agent provider 的本机命令也应放在 local 配置中。以 Coze 为例：
+
+```yaml
+providers:
+  coze:
+    type: coze
+    model: coze-agent-workflow
+    command: coze
+    args:
+      - session
+      - message
+      - --wait
+      - --format
+      - json
+
+routes:
+  auto_ops.agent_flow:
+    provider: coze
+    fallback:
+      - mock
+```
+
+AI Link 会把任务信息作为 stdin JSON 传给本机命令。命令可以返回纯文本，也可以返回 `{ "output": "..." }` JSON。公开配置不要写 Coze 登录态、token、私有 workspace ID 或本机路径。
+
 ## 密钥管理
 
 默认推荐进入 BWS 密钥托管模式：个人密码、网站链接和恢复码放 Bitwarden Password Manager，API key、token 和自动化凭据放 Bitwarden Secrets Manager。Codex 或 AI Link 运行时通过 `bws run` 临时注入环境变量，不把真实密钥写入仓库、知识库、issue、PR 或聊天记录。

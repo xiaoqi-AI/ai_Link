@@ -59,6 +59,7 @@ npm run providers:dry
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，Codex 负责落地"
 npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi" --write .ai-link/local.yaml
+npm run ai-link -- run auto_ops.agent_flow --dry-run --input "验证 Coze agent 工作流"
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```
@@ -120,6 +121,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link` CLI 本地运行入口。
 - 配置优先级：会话临时指定 > 项目 local 私有配置 > 项目公开配置 > 用户全局配置 > 默认配置。
 - `mock/local-dry-run`、`openai-compatible`、`deepseek`、`kimi`、`grok` provider。
+- `coze` agent provider dry-run 和本地命令适配。
 - `ai-link config validate` 配置校验。
 - `ai-link providers verify` provider dry-run / live 验收。
 - `ai-link workflow run` 多阶段工作流串联，默认示例支持 Grok 调研后交给 Kimi 写草稿。

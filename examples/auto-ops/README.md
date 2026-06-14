@@ -4,7 +4,7 @@
 
 - `auto_ops.research`：默认用 Grok 调研，失败时回退 DeepSeek、Kimi、mock。
 - `auto_ops.article_draft`：默认用 Kimi 写文章草稿，失败时回退 DeepSeek、mock。
-- `auto_ops.agent_flow`：扣子工作流预留，当前用 mock 兜底。
+- `auto_ops.agent_flow`：默认用 Coze agent provider dry-run，真实执行需要在 `.ai-link/local.yaml` 配置本地命令，失败时回退 mock。
 - Codex：负责把输出落到项目文件、验证和 Git 收尾。
 
 ## Dry-run
@@ -26,6 +26,14 @@ npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml
 ```powershell
 npm run ai-link -- run auto_ops.article_draft --config examples/auto-ops/project.yaml --provider mock --input-file examples/auto-ops/sample-input.md
 ```
+
+## Coze Agent Dry-run
+
+```powershell
+npm run ai-link -- run auto_ops.agent_flow --config examples/auto-ops/project.yaml --dry-run --input-file examples/auto-ops/sample-input.md
+```
+
+真实 Coze 命令请写在 `.ai-link/local.yaml`，不要写入公开示例。
 
 ## 自然语言生成 Skill 配置
 

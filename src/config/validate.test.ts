@@ -40,6 +40,20 @@ test("validateConfig warns on inline apiKey", () => {
   assert.ok(issues.some((issue) => issue.severity === "warning" && issue.path === "providers.risky.apiKey"));
 });
 
+test("validateConfig warns on provider command", () => {
+  const issues = validateConfig({
+    providers: {
+      cozeLocal: {
+        type: "coze",
+        model: "coze-agent-workflow",
+        command: "coze"
+      }
+    }
+  });
+
+  assert.ok(issues.some((issue) => issue.severity === "warning" && issue.path === "providers.cozeLocal.command"));
+});
+
 test("validateConfig catches workflow stages without routes", () => {
   const issues = validateConfig({
     providers: {

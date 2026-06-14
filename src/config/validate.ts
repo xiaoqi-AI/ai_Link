@@ -176,6 +176,14 @@ function validateProvider(name: string, provider: ProviderConfig, issues: Valida
     });
   }
 
+  if (provider.command) {
+    issues.push({
+      severity: "warning",
+      path: `providers.${name}.command`,
+      message: "Provider command should only appear in private local or user config, never in public project config."
+    });
+  }
+
   if (provider.type !== "mock" && !provider.model) {
     issues.push({
       severity: "warning",

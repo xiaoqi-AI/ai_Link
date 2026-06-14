@@ -10,7 +10,8 @@ test("resolveWorkflowStages uses configured default stages", () => {
     stages.map((stage) => [stage.name, stage.task, stage.inputFrom]),
     [
       ["research", "auto_ops.research", "original"],
-      ["article_draft", "auto_ops.article_draft", "original-and-previous"]
+      ["article_draft", "auto_ops.article_draft", "original-and-previous"],
+      ["agent_flow", "auto_ops.agent_flow", "original-and-previous"]
     ]
   );
 });
@@ -24,9 +25,11 @@ test("runWorkflow dry-runs configured stages in order", async () => {
 
   assert.equal(result.workflow, "auto_ops");
   assert.equal(result.dryRun, true);
-  assert.equal(result.stages.length, 2);
+  assert.equal(result.stages.length, 3);
   assert.equal(result.stages[0].name, "research");
   assert.match(result.stages[0].result.output, /\[dry-run:grok]/);
   assert.equal(result.stages[1].name, "article_draft");
   assert.match(result.stages[1].result.output, /\[dry-run:kimi]/);
+  assert.equal(result.stages[2].name, "agent_flow");
+  assert.match(result.stages[2].result.output, /\[dry-run:coze]/);
 });

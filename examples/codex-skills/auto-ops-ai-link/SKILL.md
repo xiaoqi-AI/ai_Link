@@ -24,6 +24,7 @@ Run selected stages when the user narrows the task:
 ```powershell
 npm run ai-link -- workflow run auto_ops --stages research --dry-run --input "<public research brief>"
 npm run ai-link -- workflow run auto_ops --stages research,article_draft --dry-run --input "<public article brief>"
+npm run ai-link -- run auto_ops.agent_flow --dry-run --input "<public workflow brief>"
 ```
 
 If the user asks for a temporary model change, pass it as a session override:
@@ -58,3 +59,5 @@ Use `skill draft-route` only when you want route entries without a workflow.
 ## Safety
 
 Do not send secrets, tokens, login state, private screenshots, account data, or unredacted private content to external providers. Treat provider output as input material, then Codex verifies, edits, tests, and closes the work.
+
+For live Coze execution, require a reviewed `.ai-link/local.yaml` command adapter. Keep login state, workspace details, and account-specific values out of public config.

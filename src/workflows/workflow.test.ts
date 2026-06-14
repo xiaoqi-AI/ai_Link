@@ -11,13 +11,16 @@ test("runWorkflow chains configured auto_ops stages", async () => {
   });
 
   assert.equal(result.workflow, "auto_ops");
-  assert.equal(result.stages.length, 2);
+  assert.equal(result.stages.length, 3);
   assert.equal(result.stages[0].name, "research");
   assert.equal(result.stages[0].result.provider, "grok");
   assert.equal(result.stages[1].name, "article_draft");
   assert.equal(result.stages[1].result.provider, "kimi");
   assert.equal(result.stages[1].inputFrom, "original-and-previous");
   assert.match(result.stages[1].result.output, /dry-run:kimi/);
+  assert.equal(result.stages[2].name, "agent_flow");
+  assert.equal(result.stages[2].result.provider, "coze");
+  assert.match(result.stages[2].result.output, /dry-run:coze/);
 });
 
 test("resolveWorkflowStages accepts explicit stage selection", () => {

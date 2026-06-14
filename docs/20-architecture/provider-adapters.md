@@ -9,7 +9,7 @@
 | `deepseek` | OpenAI-compatible | 已实现适配 | `DEEPSEEK_API_KEY` |
 | `kimi` | OpenAI-compatible | 已实现适配 | `MOONSHOT_API_KEY` |
 | `grok` | OpenAI-compatible | 已实现适配 | `XAI_API_KEY` |
-| `coze` | Agent / workflow | 已预留，MVP runtime 暂未实现 | 待定 |
+| `coze` | Agent / workflow | 已实现 dry-run 和本地命令适配 | 由本机命令自行管理 |
 
 真实外部调用需要用户自行配置 API key。没有 key 时，可以用 `--dry-run` 验证路由、模型、endpoint 和请求构造。
 
@@ -52,6 +52,34 @@ npm run ai-link -- run provider.test --provider grok --input "hello"
 
 公开示例和测试不会包含真实 key，也不会默认发起外部模型调用。
 
-## Coze 预留
+## Coze Agent 适配
 
-扣子在第一版中作为 `agent_workflow` provider 预留。建议后续优先调研官方 API，其次预留 MCP，命令行方式作为兜底。接入前需要确认鉴权、工作流输入输出格式、审计记录和数据出站边界。
+扣子在第一版中作为 `agent_workflow` provider 接入。公开配置只放 provider 名称、模型名和能力标签；真实执行需要用户在 `.ai-link/local.yaml` 或用户全局配置里显式配置本地命令：
+
+```yaml
+providers:
+  coze:
+    type: coze
+    model: coze-agent-workflow
+    command: coze
+    args:
+      - session
+      - message
+      - --wait
+      - --format
+      - json
+```
+
+AI Link 会把任务信息以 stdin JSON 传给该命令，并读取 stdout。命令输出可以是纯文本、单个 JSON，也可以是 Coze CLI 常见的 NDJSON 事件流。若输出 JSON，AI Link 会优先读取 `output`、`content`、`reply_content` 或 `replyContent`：
+
+```json
+{ "output": "agent result" }
+```
+
+安全边界：
+
+- dry-run 不执行本地命令。
+- 没有 `provider.command` 时，真实执行会失败并提示补本机配置。
+- dry-run 和运行 metadata 只显示 command 是否已配置及 args 数量，不打印本机命令、参数值或路径。
+- 不要把 Coze 登录态、账号信息、私有 workspace ID、token 或本机路径写进公开配置。
+- Agent 输出只作为 Codex 的输入材料；Codex 仍负责文件修改、验证、安全判断和 Git 收尾。

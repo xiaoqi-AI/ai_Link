@@ -174,17 +174,6 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
       continue;
     }
 
-    if (provider.type === "coze") {
-      rows.push({
-        name,
-        type: provider.type,
-        mode: live ? "live" : "dry-run",
-        status: "skipped",
-        detail: "agent workflow provider is reserved in this MVP"
-      });
-      continue;
-    }
-
     const skipReason = live ? liveSkipReason(provider) : "";
     if (skipReason) {
       if (strict) {
@@ -379,7 +368,10 @@ function providerHealth(name: string, provider: ProviderConfig): Record<string, 
     return { name, type: provider.type, status: "ready", detail: "local dry-run provider" };
   }
   if (provider.type === "coze") {
-    return { name, type: provider.type, status: "reserved", detail: "agent workflow provider placeholder" };
+    if (provider.command) {
+      return { name, type: provider.type, status: "ready", detail: "local agent command configured" };
+    }
+    return { name, type: provider.type, status: "dry-run-only", detail: "set provider.command in local config for live agent execution" };
   }
   if (!provider.baseUrl) {
     return { name, type: provider.type, status: "needs-config", detail: "missing baseUrl" };
@@ -398,6 +390,10 @@ function providerHealth(name: string, provider: ProviderConfig): Record<string, 
 function liveSkipReason(provider: ProviderConfig): string {
   if (provider.type === "mock") {
     return "";
+  }
+
+  if (provider.type === "coze") {
+    return provider.command ? "" : "set provider.command in local config";
   }
 
   if (provider.baseUrl?.includes("api.example.com")) {

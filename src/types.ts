@@ -27,6 +27,8 @@ export interface ProviderConfig {
   timeoutMs?: number;
   headers?: Record<string, string>;
   requestDefaults?: Record<string, unknown>;
+  command?: string;
+  args?: string[];
 }
 
 export interface RouteConfig {

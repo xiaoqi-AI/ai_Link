@@ -39,6 +39,11 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       apiKeyEnv: "XAI_API_KEY",
       model: "grok-4.3",
       capabilities: ["text", "web_research", "image_understanding"]
+    },
+    coze: {
+      type: "coze",
+      model: "coze-agent-workflow",
+      capabilities: ["agent_workflow"]
     }
   },
   routes: {
@@ -53,8 +58,9 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       fallback: ["deepseek", "mock"]
     },
     "auto_ops.agent_flow": {
-      provider: "mock",
-      capabilities: ["agent_workflow"]
+      provider: "coze",
+      capabilities: ["agent_workflow"],
+      fallback: ["mock"]
     },
     "image.followup": {
       provider: "mock",
@@ -63,7 +69,7 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
   },
   workflows: {
     auto_ops: {
-      description: "Research with Grok, then draft with Kimi while Codex keeps execution control.",
+      description: "Research with Grok, draft with Kimi, then run the configured agent workflow while Codex keeps execution control.",
       stages: [
         {
           name: "research",
@@ -73,6 +79,11 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
         {
           name: "article_draft",
           task: "auto_ops.article_draft",
+          inputFrom: "original-and-previous"
+        },
+        {
+          name: "agent_flow",
+          task: "auto_ops.agent_flow",
           inputFrom: "original-and-previous"
         }
       ]
