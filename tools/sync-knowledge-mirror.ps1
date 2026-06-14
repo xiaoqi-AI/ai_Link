@@ -22,9 +22,15 @@ function Should-Skip($relativePath) {
   return (
     $normalized -like "runtime/private/*" -or
     $normalized -like ".git/*" -or
+    $normalized -like ".env*" -or
     $normalized -like "node_modules/*" -or
     $normalized -like "dist/*" -or
     $normalized -like "build/*" -or
+    $normalized -like "tests/*" -or
+    $normalized -like "src/*.js" -or
+    $normalized -like "src/**/*.js" -or
+    $normalized -eq "render.yaml" -or
+    $normalized -eq "tools/security-scan.js" -or
     $normalized -like "*.log"
   )
 }
