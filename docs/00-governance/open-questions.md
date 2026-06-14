@@ -27,6 +27,7 @@
 - AI Link CLI 已采用 TypeScript / Node.js；统一授权中枢公开骨架已采用 Node.js / Express。
 - MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
 - MVP 已补充 `package:check` / `package:check:json`，用于在不发布 npm 的前提下模拟打包并检查公开包内容。
+- MVP 已补充 `package:install-smoke` / `package:install-smoke:json`，用于在不发布 npm 的前提下安装本地 tarball 并验证安装后的 CLI。
 - MVP 已补充 `github:safety` / `github:safety:json`，用于检查公开仓本地治理基线并在可用时只读核验 GitHub 远端安全设置。
 - MVP 已补充 `release:plan` / `release:plan:json`，用于检查 changelog、release notes、发布流程、tag 计划和 npm 发布决策项。
 - MVP 已补充 `release:readiness` / `release:readiness:json`，用于区分仓库内发布基线和 GitHub UI / npm 发布决策等人工确认项。

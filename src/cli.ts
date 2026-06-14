@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { deepMerge, loadConfig, readYamlConfig } from "./config/load.js";
 import { hasValidationErrors, validateConfig } from "./config/validate.js";
@@ -75,6 +76,11 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const [command] = args.positional;
 
+  if (!command && (booleanFlag(args, "version") || booleanFlag(args, "v"))) {
+    console.log(readPackageVersion());
+    return;
+  }
+
   switch (command) {
     case "run":
       await runCommand(args);
@@ -101,9 +107,7 @@ async function main(): Promise<void> {
       onboardCommand(args);
       return;
     case "version":
-    case "--version":
-    case "-v":
-      console.log("0.1.0");
+      console.log(readPackageVersion());
       return;
     case "help":
     case "--help":
@@ -113,6 +117,16 @@ async function main(): Promise<void> {
       return;
     default:
       throw new AiLinkError(`Unknown command: ${command}`, "CLI_USAGE");
+  }
+}
+
+function readPackageVersion(): string {
+  const packageJsonPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+  try {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { version?: string };
+    return packageJson.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
   }
 }
 

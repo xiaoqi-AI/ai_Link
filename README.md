@@ -47,6 +47,8 @@ npm run onboard:json
 npm run onboard:check
 npm run package:check
 npm run package:check:json
+npm run package:install-smoke
+npm run package:install-smoke:json
 npm run github:safety
 npm run github:safety:json
 npm run release:plan
@@ -84,6 +86,8 @@ npm run onboard:json
 npm run onboard:check
 npm run package:check
 npm run package:check:json
+npm run package:install-smoke
+npm run package:install-smoke:json
 npm run github:safety
 npm run github:safety:json
 npm run release:plan
@@ -131,7 +135,7 @@ npm run providers:live:safe-report
 npm run providers:github:dispatch-plan
 ```
 
-`onboard:print` 会输出一页不含密钥的公开用户入场引导：当前项目配置、可用 provider / route / workflow、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要 CI/其他 agent 用退出码判定时，用 `npm run onboard:check` 或 `npm run ai-link -- onboard --json --strict`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。`package:check` 会先重新构建运行时产物，再用 `npm pack --dry-run` 模拟打包并确认包内不含源码测试、运行态、自动化目录或敏感本地文件；机器可读版本用 `package:check:json`，它不会发布到 npm。`github:safety` 会检查公开仓本地治理基线；如果本机安装并登录了 `gh`，还会只读核验远端 branch protection、secret scanning 和 push protection 状态；机器可读版本用 `github:safety:json`，不会修改 GitHub 设置。`release:plan` 会检查 `CHANGELOG.md`、GitHub Release 草稿、发布流程文档、tag 计划和 npm 发布决策项；机器可读版本用 `release:plan:json`，不会创建 tag 或发布 npm。`release:readiness` 会输出 v0.1 公开发布基线报告，把已满足项和 GitHub UI / npm 发布决策这类人工确认项分开；机器可读版本用 `release:readiness:json`。`providers:dry:json` 会输出 provider 验收摘要，包含 `summary.ok`、`summary.counts` 和逐个 provider 状态，适合 Codex skill、CI 或其他 agent 判定 dry-run 是否可用。
+`onboard:print` 会输出一页不含密钥的公开用户入场引导：当前项目配置、可用 provider / route / workflow、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要 CI/其他 agent 用退出码判定时，用 `npm run onboard:check` 或 `npm run ai-link -- onboard --json --strict`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。`package:check` 会先重新构建运行时产物，再用 `npm pack --dry-run` 模拟打包并确认包内不含源码测试、运行态、自动化目录或敏感本地文件；机器可读版本用 `package:check:json`，它不会发布到 npm。`package:install-smoke` 会把本地 tarball 安装到临时空项目里，再运行安装后的 `ai-link --version` 和 `config validate`；机器可读版本用 `package:install-smoke:json`，它同样不会发布到 npm。`github:safety` 会检查公开仓本地治理基线；如果本机安装并登录了 `gh`，还会只读核验远端 branch protection、secret scanning 和 push protection 状态；机器可读版本用 `github:safety:json`，不会修改 GitHub 设置。`release:plan` 会检查 `CHANGELOG.md`、GitHub Release 草稿、发布流程文档、tag 计划和 npm 发布决策项；机器可读版本用 `release:plan:json`，不会创建 tag 或发布 npm。`release:readiness` 会输出 v0.1 公开发布基线报告，把已满足项和 GitHub UI / npm 发布决策这类人工确认项分开；机器可读版本用 `release:readiness:json`。`providers:dry:json` 会输出 provider 验收摘要，包含 `summary.ok`、`summary.counts` 和逐个 provider 状态，适合 Codex skill、CI 或其他 agent 判定 dry-run 是否可用。
 
 `bws:onboard` 会生成不含真实密钥的一页入场引导到 `runtime/tmp/bws-onboarding.md`，汇总当前状态、目标结构和下一步动作；`bws:profile` 会生成只包含非敏感 Bitwarden project ID 的本地 PowerShell 片段到 `runtime/tmp/bws-local-profile.ps1`，不保存 `BWS_ACCESS_TOKEN`；`bws:activate` 会分两段隐藏输入本地 Codex machine account token 和 GitHub Actions machine account token，分别验收 `ai-link-local-dev` 与 `ai-link-ci`，不落盘 token；`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/bws-setup-worksheet.md`；`bws:rotation` 会生成不含真实 token 的 90 天轮换计划和验收证据清单；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单，不输出 secret value；`bws:github-vars:apply-plan` 会预览自动写入 GitHub Environment Variables 的计划，真正写入时用 `bws:github-vars:apply`，但 `BW_ACCESS_TOKEN` 仍需作为 GitHub Environment Secret 单独安全设置；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告，配置完成后用 `bws:acceptance:strict` 做正式验收；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`；`providers:live:safe-report` 会把真实 provider 验收结果写入 `runtime/tmp/provider-live-report.json`，只保留脱敏摘要，适合人工复盘或 GitHub Actions artifact。
 
@@ -188,6 +192,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `coze` agent provider dry-run 和本地命令适配。
 - `ai-link config validate` 配置校验。
 - `package:check` npm dry-run 打包内容检查，确认公开包不携带测试产物、运行态或私有文件。
+- `package:install-smoke` 临时 tarball 安装检查，确认安装后的 CLI 能启动并校验配置。
 - `github:safety` GitHub 公开仓安全基线检查，支持本地基线和可选远端只读核验。
 - `release:plan` v0.1 发布计划检查，覆盖 changelog、release notes、tag、npm 决策和发布流程。
 - `release:readiness` v0.1 公开发布基线检查。

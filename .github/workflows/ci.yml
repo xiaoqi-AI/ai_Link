@@ -45,6 +45,9 @@ jobs:
       - name: Package contents
         run: npm run package:check
 
+      - name: Package install smoke
+        run: npm run package:install-smoke
+
       - name: GitHub repository safety baseline
         run: npm run github:safety
         env:

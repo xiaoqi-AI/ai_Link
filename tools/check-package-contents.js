@@ -59,7 +59,8 @@ function checkRequiredFiles(files) {
     "docs/20-architecture/provider-adapters.md",
     "docs/20-architecture/codex-skill-integration.md",
     "examples/auto-ops/README.md",
-    "examples/codex-skills/auto-ops-ai-link/SKILL.md"
+    "examples/codex-skills/auto-ops-ai-link/SKILL.md",
+    "examples/codex-skills/bws-secret-mode/SKILL.md"
   ]) {
     addCheck(`required file ${file}`, hasFile(files, file) ? "pass" : "fail", file, "files");
   }

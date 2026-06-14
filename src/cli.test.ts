@@ -8,6 +8,17 @@ import { createServer } from "node:http";
 
 const cliPath = path.resolve("dist", "cli.js");
 
+test("cli --version prints package version", () => {
+  const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as { version: string };
+
+  for (const args of [["--version"], ["-v"], ["version"]]) {
+    const result = runCli(process.cwd(), args);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), packageJson.version);
+    assert.equal(result.stderr, "");
+  }
+});
+
 test("onboard --print renders the public onboarding runbook", () => {
   const result = runCli(process.cwd(), ["onboard", "--print"]);
 

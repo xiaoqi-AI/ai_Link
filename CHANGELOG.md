@@ -14,13 +14,14 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Structured JSON handoff for Codex skills, CI, and other agents through `--json` and `--output runtime/tmp/*.json`.
 - Bitwarden Secrets Manager runbooks and checks for keeping provider keys out of Git.
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
-- Public onboarding, package contents, GitHub repository safety, provider verification, release readiness, fresh clone, skill, and security checks.
+- Public onboarding, package contents, package install smoke, GitHub repository safety, provider verification, release planning, release readiness, fresh clone, skill, and security checks.
 
 ### Safety
 
 - Real external provider calls require explicit approval and configured private credentials.
 - Public repo checks avoid reading `.env`, tokens, login state, provider responses, QR codes, browser state, or `runtime/private`.
 - `package:check` uses `npm pack --dry-run` and does not publish.
+- `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.
 - `github:safety` is read-only; it does not modify GitHub settings.
 - `release:plan` and `release:readiness` do not create tags, publish npm packages, or trigger live provider calls.
 

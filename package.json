@@ -25,6 +25,8 @@
     "verify:fresh": "node tools/verify-fresh-clone.js",
     "package:check": "npm run build && node tools/check-package-contents.js",
     "package:check:json": "npm run build && node tools/check-package-contents.js --json",
+    "package:install-smoke": "npm run build && node tools/check-package-install.js",
+    "package:install-smoke:json": "npm run build && node tools/check-package-install.js --json",
     "github:safety": "node tools/check-github-repo-safety.js",
     "github:safety:json": "node tools/check-github-repo-safety.js --json",
     "release:plan": "node tools/check-release-plan.js",

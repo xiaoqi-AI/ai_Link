@@ -10,6 +10,7 @@ Run this sequence before creating a release tag or publishing any package:
 npm run check
 npm test
 npm run package:check
+npm run package:install-smoke
 npm run github:safety
 npm run release:plan
 npm run release:readiness
@@ -21,6 +22,7 @@ Machine-readable reports:
 
 ```powershell
 npm run package:check:json
+npm run package:install-smoke:json
 npm run github:safety:json
 npm run release:plan:json
 npm run release:readiness:json
@@ -51,7 +53,7 @@ Use `docs/releases/v0.1.0.md` as the GitHub Release body. If any manual gate rem
 
 ## npm Package
 
-`package:check` proves the package surface with `npm pack --dry-run`; it is not a publish command.
+`package:check` proves the package surface with `npm pack --dry-run`; it is not a publish command. `package:install-smoke` creates a local tarball, installs it into a temporary empty project, and verifies the installed CLI can report its version and validate default config.
 
 If npm publishing is approved, run a final dry-run first:
 

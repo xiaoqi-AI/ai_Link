@@ -104,6 +104,7 @@ for (const file of [
   "docs/releases/v0.1.0.md",
   "docs/00-governance/release-process.md",
   "docs/00-governance/open-questions.md",
+  "tools/check-package-install.js",
   "tools/check-release-plan.js"
 ]) {
   checkFile(file);
@@ -130,6 +131,7 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run release:plan",
   "npm run release:readiness",
   "npm run package:check",
+  "npm run package:install-smoke",
   "npm run github:safety",
   "npm run verify:fresh",
   "git tag -a v0.1.0",
@@ -149,6 +151,8 @@ for (const scriptName of [
   "release:readiness",
   "release:readiness:json",
   "package:check",
+  "package:install-smoke",
+  "package:install-smoke:json",
   "github:safety",
   "security:scan",
   "verify:fresh"
