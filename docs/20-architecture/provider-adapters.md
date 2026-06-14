@@ -8,6 +8,7 @@
 | `openai-compatible` | OpenAI-compatible chat completions | 已实现通用适配 | `OPENAI_COMPATIBLE_API_KEY` |
 | `deepseek` | OpenAI-compatible | 已实现适配 | `DEEPSEEK_API_KEY` |
 | `kimi` | OpenAI-compatible | 已实现适配 | `MOONSHOT_API_KEY` |
+| `doubao` | 火山方舟 OpenAI-compatible chat completions | 已实现适配 | `ARK_API_KEY` |
 | `grok` | OpenAI-compatible | 已实现适配 | `XAI_API_KEY` |
 | `coze` | Agent / workflow | 已实现 dry-run 和本地命令适配 | 由本机命令自行管理 |
 
@@ -33,6 +34,7 @@ AI Link 的 router 只关心 provider 是否能返回结构化结果，不让 pr
 
 - DeepSeek 官方文档说明其 API 兼容 OpenAI 格式，OpenAI base URL 为 `https://api.deepseek.com`，示例模型包含 `deepseek-v4-pro`。来源：<https://api-docs.deepseek.com/>
 - Kimi 官方文档说明 Kimi Open Platform 提供 OpenAI-compatible HTTP API，SDK base URL 为 `https://api.moonshot.ai/v1`，模型列表包含 `kimi-k2.6`。来源：<https://platform.kimi.ai/docs/api/overview>、<https://platform.kimi.ai/docs/models>
+- 火山方舟官方文档的文本生成示例使用 `https://ark.cn-beijing.volces.com/api/v3/chat/completions` 和 `Authorization: Bearer $ARK_API_KEY`；模型列表示例包含 `doubao-seed-1-8-251228`。来源：<https://www.volcengine.com/docs/82379/1399009>、<https://www.volcengine.com/docs/82379/1330310>
 - xAI 官方文档提供 OpenAI-compatible base URL `https://api.x.ai/v1`，并有 chat completions endpoint `/v1/chat/completions`。来源：<https://docs.x.ai/overview>、<https://docs.x.ai/developers/rest-api-reference/inference/chat>
 
 ## Dry-run 与真实调用

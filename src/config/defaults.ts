@@ -42,6 +42,16 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       },
       capabilities: ["text", "long_context", "structured_output"]
     },
+    doubao: {
+      type: "doubao",
+      baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+      apiKeyEnv: "ARK_API_KEY",
+      model: "doubao-seed-1-8-251228",
+      requestDefaults: {
+        max_tokens: 1600
+      },
+      capabilities: ["text", "long_context", "structured_output"]
+    },
     grok: {
       type: "grok",
       baseUrl: "https://api.x.ai/v1",
@@ -62,12 +72,12 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
     "auto_ops.research": {
       provider: "grok",
       capabilities: ["web_research", "text"],
-      fallback: ["deepseek", "kimi", "mock"]
+      fallback: ["deepseek", "doubao", "kimi", "mock"]
     },
     "auto_ops.article_draft": {
       provider: "kimi",
       capabilities: ["long_context", "text"],
-      fallback: ["deepseek", "mock"]
+      fallback: ["deepseek", "doubao", "mock"]
     },
     "auto_ops.agent_flow": {
       provider: "coze",

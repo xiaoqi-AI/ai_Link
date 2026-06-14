@@ -12,6 +12,7 @@ routes:
       - text
     fallback:
       - deepseek
+      - doubao
       - kimi
       - mock
 
@@ -22,6 +23,7 @@ routes:
       - text
     fallback:
       - deepseek
+      - doubao
       - mock
 
   auto_ops.agent_flow:
@@ -90,6 +92,18 @@ providers:
     model: kimi-k2.6
     requestDefaults:
       max_tokens: 2000
+    capabilities:
+      - text
+      - long_context
+      - structured_output
+
+  doubao:
+    type: doubao
+    baseUrl: https://ark.cn-beijing.volces.com/api/v3
+    apiKeyEnv: ARK_API_KEY
+    model: doubao-seed-1-8-251228
+    requestDefaults:
+      max_tokens: 1600
     capabilities:
       - text
       - long_context

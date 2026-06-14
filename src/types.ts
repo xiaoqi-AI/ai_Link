@@ -3,6 +3,7 @@ export type ProviderType =
   | "openai-compatible"
   | "deepseek"
   | "kimi"
+  | "doubao"
   | "grok"
   | "coze";
 

@@ -4,7 +4,7 @@
 
 ## 目标
 
-`mock`、`openai-compatible`、DeepSeek、Kimi 和 Grok 都已经有 dry-run 路径。真实 provider 验收用于确认本机或 GitHub Actions 中的密钥、endpoint、模型和请求格式能完成一次实际调用。
+`mock`、`openai-compatible`、DeepSeek、Kimi、豆包和 Grok 都已经有 dry-run 路径。真实 provider 验收用于确认本机或 GitHub Actions 中的密钥、endpoint、模型和请求格式能完成一次实际调用。
 
 ## 本地 dry-run
 
@@ -55,6 +55,7 @@ npm run providers:live -- --strict
 ```powershell
 npm run ai-link -- providers verify --live --provider deepseek
 npm run ai-link -- providers verify --live --provider kimi
+npm run ai-link -- providers verify --live --provider doubao
 npm run ai-link -- providers verify --live --provider grok
 ```
 
@@ -73,6 +74,7 @@ GitHub Environment Variables 保存 Bitwarden secret ID：
 - `BWS_OPENAI_COMPATIBLE_API_KEY_SECRET_ID`
 - `BWS_DEEPSEEK_API_KEY_SECRET_ID`
 - `BWS_MOONSHOT_API_KEY_SECRET_ID`
+- `BWS_ARK_API_KEY_SECRET_ID`
 - `BWS_XAI_API_KEY_SECRET_ID`
 
 真实 API key 仍保留在 Bitwarden Secrets Manager 中。workflow 通过 `bitwarden/sm-action@v2` 临时注入环境变量。
@@ -103,6 +105,21 @@ powershell -ExecutionPolicy Bypass -File tools/check-bws-mode.ps1 -CheckRemote
 远端检查不会读取或输出 secret value；GitHub environment secrets API 只返回 secret 名称，environment variables API 会返回变量值，但脚本只比对变量名、不打印变量值。
 
 建议先用默认非 strict 模式确认 workflow 可运行；确认 secrets 都配置后，再用 strict 模式验收。
+
+触发 workflow 前先查看计划，不会产生真实调用：
+
+```powershell
+npm run providers:github:dispatch-plan
+```
+
+确认远端配置、BWS 严格验收和模型费用边界后，再显式触发：
+
+```powershell
+npm run providers:github:dispatch
+npm run providers:github:dispatch-strict
+```
+
+这两个触发命令都需要当前会话中的 `GH_TOKEN` 或 `GITHUB_TOKEN`，并且脚本内置了费用确认参数；它只触发 GitHub workflow，不读取或打印任何 provider API key。
 
 ## 记录方式
 

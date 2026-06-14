@@ -252,6 +252,7 @@ if ($npmPath) {
   Invoke-Tool "BWS rotation plan" { Invoke-Npm @("run", "bws:rotation:print") } "rotation plan renders without secret values" | Out-Null
   Invoke-Tool "BWS GitHub vars helper help" { Invoke-Npm @("run", "bws:github-vars:help") } "helper is available without real credentials" | Out-Null
   Invoke-Tool "BWS GitHub vars apply plan" { Invoke-Npm @("run", "bws:github-vars:apply-plan") } "GitHub variable apply plan renders without credentials" | Out-Null
+  Invoke-Tool "Provider live workflow dispatch plan" { Invoke-Npm @("run", "providers:github:dispatch-plan") } "provider live dispatch plan renders without triggering workflow" | Out-Null
 
   $policyDryRun = Invoke-Tool "External action policy dry-run" {
     Invoke-Npm @("run", "ai-link", "--", "run", "auto_ops.agent_flow", "--dry-run", "--input", "bws acceptance dry-run")

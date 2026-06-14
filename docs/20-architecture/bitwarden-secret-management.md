@@ -54,6 +54,7 @@ Secret key 必须直接等于 AI Link 读取的环境变量名。Secret value �
 OPENAI_COMPATIBLE_API_KEY
 DEEPSEEK_API_KEY
 MOONSHOT_API_KEY
+ARK_API_KEY
 XAI_API_KEY
 AI_LINK_APP_PASSWORD
 AI_LINK_SESSION_SECRET
@@ -104,6 +105,7 @@ npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:github-vars:apply-plan
 npm run bws:acceptance:print
+npm run providers:github:dispatch-plan
 npm run bws:check:strict
 ```
 
@@ -174,6 +176,7 @@ jobs:
           access_token: ${{ secrets.BW_ACCESS_TOKEN }}
           secrets: |
             <deepseek-secret-id> > DEEPSEEK_API_KEY
+            <ark-secret-id> > ARK_API_KEY
             <xai-secret-id> > XAI_API_KEY
       - run: npm run ai-link -- doctor
 ```
@@ -195,6 +198,7 @@ npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:github-vars:apply-plan
 npm run bws:acceptance:print
+npm run providers:github:dispatch-plan
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
 powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
 powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1

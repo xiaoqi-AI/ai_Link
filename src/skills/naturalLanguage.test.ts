@@ -12,6 +12,7 @@ test("draftRoutesFromNaturalLanguage keeps provider stages separated by clauses"
   });
 
   assert.equal(draft.routes?.["auto_ops.research"]?.provider, "grok");
+  assert.deepEqual(draft.routes?.["auto_ops.research"]?.fallback, ["deepseek", "doubao", "kimi", "mock"]);
   assert.equal(draft.routes?.["auto_ops.article_draft"]?.provider, "kimi");
   assert.equal(draft.routes?.["auto_ops.agent_flow"]?.provider, "coze");
   assert.equal(draft.routes?.["auto_ops.agent_flow"]?.policy, "external_action");
@@ -40,6 +41,17 @@ test("draftSkillConfigFromNaturalLanguage adds a workflow in clause order", () =
       ["agent_flow", "auto_ops.agent_flow", "original-and-previous"]
     ]
   );
+});
+
+test("draftSkillConfigFromNaturalLanguage recognizes Doubao clauses", () => {
+  const draft = draftSkillConfigFromNaturalLanguage({
+    skillName: "market_ops",
+    description: "调研阶段用豆包，文章初稿用 Kimi"
+  });
+
+  assert.equal(draft.routes?.["market_ops.research"]?.provider, "doubao");
+  assert.deepEqual(draft.routes?.["market_ops.research"]?.fallback, ["deepseek", "kimi", "mock"]);
+  assert.equal(draft.routes?.["market_ops.article_draft"]?.provider, "kimi");
 });
 
 test("draftSkillConfigFromNaturalLanguage omits workflow when no routable provider is found", () => {

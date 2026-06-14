@@ -202,6 +202,7 @@ Add-Action "Run ``npm run bws:acceptance`` for a non-secret progress report; use
 Add-Action "Run ``npm run bws:activate:plan`` to review the two-token activation flow, then ``npm run bws:activate`` after project IDs and machine accounts are ready."
 Add-Action "Run ``npm run bws:rotation`` after first activation to create a non-secret 90-day token rotation plan."
 Add-Action "Run ``npm run bws:github-vars:apply-plan`` to preview automatic GitHub Environment variable setup; use ``npm run bws:github-vars:apply`` only with BWS and GitHub tokens in the current session."
+Add-Action "Run ``npm run providers:github:dispatch-plan`` to preview provider-live workflow dispatch before any real provider call."
 Add-Action "Keep provider live verification disabled until model cost boundaries are confirmed."
 
 $lines = New-Object System.Collections.Generic.List[string]
@@ -282,6 +283,7 @@ Add-Line 'npm run bws:doctor'
 Add-Line 'npm run bws:github-vars'
 Add-Line 'npm run bws:github-vars:apply-plan'
 Add-Line 'npm run bws:acceptance'
+Add-Line 'npm run providers:github:dispatch-plan'
 Add-Line '```'
 
 $content = ($lines -join [Environment]::NewLine) + [Environment]::NewLine
