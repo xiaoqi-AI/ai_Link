@@ -5,8 +5,10 @@
 - 扩展 `.ai-link/bitwarden-secrets.manifest.json`，记录 `provider-live` GitHub Environment 的 bootstrap secret 和 Bitwarden secret ID variable 映射。
 - 新增 `tools/check-github-provider-live.ps1`，本地检查 `Provider Live Verification` workflow 是否遵守 BWS 模式。
 - 新增 `npm run providers:github:check`，并纳入 `npm run verify:fresh`。
+- 新增 `npm run providers:github:remote-check`，在本机提供 `GH_TOKEN` 或 `GITHUB_TOKEN` 后检查远端 GitHub Environment、变量名和 secret 名称。
 
 ## 安全边界
 
 - 检查脚本只读取公开 manifest 和 workflow，不读取、不请求、不打印任何真实 secret value。
 - GitHub Actions 仍只保存 `BW_ACCESS_TOKEN`；真实 provider API key 留在 Bitwarden Secrets Manager。
+- 远端检查不会读取 secret value；GitHub environment variables API 可能返回变量值，脚本只比对变量名、不打印变量值。
