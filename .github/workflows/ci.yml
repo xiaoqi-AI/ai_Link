@@ -62,6 +62,9 @@ jobs:
       - name: Release plan
         run: npm run release:plan
 
+      - name: Release decisions
+        run: npm run release:decisions
+
       - name: Release manual gates
         run: npm run release:manual-gates
 

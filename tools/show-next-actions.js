@@ -47,6 +47,24 @@ const actions = [
     secretBoundary: "Do not paste sample secrets into GitHub issues, PRs, docs, screenshots, or test commits."
   },
   {
+    id: "record-v0-1-release-decisions",
+    title: "Record v0.1 release decisions",
+    status: "manual",
+    owner: "Release owner",
+    intent: "Turn the manual release gates into a public-safe decision record that scripts can verify before tag, npm publish, or provider-live claims.",
+    commands: [
+      "npm run release:decisions",
+      "npm run release:decisions:json",
+      "npm run release:decisions:strict"
+    ],
+    evidence: [
+      "docs/releases/v0.1.0-decisions.json has one entry for each required v0.1 decision.",
+      "Approved decisions cite only public-safe evidence.",
+      "npm run release:decisions:strict passes before creating a release tag, publishing npm, or claiming live provider verification."
+    ],
+    secretBoundary: "Do not record API keys, token values, Bitwarden values, provider responses, screenshots, QR codes, login state, or runtime/private paths."
+  },
+  {
     id: "configure-bitwarden-secrets-manager",
     title: "Configure Bitwarden Secrets Manager",
     status: "manual",

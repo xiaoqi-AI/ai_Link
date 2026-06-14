@@ -16,6 +16,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
+- Public v0.1 release decision record for tracking pending, approved, waived, and blocked release gates.
 - Release manual gates report for GitHub protection, secret scanning, npm publish decision, and provider-live cost approval.
 - Release evidence bundle for sanitized v0.1 readiness handoff under `runtime/tmp/`.
 - Public onboarding, package contents, package install smoke, GitHub repository safety, provider verification, release planning, release manual gates, release evidence, release readiness, fresh clone, skill, and security checks.
@@ -28,8 +29,9 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.
 - `next:actions` is read-only; it does not read secrets, modify GitHub settings, publish packages, or dispatch live providers.
 - `github:safety` is read-only; it does not modify GitHub settings.
+- `release:decisions` reads only the public decision record and does not approve gates by itself.
 - `release:evidence` writes only to `runtime/tmp/` by default and does not read secret values.
-- `release:plan`, `release:manual-gates`, `release:evidence`, and `release:readiness` do not create tags, publish npm packages, modify GitHub settings, or trigger live provider calls.
+- `release:plan`, `release:decisions`, `release:manual-gates`, `release:evidence`, and `release:readiness` do not create tags, publish npm packages, modify GitHub settings, or trigger live provider calls.
 
 ### Pending Decisions
 

@@ -168,6 +168,7 @@ npm run next:actions
 npm run github:safety
 npm run github:hardening
 npm run release:plan
+npm run release:decisions
 npm run release:manual-gates
 npm run release:evidence
 npm run release:readiness

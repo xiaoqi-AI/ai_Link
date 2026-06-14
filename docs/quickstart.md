@@ -79,6 +79,7 @@ Use this path when you want a command that works without provider credentials.
 - Run `npm run github:hardening` when a maintainer is ready to review GitHub branch protection and secret scanning setup.
 - Configure real provider keys through Bitwarden Secrets Manager before using live providers.
 - Run `npm run package:install-smoke` before publishing or distributing a package build.
+- Run `npm run release:decisions` to review the v0.1 public-safe decision record.
 - Run `npm run release:manual-gates` to review the manual release decisions before public release work.
 - Run `npm run release:evidence` to generate a sanitized release evidence bundle.
 - Run `npm run release:readiness` before creating a public release.

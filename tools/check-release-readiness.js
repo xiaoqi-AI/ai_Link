@@ -86,12 +86,14 @@ for (const file of [
   "tools/check-package-install.js",
   "tools/check-github-repo-safety.js",
   "tools/new-github-hardening-worksheet.js",
+  "tools/check-release-decisions.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js",
   "tools/show-next-actions.js",
   "docs/quickstart.md",
   "docs/user-guide.md",
+  "docs/releases/v0.1.0-decisions.json",
   "docs/releases/v0.1.0.md",
   "docs/00-governance/release-process.md",
   "docs/20-architecture/configuration.md",
@@ -140,6 +142,9 @@ for (const scriptName of [
   "github:hardening:json",
   "release:plan",
   "release:plan:json",
+  "release:decisions",
+  "release:decisions:json",
+  "release:decisions:strict",
   "release:manual-gates",
   "release:manual-gates:json",
   "release:evidence",
@@ -163,6 +168,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run github:safety",
   "npm run github:hardening",
   "npm run release:plan",
+  "npm run release:decisions",
   "npm run release:manual-gates",
   "npm run release:evidence",
   "npm run release:readiness",
@@ -203,6 +209,7 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "packageInstallSmoke",
   "nextActions",
   "githubHardening",
+  "releaseDecisions",
   "releaseManualGates",
   "Does not read API keys"
 ]);
@@ -216,8 +223,16 @@ checkContains("tools/new-github-hardening-worksheet.js", "GitHub hardening works
   "runtime/tmp"
 ]);
 
+checkContains("tools/check-release-decisions.js", "release decisions report", [
+  "v0.1.0-decisions.json",
+  "release:decisions:strict",
+  "provider-live-dispatch",
+  "Does not read API keys"
+]);
+
 checkContains("tools/show-next-actions.js", "next actions report", [
   "github:hardening",
+  "record-v0-1-release-decisions",
   "configure-bitwarden-secrets-manager",
   "configure-provider-live-environment",
   "approve-provider-live-cost",

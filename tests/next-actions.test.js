@@ -35,7 +35,7 @@ describe("next actions report", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
-    assert.equal(report.summary.nextOpen, 5);
+    assert.equal(report.summary.nextOpen, 6);
     assert.equal(report.repository.branch.length > 0, true);
     assert.equal(report.repository.head.length > 0, true);
     assert.deepEqual(ids, [
@@ -44,7 +44,8 @@ describe("next actions report", () => {
       "configure-github-hardening",
       "configure-provider-live-environment",
       "decide-v0-1-release-channel",
-      "keep-local-baseline-green"
+      "keep-local-baseline-green",
+      "record-v0-1-release-decisions"
     ]);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
     assert.equal(report.actions.every((action) => action.commands.length > 0 && action.evidence.length > 0), true);
@@ -56,6 +57,7 @@ describe("next actions report", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /# AI Link Next Actions/);
     assert.match(result.stdout, /Configure Bitwarden Secrets Manager/);
+    assert.match(result.stdout, /Record v0\.1 release decisions/);
     assert.match(result.stdout, /npm run bws:acceptance:strict/);
     assert.match(result.stdout, /does not read or print secret values/i);
   });

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "release": "v0.1.0",
+  "updatedAt": "2026-06-15",
+  "safety": [
+    "This public decision record contains only gate status, owner roles, non-sensitive evidence references, and release intent.",
+    "Do not add API keys, tokens, Bitwarden values, .env contents, provider responses, screenshots, QR codes, login state, or runtime/private paths.",
+    "Use approved only after the release owner or relevant maintainer has reviewed the external setting or evidence."
+  ],
+  "decisions": [
+    {
+      "id": "github-branch-protection",
+      "title": "GitHub branch protection",
+      "status": "pending",
+      "owner": "Repository maintainer",
+      "decision": "Confirm whether main has branch protection or a repository ruleset with Verify required.",
+      "requiredFor": [
+        "v0.1 tag",
+        "GitHub Release",
+        "npm publish"
+      ],
+      "evidence": [],
+      "notes": "Record only public-safe evidence such as GitHub UI setting names or sanitized github:safety output."
+    },
+    {
+      "id": "github-secret-scanning",
+      "title": "GitHub secret scanning and push protection",
+      "status": "pending",
+      "owner": "Repository maintainer",
+      "decision": "Confirm secret scanning and push protection for the public repo and internal companion repo.",
+      "requiredFor": [
+        "v0.1 tag",
+        "GitHub Release",
+        "npm publish"
+      ],
+      "evidence": [],
+      "notes": "Do not test by committing sample secrets or pasting secret-looking values into issues, PRs, docs, logs, or chat."
+    },
+    {
+      "id": "npm-publish-decision",
+      "title": "v0.1 release channel and npm publish decision",
+      "status": "pending",
+      "owner": "Release owner",
+      "selectedChannel": "undecided",
+      "allowedChannels": [
+        "undecided",
+        "repository-local",
+        "github-release",
+        "npm-public"
+      ],
+      "decision": "Choose whether v0.1 stays repository-local, ships as a GitHub Release, or publishes @xiaoqi-ai/ai-link to npm.",
+      "requiredFor": [
+        "v0.1 tag",
+        "GitHub Release",
+        "npm publish"
+      ],
+      "evidence": [],
+      "notes": "If selectedChannel is npm-public, review npm ownership, package contents, rollback policy, and npm publish dry-run before approval."
+    },
+    {
+      "id": "provider-live-credentials",
+      "title": "Provider-live credentials and cost approval",
+      "status": "pending",
+      "owner": "Secret owner and cost approver",
+      "decision": "Confirm Bitwarden/GitHub provider-live setup and approve the minimal live provider verification cost boundary.",
+      "requiredFor": [
+        "provider-live dispatch",
+        "public claim of live provider verification"
+      ],
+      "evidence": [],
+      "notes": "Evidence should be sanitized command names, artifact paths under runtime/tmp, or GitHub Actions artifact names; never include raw provider responses or secret values."
+    }
+  ]
+}

@@ -149,6 +149,7 @@ try {
   runJsonStep("githubSafety", "GitHub repository safety", [process.execPath, "tools/check-github-repo-safety.js", "--json"]);
   runJsonStep("githubHardening", "GitHub hardening worksheet", [process.execPath, "tools/new-github-hardening-worksheet.js", "--json"]);
   runJsonStep("releasePlan", "Release plan", [process.execPath, "tools/check-release-plan.js", "--json"]);
+  runJsonStep("releaseDecisions", "Release decisions", [process.execPath, "tools/check-release-decisions.js", "--json"]);
   runJsonStep("releaseManualGates", "Release manual gates", [process.execPath, "tools/show-release-manual-gates.js", "--json"]);
   runJsonStep("releaseReadiness", "Release readiness", [process.execPath, "tools/check-release-readiness.js", "--json"]);
   runTextStep("securityScan", "Security scan", [process.execPath, "tools/security-scan.js"], { heavy: true });
@@ -169,6 +170,7 @@ for (const step of steps) {
 
 const manualOpen = Math.max(
   Number(reports.releaseManualGates?.summary?.manualOpen ?? 0),
+  Number(reports.releaseDecisions?.summary?.manualOpen ?? 0),
   Number(reports.releaseReadiness?.summary?.manualOpen ?? 0),
   Number(reports.releasePlan?.summary?.manualOpen ?? 0)
 );

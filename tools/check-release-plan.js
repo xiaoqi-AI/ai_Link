@@ -107,6 +107,7 @@ for (const file of [
   "docs/00-governance/open-questions.md",
   "tools/check-package-install.js",
   "tools/new-github-hardening-worksheet.js",
+  "tools/check-release-decisions.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js"
@@ -132,6 +133,15 @@ checkContains("docs/releases/v0.1.0.md", "GitHub release draft", [
   "npm run release:plan"
 ]);
 
+checkContains("docs/releases/v0.1.0-decisions.json", "release decision record", [
+  "github-branch-protection",
+  "github-secret-scanning",
+  "npm-publish-decision",
+  "provider-live-credentials",
+  "selectedChannel",
+  "Do not add API keys"
+]);
+
 checkContains("docs/quickstart.md", "public quickstart release path", [
   "AI Link 5-Minute Quickstart",
   "npm ci",
@@ -147,6 +157,7 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run package:install-smoke",
   "npm run github:safety",
   "npm run github:hardening",
+  "npm run release:decisions",
   "npm run verify:fresh",
   "npm run release:manual-gates",
   "npm run release:evidence",
@@ -167,6 +178,7 @@ checkContains("tools/new-release-evidence.js", "release evidence handoff", [
   "nextActions",
   "githubSafety",
   "githubHardening",
+  "releaseDecisions",
   "releaseReadiness",
   "runtime/tmp"
 ]);
@@ -193,6 +205,9 @@ for (const scriptName of [
   "github:safety",
   "github:hardening",
   "github:hardening:json",
+  "release:decisions",
+  "release:decisions:json",
+  "release:decisions:strict",
   "security:scan",
   "verify:fresh"
 ]) {
@@ -236,6 +251,7 @@ const report = {
     process: "docs/00-governance/release-process.md",
     manualGates: "tools/show-release-manual-gates.js",
     githubHardening: "tools/new-github-hardening-worksheet.js",
+    decisions: "tools/check-release-decisions.js",
     evidence: "tools/new-release-evidence.js"
   },
   summary: {

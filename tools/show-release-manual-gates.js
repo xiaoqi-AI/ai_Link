@@ -21,12 +21,14 @@ const gates = [
       "GitHub UI shows main protection or ruleset is active.",
       "npm run github:hardening has been reviewed by the repository maintainer.",
       "npm run github:safety:json reports GitHub branch protection as pass.",
-      "npm run github:safety:json reports required status check Verify as pass."
+      "npm run github:safety:json reports required status check Verify as pass.",
+      "docs/releases/v0.1.0-decisions.json records this decision as approved or waived."
     ],
     commands: [
       "npm run github:hardening",
       "npm run github:safety",
       "npm run github:safety:json",
+      "npm run release:decisions:json",
       "npm run release:readiness:json"
     ],
     safety: "No secret values are needed. Remote verification uses authenticated gh only when available."
@@ -48,12 +50,14 @@ const gates = [
       "GitHub UI shows push protection enabled for the public repository.",
       "npm run github:hardening has been reviewed for the public and internal repositories.",
       "npm run github:safety:json reports GitHub secret scanning and push protection as pass when remote metadata is available.",
-      "npm run security:scan passes locally."
+      "npm run security:scan passes locally.",
+      "docs/releases/v0.1.0-decisions.json records this decision as approved or waived."
     ],
     commands: [
       "npm run github:hardening",
       "npm run security:scan",
       "npm run github:safety:json",
+      "npm run release:decisions:json",
       "npm run release:readiness:json"
     ],
     safety: "Do not paste sample secrets into issues, PRs, docs, or screenshots to test scanning."
@@ -72,6 +76,7 @@ const gates = [
     ],
     evidence: [
       "The decision is recorded in docs/00-governance/open-questions.md or a release decision record.",
+      "docs/releases/v0.1.0-decisions.json sets selectedChannel to repository-local, github-release, or npm-public.",
       "npm run package:check and npm run package:install-smoke pass.",
       "npm publish --dry-run --access public is reviewed if publishing is approved.",
       "No npm publish command has run unless the release owner explicitly approved it."
@@ -79,6 +84,7 @@ const gates = [
     commands: [
       "npm run package:check",
       "npm run package:install-smoke",
+      "npm run release:decisions:json",
       "npm publish --dry-run --access public",
       "npm run release:plan:json"
     ],
@@ -101,11 +107,13 @@ const gates = [
       "npm run bws:acceptance:strict passes.",
       "npm run providers:github:remote-check passes when GitHub credentials are available.",
       "Provider live report is generated as a sanitized runtime/tmp/provider-live-report.json or GitHub artifact.",
-      "No real API key value appears in Git, docs, issues, PRs, logs, or chat."
+      "No real API key value appears in Git, docs, issues, PRs, logs, or chat.",
+      "docs/releases/v0.1.0-decisions.json records this decision as approved or waived."
     ],
     commands: [
       "npm run bws:plan",
       "npm run bws:acceptance:strict",
+      "npm run release:decisions:json",
       "npm run providers:github:dispatch-plan",
       "npm run providers:live:safe-report:strict"
     ],

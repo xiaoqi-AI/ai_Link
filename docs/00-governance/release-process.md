@@ -15,6 +15,7 @@ npm run next:actions
 npm run github:safety
 npm run github:hardening
 npm run release:plan
+npm run release:decisions
 npm run release:manual-gates
 npm run release:evidence
 npm run release:readiness
@@ -31,6 +32,7 @@ npm run next:actions:json
 npm run github:safety:json
 npm run github:hardening:json
 npm run release:plan:json
+npm run release:decisions:json
 npm run release:manual-gates:json
 npm run release:evidence:json
 npm run release:readiness:json
@@ -50,6 +52,8 @@ Before publishing v0.1, confirm:
 Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to print the owner, action list, evidence, and safety boundary for each manual gate. The command is read-only: it does not change GitHub settings, create tags, publish npm packages, read secrets, or dispatch provider-live checks.
 
 Use `npm run github:hardening` to generate the GitHub UI worksheet for branch protection, required `Verify`, secret scanning, push protection, and post-configuration evidence. The default worksheet is written under `runtime/tmp/` and is safe for public logs.
+
+Use `npm run release:decisions` to review the public-safe v0.1 decision record in `docs/releases/v0.1.0-decisions.json`. Use `npm run release:decisions:strict` only when preparing to tag, publish npm, or claim live provider verification; pending decisions intentionally fail strict mode.
 
 Use `npm run release:evidence` to generate a sanitized release evidence bundle at `runtime/tmp/release-evidence.json`. Use `npm run release:evidence:json` when another agent or CI needs machine-readable output without writing the default file.
 
