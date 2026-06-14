@@ -85,13 +85,20 @@ policies:
 - `live`：dry-run 只提示审批状态；直接 `run` 真实调用必须加 `--approve-policy`，workflow 真实调用必须加 `--approve-stage <stage>` 或 `--approve-all`。
 - `always`：dry-run 和真实运行都必须显式批准，适合发布、写入外部系统等动作。
 
+`allowOutbound` 会在真实执行时控制外部 provider 出站：
+
+- `never`：禁止调用非 mock provider，即使加了审批参数也会阻断。
+- `user-approved`：默认推荐值；真实调用非 mock provider 前必须由用户显式批准。
+- `always`：允许真实外部调用，但仍会执行敏感内容扫描，除非用户显式加 `--allow-sensitive`。
+
 运行示例：
 
 ```powershell
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- workflow run auto_ops --stages research,article_draft --dry-run --input "调研一个公开选题并写初稿"
+npm run ai-link -- run auto_ops.research --input "调研一个公开选题" --approve-policy
 npm run ai-link -- run auto_ops.agent_flow --input "执行外部自动化" --approve-policy
-npm run ai-link -- workflow run auto_ops --input "执行外部自动化" --approve-stage agent_flow
+npm run ai-link -- workflow run auto_ops --input "执行完整自动运营流程" --approve-all
 ```
 
 ## 本机私有配置
@@ -142,11 +149,12 @@ $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 $env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"
 npm run bws:worksheet
 npm run bws:github-vars
+npm run bws:acceptance
 npm run bws:session
 npm run bws:doctor
 ```
 
-`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/`；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 和 `AI_LINK_BWS_CI_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
+`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/`；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 和 `AI_LINK_BWS_CI_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
 
 Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`、`AI_LINK_EXECUTOR_TOKEN`。Secret value 才是真实值。
 

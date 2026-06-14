@@ -116,6 +116,7 @@ Add-Line '$env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"'
 Add-Line 'npm run bws:session'
 Add-Line 'npm run bws:doctor'
 Add-Line 'npm run bws:github-vars'
+Add-Line 'npm run bws:acceptance'
 Add-Line '```'
 Add-Line ""
 Add-Line "Run these after GitHub provider-live is configured:"
@@ -123,6 +124,7 @@ Add-Line ""
 Add-Line '```powershell'
 Add-Line 'npm run providers:github:check'
 Add-Line 'npm run providers:github:remote-check'
+Add-Line 'npm run bws:acceptance:strict'
 Add-Line '```'
 
 $content = ($lines -join [Environment]::NewLine) + [Environment]::NewLine

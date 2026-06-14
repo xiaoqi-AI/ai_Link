@@ -29,6 +29,8 @@ powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run providers:live"
 ```
 
+`providers verify --live` 是专门的 provider 验收入口，执行该命令即表示已确认本次 live 验收可能产生外部模型调用或费用。普通 `ai-link run` 真实调用仍需按 route policy 显式加 `--approve-policy`；`workflow run` 则使用 `--approve-stage <stage>` 或 `--approve-all`。
+
 也可以只验收某一个 provider：
 
 ```powershell

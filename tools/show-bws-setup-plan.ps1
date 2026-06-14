@@ -26,7 +26,9 @@ $plan = [ordered]@{
     checks = @(
       "npm run bws:check",
       "npm run bws:check:strict",
-      "npm run bws:github-vars"
+      "npm run bws:github-vars",
+      "npm run bws:acceptance",
+      "npm run bws:acceptance:strict"
     )
     runExamples = @(
       'powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"',

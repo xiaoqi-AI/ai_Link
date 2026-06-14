@@ -452,6 +452,55 @@ test("run requires and accepts explicit policy approval", () => {
   }
 });
 
+test("run requires approval for user-approved outbound providers", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-outbound-approval-"));
+  try {
+    const configPath = path.join(tempRoot, "outbound.yaml");
+    writeFileSync(configPath, [
+      "version: 1",
+      "providers:",
+      "  external:",
+      "    type: openai-compatible",
+      "    baseUrl: https://api.example.com/v1",
+      "    apiKey: test-key",
+      "    model: example-model",
+      "routes:",
+      "  demo.research:",
+      "    provider: external",
+      "    policy: default",
+      "policies:",
+      "  default:",
+      "    allowOutbound: user-approved",
+      ""
+    ].join("\n"), "utf8");
+
+    const blocked = runCli(tempRoot, [
+      "run",
+      "demo.research",
+      "--config",
+      configPath,
+      "--input",
+      "execute"
+    ]);
+    assert.notEqual(blocked.status, 0);
+    assert.match(blocked.stderr, /requires policy approval/);
+
+    const dryRun = runCli(tempRoot, [
+      "run",
+      "demo.research",
+      "--config",
+      configPath,
+      "--dry-run",
+      "--input",
+      "preview"
+    ]);
+    assert.equal(dryRun.status, 0);
+    assert.match(dryRun.stdout, /Approval: live:dry-run/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("runs show refuses paths outside local run records", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-guard-"));
   try {

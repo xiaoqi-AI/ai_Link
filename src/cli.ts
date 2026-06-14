@@ -304,7 +304,8 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
         task: `provider.verify.${name}`,
         provider: name,
         input,
-        dryRun: !live
+        dryRun: !live,
+        approvePolicy: live
       });
       rows.push({
         name,

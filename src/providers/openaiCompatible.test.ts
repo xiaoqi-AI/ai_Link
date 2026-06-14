@@ -52,7 +52,8 @@ test("openai-compatible provider posts chat completions and extracts output", as
 
     const result = await runAiLink(config, {
       task: "test.chat",
-      input: "hello"
+      input: "hello",
+      approvePolicy: true
     });
 
     assert.equal(result.output, "provider ok");

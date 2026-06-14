@@ -42,6 +42,7 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
       task: request.task,
       policyName,
       policy,
+      provider,
       request
     });
     try {
@@ -114,21 +115,39 @@ function resolvePolicyApproval(input: {
   task: string;
   policyName: string;
   policy: PolicyConfig;
+  provider: ProviderConfig;
   request: RunRequest;
 }): RunResult["approval"] {
+  const allowOutbound = input.policy.allowOutbound ?? "always";
+  const outbound = isOutboundProvider(input.provider);
+
+  if (outbound && allowOutbound === "never" && !input.request.dryRun) {
+    throw new AiLinkError(
+      `Task "${input.task}" is blocked by outbound policy "${input.policyName}".`,
+      "POLICY_OUTBOUND_BLOCKED",
+      {
+        task: input.task,
+        policy: input.policyName,
+        allowOutbound,
+        providerType: input.provider.type
+      }
+    );
+  }
+
   const approval = input.policy.approval;
-  if (!approval?.required) {
+  if (!approval?.required && !(outbound && allowOutbound === "user-approved")) {
     return undefined;
   }
 
-  const mode = approval.mode ?? "always";
+  const mode = approval?.mode ?? "live";
+  const reason = approval?.reason ?? "Outbound provider calls require user approval.";
   if (mode === "live" && input.request.dryRun) {
     return {
       required: true,
       approved: false,
       enforced: false,
       mode,
-      reason: approval.reason
+      reason
     };
   }
 
@@ -140,7 +159,9 @@ function resolvePolicyApproval(input: {
         task: input.task,
         policy: input.policyName,
         mode,
-        reason: approval.reason
+        allowOutbound,
+        providerType: input.provider.type,
+        reason
       }
     );
   }
@@ -150,6 +171,10 @@ function resolvePolicyApproval(input: {
     approved: true,
     enforced: true,
     mode,
-    reason: approval.reason
+    reason
   };
+}
+
+function isOutboundProvider(provider: ProviderConfig): boolean {
+  return provider.type !== "mock";
 }

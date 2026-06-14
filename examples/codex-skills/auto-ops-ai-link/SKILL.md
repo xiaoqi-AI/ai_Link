@@ -23,8 +23,8 @@ npm run ai-link -- workflow run auto_ops --dry-run --resume-from latest --input 
 Use `--output runtime/tmp/*.json` when the next step needs structured handoff. AI Link refuses output paths outside `runtime/tmp/`; the output file is local runtime state and should not be committed.
 Use `--record` when the next step needs a local run index for audit or continuation. Records live under `runtime/tmp/ai-link-runs/`; use `runs list` and `runs show <id> --json` to inspect them, and `workflow run --resume-from <id|latest>` to continue a workflow record. Add `--from-stage <stage>` when a later stage should be rerun. Records do not store the original input in the request block and should not be committed. Provider output may still echo task content.
 
-For a real provider call, remove `--dry-run` only after the user has approved outbound content and provider keys are available through the configured secret manager.
-For routes or workflow stages that can call external tools or platform automation, keep the approval gate. Pass `--approve-policy`, `--approve-stage agent_flow`, or `--approve-all` only after the user has explicitly approved that action.
+For a real provider call, remove `--dry-run` only after the user has approved outbound content and provider keys are available through the configured secret manager. Default `allowOutbound: user-approved` means direct `run` needs `--approve-policy`; live workflow stages need `--approve-stage <stage>` or `--approve-all`.
+For routes or workflow stages that can call external tools or platform automation, keep the stricter approval gate and confirm the user intended that external action.
 
 ## Stage Overrides
 

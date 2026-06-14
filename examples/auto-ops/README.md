@@ -28,7 +28,7 @@ npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml
 
 `--output` 会写入完整 JSON 结果，方便 Codex skill 或后续脚本继续读取；`--record` 会写入本地运行记录并更新 `runtime/tmp/ai-link-runs/index.json`，之后可用 `runs list` / `runs show <id>` 查看，也可用 `workflow run --resume-from <id|latest>` 续跑剩余阶段。运行产物只写入 `runtime/tmp/`，不要提交到 Git。
 
-`auto_ops.agent_flow` 默认通过 `external_action` policy 带有 live 审批门。dry-run 只显示审批状态；直接 `run` 真实执行前需要加 `--approve-policy`，通过 workflow 真实执行前需要显式加 `--approve-stage agent_flow` 或 `--approve-all`。
+默认 `allowOutbound: user-approved` 会让 Grok、Kimi、Coze 等真实外部 provider 调用都需要人工批准；dry-run 只显示审批状态。直接 `run` 真实执行前需要加 `--approve-policy`；通过 workflow 真实执行前需要加对应的 `--approve-stage <stage>`，完整流程可用 `--approve-all`。`auto_ops.agent_flow` 还会通过 `external_action` policy 提示外部工具或平台自动化风险。
 
 ## Mock 本地执行
 
