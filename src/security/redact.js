@@ -1,3 +1,5 @@
+import { normalizeAiLinkAudit } from "../audit/aiLinkAudit.js";
+
 const SENSITIVE_KEY_PATTERN = /(api[_-]?key|authorization|cookie|credential|csrf|jwt|login|password|private|secret|session|token)/i;
 const LONG_SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{16,}|[A-Za-z0-9+/]{32,}={0,2})\b/g;
 
@@ -45,6 +47,7 @@ export function publicTask(task) {
 
 export function publicAuditEvent(event) {
   const redacted = redact(event);
+  const safeAudit = normalizeAiLinkAudit(event?.detail?.audit);
   if (
     event?.eventType === "ai_link.audit"
     && event.detail?.audit
@@ -52,7 +55,11 @@ export function publicAuditEvent(event) {
     && typeof redacted.detail === "object"
     && !Array.isArray(redacted.detail)
   ) {
-    redacted.detail.audit = event.detail.audit;
+    if (safeAudit) {
+      redacted.detail.audit = safeAudit;
+    } else {
+      delete redacted.detail.audit;
+    }
   }
   return redacted;
 }

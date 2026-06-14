@@ -2,7 +2,7 @@ import express from "express";
 import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { createSessionCookie, clearSessionCookie } from "../security/session.js";
 import { requireAppSession } from "../security/auth.js";
-import { publicTask } from "../security/redact.js";
+import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
 import { connectorsPage, dashboardPage, loginPage, newTaskPage, taskPage } from "../ui/html.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
@@ -97,8 +97,8 @@ export function createUiRouter() {
     res.send(taskPage({
       task: publicTask(task),
       approvals: approvals.filter((item) => item.taskId === task.id),
-      artifacts,
-      auditEvents
+      artifacts: redact(artifacts),
+      auditEvents: auditEvents.map(publicAuditEvent)
     }));
   });
 

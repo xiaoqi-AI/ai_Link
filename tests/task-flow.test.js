@@ -294,6 +294,19 @@ describe("AI Link task flow", () => {
     });
     assert.equal(current.data.task.status, "queued");
     assert.ok(current.data.auditEvents.some((event) => event.eventType === "ai_link.audit"));
+
+    const filtered = await requestJson(server.baseUrl, `/api/audit?taskId=${created.data.task.id}&eventType=ai_link.audit`, {
+      token: "admin-token"
+    });
+    assert.equal(filtered.response.status, 200);
+    assert.ok(filtered.data.auditEvents.length > 0);
+    assert.ok(filtered.data.auditEvents.every((event) => event.eventType === "ai_link.audit"));
+
+    const empty = await requestJson(server.baseUrl, `/api/audit?taskId=${created.data.task.id}&eventType=task.completed`, {
+      token: "admin-token"
+    });
+    assert.equal(empty.response.status, 200);
+    assert.equal(empty.data.auditEvents.length, 0);
   });
 
   it("can mark a task action_required and retry it", async () => {

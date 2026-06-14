@@ -195,6 +195,7 @@ export function createApiRouter() {
   router.get("/audit", requireApiScope("audit:read"), async (req, res) => {
     const auditEvents = await req.app.locals.store.listAuditEvents({
       taskId: req.query.taskId || undefined,
+      eventType: req.query.eventType || req.query.type || undefined,
       limit: Number(req.query.limit || 100)
     });
     res.json({ auditEvents: auditEvents.map(publicAuditEvent) });

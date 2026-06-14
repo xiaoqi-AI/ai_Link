@@ -100,12 +100,13 @@ npm run bws:activate
 npm run bws:check
 npm run bws:session:help
 npm run bws:worksheet
+npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:acceptance:print
 npm run bws:check:strict
 ```
 
-`bws:plan` 会根据 `.ai-link/bitwarden-secrets.manifest.json` 输出安全设置清单，包括 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables。它只输出名称和占位符，不输出真实值。`bws:onboard` 会生成 `runtime/tmp/bws-onboarding.md`，把当前本机状态、目标结构和推荐下一步汇总成一页入场引导。`bws:profile` 会生成 `runtime/tmp/bws-local-profile.ps1`，只保存非敏感 Bitwarden project ID，便于用 `. .\runtime\tmp\bws-local-profile.ps1` 载入当前会话；如果当前会话已有 `BWS_ACCESS_TOKEN`，也可以用 `npm run bws:profile:from-bws` 按 manifest 项目名自动读取 project ID。`bws:activate` 是配置完成后的两段式激活向导：先用 `ma-ai-link-local-codex` token 验收 `ai-link-local-dev`，再用 `ma-ai-link-github-actions` token 读取 `ai-link-ci` secret ID 并生成 GitHub variables 清单；两个 token 都只在子命令环境里临时使用。`bws:worksheet` 会生成 `runtime/tmp/bws-setup-worksheet.md`，用于本地勾选 Bitwarden / GitHub 实配进度，不应填写真实 secret value。`bws:github-vars` 会在 Bitwarden CI 项目配置完成后读取 secret ID，生成 GitHub `provider-live` variables 填写清单到 `runtime/tmp/bws-github-provider-live-vars.md`，不输出 secret value。`bws:acceptance` 会生成 `runtime/tmp/bws-acceptance-report.md`，把 BWS 本地 readiness、GitHub provider-live wiring、外部动作审批门、安全扫描和 Git 状态汇总成不含真实密钥的验收报告。`bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 或项目 ID 时会输出 warning；`bws:session` 默认执行严格检查，并隐藏输入缺失的 token；`bws:check:strict` 和 `bws:acceptance:strict` 用于配置完成后的正式验收。
+`bws:plan` 会根据 `.ai-link/bitwarden-secrets.manifest.json` 输出安全设置清单，包括 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables。它只输出名称和占位符，不输出真实值。`bws:onboard` 会生成 `runtime/tmp/bws-onboarding.md`，把当前本机状态、目标结构和推荐下一步汇总成一页入场引导。`bws:profile` 会生成 `runtime/tmp/bws-local-profile.ps1`，只保存非敏感 Bitwarden project ID，便于用 `. .\runtime\tmp\bws-local-profile.ps1` 载入当前会话；如果当前会话已有 `BWS_ACCESS_TOKEN`，也可以用 `npm run bws:profile:from-bws` 按 manifest 项目名自动读取 project ID。`bws:activate` 是配置完成后的两段式激活向导：先用 `ma-ai-link-local-codex` token 验收 `ai-link-local-dev`，再用 `ma-ai-link-github-actions` token 读取 `ai-link-ci` secret ID 并生成 GitHub variables 清单；两个 token 都只在子命令环境里临时使用。`bws:worksheet` 会生成 `runtime/tmp/bws-setup-worksheet.md`，用于本地勾选 Bitwarden / GitHub 实配进度，不应填写真实 secret value。`bws:rotation` 会生成 `runtime/tmp/bws-rotation-plan.md`，记录 90 天机器账号 token 轮换节奏、验证命令和应急轮换步骤，不接收也不输出真实 token。`bws:github-vars` 会在 Bitwarden CI 项目配置完成后读取 secret ID，生成 GitHub `provider-live` variables 填写清单到 `runtime/tmp/bws-github-provider-live-vars.md`，不输出 secret value。`bws:acceptance` 会生成 `runtime/tmp/bws-acceptance-report.md`，把 BWS 本地 readiness、GitHub provider-live wiring、外部动作审批门、安全扫描和 Git 状态汇总成不含真实密钥的验收报告。`bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 或项目 ID 时会输出 warning；`bws:session` 默认执行严格检查，并隐藏输入缺失的 token；`bws:check:strict` 和 `bws:acceptance:strict` 用于配置完成后的正式验收。
 
 检查 AI Link provider 状态：
 
@@ -189,6 +190,7 @@ npm run bws:activate:plan
 npm run bws:check
 npm run bws:session:help
 npm run bws:worksheet
+npm run bws:rotation:print
 npm run bws:github-vars:help
 npm run bws:acceptance:print
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1

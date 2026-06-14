@@ -458,13 +458,14 @@ export class PostgresStore {
     return rowAudit(rows[0]);
   }
 
-  async listAuditEvents({ taskId, limit = 100 } = {}) {
+  async listAuditEvents({ taskId, eventType, limit = 100 } = {}) {
     const { rows } = await this.pool.query(
       `SELECT * FROM audit_events
        WHERE ($1::uuid IS NULL OR task_id = $1)
+         AND ($2::text IS NULL OR event_type = $2)
        ORDER BY created_at DESC
-       LIMIT $2`,
-      [taskId || null, limit]
+       LIMIT $3`,
+      [taskId || null, eventType || null, limit]
     );
     return rows.map(rowAudit);
   }

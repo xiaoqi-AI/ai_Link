@@ -206,6 +206,10 @@ export function newTaskPage() {
 export function taskPage({ task, approvals, artifacts, auditEvents }) {
   const pendingApproval = approvals.find((item) => item.status === "pending");
   const needsAction = task.status === "action_required";
+  const resultAuditRows = aiLinkAuditRows(task.result?.aiLinkAudit, "task.result");
+  const auditEventRows = auditEvents
+    .filter((event) => event.eventType === "ai_link.audit")
+    .flatMap((event) => aiLinkAuditRows(event.detail?.audit, event.detail?.recordId || event.id, event.detail?.status));
   return layout({
     title: `任务 ${task.id.slice(0, 8)}`,
     body: `<section class="panel">
@@ -227,7 +231,7 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
       </form>` : ""}
       <h2>脱敏结果</h2>
       <pre>${escapeHtml(JSON.stringify(task.result || {}, null, 2))}</pre>
-      ${task.result?.aiLinkAudit ? `<h2>AI Link Audit</h2><pre>${escapeHtml(JSON.stringify(task.result.aiLinkAudit, null, 2))}</pre>` : ""}
+      ${resultAuditRows ? `<h2>AI Link Audit</h2>${auditSummaryTable(resultAuditRows)}` : ""}
       ${pendingApproval ? `<form method="post" action="/dashboard/tasks/${escapeHtml(task.id)}/approve">
         <input type="hidden" name="approvalId" value="${escapeHtml(pendingApproval.id)}">
         <label for="note">确认备注</label>
@@ -241,8 +245,96 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
       <pre>${escapeHtml(JSON.stringify(approvals, null, 2))}</pre>
       <h2>产物摘要</h2>
       <pre>${escapeHtml(JSON.stringify(artifacts, null, 2))}</pre>
+      ${auditEventRows.length ? `<h2>AI Link 审计摘要</h2>${auditSummaryTable(auditEventRows)}` : ""}
       <h2>审计记录</h2>
       <pre>${escapeHtml(JSON.stringify(auditEvents, null, 2))}</pre>
     </section>`
   });
+}
+
+function auditSummaryTable(rows) {
+  return `<table><thead><tr><th>来源</th><th>阶段/任务</th><th>Provider</th><th>Model</th><th>Policy</th><th>审批</th><th>预算</th><th>用量估算</th><th>状态</th></tr></thead><tbody>${rows.map((row) => `<tr>
+    <td>${escapeHtml(row.source)}</td>
+    <td>${escapeHtml(row.task)}</td>
+    <td>${escapeHtml(row.provider)}</td>
+    <td>${escapeHtml(row.model)}</td>
+    <td>${escapeHtml(row.policy)}</td>
+    <td>${escapeHtml(row.approval)}</td>
+    <td>${escapeHtml(row.budget)}</td>
+    <td>${escapeHtml(row.usage)}</td>
+    <td>${escapeHtml(row.status)}</td>
+  </tr>`).join("")}</tbody></table>`;
+}
+
+function aiLinkAuditRows(audit, source, status = "") {
+  if (!audit || typeof audit !== "object" || Array.isArray(audit)) {
+    return [];
+  }
+
+  if (audit.kind === "workflow" && Array.isArray(audit.stages)) {
+    return audit.stages
+      .filter((stage) => stage && typeof stage === "object")
+      .flatMap((stage) => {
+        const stageRows = aiLinkAuditRows(stage.result, source, status);
+        return stageRows.map((row) => ({
+          ...row,
+          task: [stage.name, row.task].filter(Boolean).join(" / ")
+        }));
+      });
+  }
+
+  return [{
+    source,
+    task: audit.task || audit.kind || "-",
+    provider: audit.provider || audit.providerType || "-",
+    model: audit.model || "-",
+    policy: audit.policy || "-",
+    approval: approvalLabel(audit.approval),
+    budget: budgetLabel(audit.policyBudget),
+    usage: usageLabel(audit.usageEstimate),
+    status: [status, audit.dryRun === true ? "dry-run" : ""].filter(Boolean).join(" / ") || "-"
+  }];
+}
+
+function approvalLabel(approval) {
+  if (!approval || typeof approval !== "object" || Array.isArray(approval)) {
+    return "-";
+  }
+  const required = approval.required ? "required" : "optional";
+  const approved = approval.approved ? "approved" : "not approved";
+  return [required, approved, approval.mode].filter(Boolean).join(" / ");
+}
+
+function budgetLabel(budget) {
+  if (!budget || typeof budget !== "object" || Array.isArray(budget)) {
+    return "-";
+  }
+  const parts = [];
+  if (Number.isFinite(budget.maxInputTokens)) {
+    parts.push(`in<=${budget.maxInputTokens}`);
+  }
+  if (Number.isFinite(budget.maxOutputTokens)) {
+    parts.push(`out<=${budget.maxOutputTokens}`);
+  }
+  if (Number.isFinite(budget.maxEstimatedCostUsd)) {
+    parts.push(`cost<=${budget.maxEstimatedCostUsd}`);
+  }
+  return parts.join(", ") || "-";
+}
+
+function usageLabel(usage) {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+    return "-";
+  }
+  const parts = [];
+  if (Number.isFinite(usage.inputTokens)) {
+    parts.push(`in=${usage.inputTokens}`);
+  }
+  if (Number.isFinite(usage.outputTokens)) {
+    parts.push(`out=${usage.outputTokens}`);
+  }
+  if (Number.isFinite(usage.estimatedCostUsd)) {
+    parts.push(`cost=${usage.estimatedCostUsd}`);
+  }
+  return parts.join(", ") || "-";
 }

@@ -200,6 +200,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProjectId) -or -not [string]::IsNullOrWhi
 
 Add-Action "Run ``npm run bws:acceptance`` for a non-secret progress report; use ``npm run bws:acceptance:strict`` only after Bitwarden and GitHub are configured."
 Add-Action "Run ``npm run bws:activate:plan`` to review the two-token activation flow, then ``npm run bws:activate`` after project IDs and machine accounts are ready."
+Add-Action "Run ``npm run bws:rotation`` after first activation to create a non-secret 90-day token rotation plan."
 Add-Action "Keep provider live verification disabled until model cost boundaries are confirmed."
 
 $lines = New-Object System.Collections.Generic.List[string]
@@ -274,6 +275,7 @@ Add-Line 'npm run bws:plan'
 Add-Line 'npm run bws:profile:print'
 Add-Line 'npm run bws:activate:plan'
 Add-Line 'npm run bws:worksheet'
+Add-Line 'npm run bws:rotation'
 Add-Line 'npm run bws:session'
 Add-Line 'npm run bws:doctor'
 Add-Line 'npm run bws:github-vars'

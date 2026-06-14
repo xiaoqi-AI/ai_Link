@@ -249,6 +249,7 @@ if ($npmPath) {
   Invoke-Tool "BWS local project profile helper" { Invoke-Npm @("run", "bws:profile:print") } "local profile helper renders without bootstrap tokens" | Out-Null
   Invoke-Tool "BWS activation plan" { Invoke-Npm @("run", "bws:activate:plan") } "activation wizard plan renders without credentials" | Out-Null
   Invoke-Tool "BWS worksheet" { Invoke-Npm @("run", "bws:worksheet:print") } "worksheet renders without secret values" | Out-Null
+  Invoke-Tool "BWS rotation plan" { Invoke-Npm @("run", "bws:rotation:print") } "rotation plan renders without secret values" | Out-Null
   Invoke-Tool "BWS GitHub vars helper help" { Invoke-Npm @("run", "bws:github-vars:help") } "helper is available without real credentials" | Out-Null
 
   $policyDryRun = Invoke-Tool "External action policy dry-run" {

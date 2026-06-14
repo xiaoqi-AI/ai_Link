@@ -274,9 +274,10 @@ export class MemoryStore {
     return clone(event);
   }
 
-  async listAuditEvents({ taskId, limit = 100 } = {}) {
+  async listAuditEvents({ taskId, eventType, limit = 100 } = {}) {
     return this.auditEvents
       .filter((item) => !taskId || item.taskId === taskId)
+      .filter((item) => !eventType || item.eventType === eventType)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, limit)
       .map(clone);

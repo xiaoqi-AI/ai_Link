@@ -174,13 +174,14 @@ AI Link 会把任务信息作为 stdin JSON 传给本机命令。命令可以返
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 $env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"
 npm run bws:worksheet
+npm run bws:rotation
 npm run bws:github-vars
 npm run bws:acceptance
 npm run bws:session
 npm run bws:doctor
 ```
 
-`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/`；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 和 `AI_LINK_BWS_CI_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
+`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/`；`bws:rotation` 会生成不含真实 token 的机器账号轮换计划；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 和 `AI_LINK_BWS_CI_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
 
 Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`、`AI_LINK_EXECUTOR_TOKEN`。Secret value 才是真实值。
 

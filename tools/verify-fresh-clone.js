@@ -23,6 +23,7 @@ const commands = [
   ["npm", ["run", "bws:check"], clonePath],
   ["npm", ["run", "bws:session:help"], clonePath],
   ["npm", ["run", "bws:worksheet"], clonePath],
+  ["npm", ["run", "bws:rotation:print"], clonePath],
   ["npm", ["run", "bws:github-vars:help"], clonePath],
   ["npm", ["run", "bws:acceptance:print"], clonePath],
   ["npm", ["run", "workflow:dry"], clonePath],
