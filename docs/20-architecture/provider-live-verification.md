@@ -37,6 +37,7 @@ npm run ai-link -- providers verify --provider grok --json
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run providers:live"
+powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run providers:live:safe-report"
 ```
 
 `providers verify --live` 是专门的 provider 验收入口，执行该命令即表示已确认本次 live 验收可能产生外部模型调用或费用。普通 `ai-link run` 真实调用仍需按 route policy 显式加 `--approve-policy`；`workflow run` 则使用 `--approve-stage <stage>` 或 `--approve-all`。
@@ -59,6 +60,7 @@ powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -Comma
 ```powershell
 npm run providers:live -- --strict
 npm run providers:live -- --strict --json
+npm run providers:live:safe-report:strict
 ```
 
 单 provider 验收：
@@ -132,6 +134,14 @@ npm run providers:github:dispatch-strict
 
 这两个触发命令都需要当前会话中的 `GH_TOKEN` 或 `GITHUB_TOKEN`，并且脚本内置了费用确认参数；它只触发 GitHub workflow，不读取或打印任何 provider API key。
 
+workflow 会把脱敏验收摘要上传为 GitHub Actions artifact：
+
+- Artifact 名称：`provider-live-summary`
+- 文件路径：`runtime/tmp/provider-live-report.json`
+- 保留时间：14 天
+
+该报告由 `providers:live:safe-report` 或 `providers:live:safe-report:strict` 生成，只保留 `summary`、provider 名称、类型、模式、状态和安全化后的 `detail`。成功项不会包含模型输出；未知失败项只会提示查看私有日志。
+
 ## 记录方式
 
 验收记录只写：
@@ -144,3 +154,12 @@ npm run providers:github:dispatch-strict
 不要记录完整请求、完整响应、API key、账号信息、平台原始内容或任何未脱敏数据。
 
 如果使用 `--json` 保存验收证据，只保留 `summary`、provider 名称和状态；live 模式下的 provider `detail` 可能包含模型返回的第一行摘要，不要直接复制到公开 issue、PR 或知识库。
+
+如果需要生成可以公开引用的证据，使用：
+
+```powershell
+npm run providers:live:safe-report
+npm run providers:live:safe-report:strict
+```
+
+它们会写入 `runtime/tmp/provider-live-report.json`，默认不进入 Git。公开沟通时优先引用 `summary` 和 provider 状态，不引用完整运行日志。

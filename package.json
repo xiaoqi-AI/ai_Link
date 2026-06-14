@@ -57,6 +57,8 @@
     "providers:dry": "npm run ai-link -- providers verify",
     "providers:dry:json": "npm run ai-link -- providers verify --json",
     "providers:live": "npm run ai-link -- providers verify --live",
+    "providers:live:safe-report": "npm run ai-link -- providers verify --live --json --safe --output runtime/tmp/provider-live-report.json",
+    "providers:live:safe-report:strict": "npm run ai-link -- providers verify --live --strict --json --safe --output runtime/tmp/provider-live-report.json",
     "providers:github:check": "powershell -ExecutionPolicy Bypass -File tools/check-github-provider-live.ps1",
     "providers:github:remote-check": "powershell -ExecutionPolicy Bypass -File tools/check-github-provider-live.ps1 -CheckRemote",
     "providers:github:dispatch-plan": "powershell -ExecutionPolicy Bypass -File tools/invoke-provider-live-workflow.ps1 -Plan",

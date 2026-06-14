@@ -101,6 +101,71 @@ test("providers verify --live --strict --json reports missing provider keys", ()
   assert.match(output.providers[0].detail, /XAI_API_KEY/);
 });
 
+test("providers verify --json --safe redacts provider detail", () => {
+  const result = runCli(process.cwd(), [
+    "providers",
+    "verify",
+    "--provider",
+    "grok",
+    "--json",
+    "--safe"
+  ]);
+  const output = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 0);
+  assert.equal(output.summary.ok, true);
+  assert.equal(output.providers[0].name, "grok");
+  assert.equal(output.providers[0].detail, "dry-run verified");
+  assert.equal(JSON.stringify(output).includes("dry-run:grok"), false);
+});
+
+test("providers verify --json --safe writes reports only inside runtime tmp", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-provider-report-"));
+  try {
+    const outputPath = path.join("runtime", "tmp", "provider-report.json");
+    const result = runCli(tempRoot, [
+      "providers",
+      "verify",
+      "--provider",
+      "grok",
+      "--json",
+      "--safe",
+      "--output",
+      outputPath
+    ]);
+
+    const targetPath = path.join(tempRoot, outputPath);
+    assert.equal(result.status, 0);
+    assert.equal(existsSync(targetPath), true);
+    const stdoutReport = JSON.parse(result.stdout);
+    const fileReport = JSON.parse(readFileSync(targetPath, "utf8"));
+    assert.equal(stdoutReport.summary.ok, true);
+    assert.equal(fileReport.summary.ok, true);
+    assert.equal(fileReport.providers[0].detail, "dry-run verified");
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("providers verify refuses report output outside runtime tmp", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-provider-report-guard-"));
+  try {
+    const result = runCli(tempRoot, [
+      "providers",
+      "verify",
+      "--json",
+      "--output",
+      "provider-report.json"
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /outside runtime\/tmp/);
+    assert.equal(existsSync(path.join(tempRoot, "provider-report.json")), false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("onboard writes markdown only inside runtime tmp", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-onboard-write-"));
   try {

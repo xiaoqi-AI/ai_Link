@@ -79,8 +79,17 @@ jobs:
 
       - name: Live verify configured providers
         if: ${{ inputs.strict == 'false' }}
-        run: npm run providers:live
+        run: npm run providers:live:safe-report
 
       - name: Strict live verify configured providers
         if: ${{ inputs.strict == 'true' }}
-        run: npm run providers:live -- --strict
+        run: npm run providers:live:safe-report:strict
+
+      - name: Upload provider verification summary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-live-summary
+          path: runtime/tmp/provider-live-report.json
+          if-no-files-found: warn
+          retention-days: 14

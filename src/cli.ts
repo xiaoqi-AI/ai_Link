@@ -381,6 +381,7 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
   const requested = arrayFlag(args, "provider");
   const live = booleanFlag(args, "live");
   const strict = booleanFlag(args, "strict");
+  const safe = booleanFlag(args, "safe") || booleanFlag(args, "safe-json") || booleanFlag(args, "summary-only");
   const input = stringFlag(args, "input") ?? "AI Link provider verification. Reply briefly.";
   const selected = requested.length > 0 ? requested : Object.keys(providers);
   const rows: ProviderVerifyRow[] = [];
@@ -437,12 +438,15 @@ async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
   }
 
   const report = buildProviderVerifyReport(rows, live ? "live" : "dry-run", strict);
+  const outputReport = safe ? sanitizeProviderVerifyReport(report) : report;
 
   if (booleanFlag(args, "json")) {
-    console.log(JSON.stringify(report, null, 2));
+    writeStructuredOutput(args, outputReport);
+    console.log(JSON.stringify(outputReport, null, 2));
   } else {
     console.table(rows);
     printProviderVerifySummary(report);
+    writeStructuredOutput(args, outputReport);
   }
 
   if (!report.summary.ok) {
@@ -471,6 +475,44 @@ function buildProviderVerifyReport(
     },
     providers: rows
   };
+}
+
+function sanitizeProviderVerifyReport(report: ProviderVerifyReport): ProviderVerifyReport {
+  return {
+    summary: report.summary,
+    providers: report.providers.map((row) => ({
+      ...row,
+      detail: safeProviderVerifyDetail(row)
+    }))
+  };
+}
+
+function safeProviderVerifyDetail(row: ProviderVerifyRow): string {
+  if (row.status === "ok") {
+    return row.mode === "live" ? "provider verified" : "dry-run verified";
+  }
+
+  if (isKnownSafeProviderVerifyDetail(row.detail)) {
+    return row.detail;
+  }
+
+  if (/HTTP\s+\d{3}/i.test(row.detail)) {
+    return "provider verification failed with HTTP status; check private logs";
+  }
+
+  if (/fetch failed|ENOTFOUND|ECONNRESET|ECONNREFUSED|ETIMEDOUT/i.test(row.detail)) {
+    return "provider verification failed with network error; check private logs";
+  }
+
+  return "provider verification failed; check private logs";
+}
+
+function isKnownSafeProviderVerifyDetail(value: string): boolean {
+  return value === "provider is not configured"
+    || value === "set provider.command in local config"
+    || value === "replace placeholder baseUrl before live verification"
+    || value === "provider has no apiKeyEnv configured"
+    || /^set [A-Z][A-Z0-9_]+$/.test(value);
 }
 
 function printProviderVerifySummary(report: ProviderVerifyReport): void {
@@ -1406,7 +1448,7 @@ Usage:
   ai-link runs show <id|latest> [--json]
   ai-link runs submit-audit <id|latest> --task-id <auth-hub-task-id> [--base-url url]
   ai-link providers list
-  ai-link providers verify [--live] [--strict] [--provider name] [--json]
+  ai-link providers verify [--live] [--strict] [--provider name] [--json] [--safe] [--output runtime/tmp/provider-report.json]
   ai-link onboard [--print] [--json] [--strict] [--output runtime/tmp/ai-link-onboarding.md]
   ai-link config explain
   ai-link config validate

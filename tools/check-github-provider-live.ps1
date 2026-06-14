@@ -88,6 +88,18 @@ if (-not (Test-Path -LiteralPath $WorkflowPath)) {
       Add-Result "Bitwarden action" "fail" "Workflow must use bitwarden/sm-action@v2."
     }
 
+    if ((Test-Contains $workflow "providers:live:safe-report") -and (Test-Contains $workflow "providers:live:safe-report:strict")) {
+      Add-Result "safe provider report command" "pass" "Workflow uses safe provider verification report scripts."
+    } else {
+      Add-Result "safe provider report command" "fail" "Workflow must run provider live verification through safe report scripts."
+    }
+
+    if ((Test-Contains $workflow "actions/upload-artifact@v4") -and (Test-Contains $workflow "runtime/tmp/provider-live-report.json")) {
+      Add-Result "provider summary artifact" "pass" "Workflow uploads runtime/tmp/provider-live-report.json."
+    } else {
+      Add-Result "provider summary artifact" "fail" "Workflow must upload the sanitized provider live report artifact."
+    }
+
     $secretIdVariables = $environment.secretIdVariables.PSObject.Properties
     foreach ($entry in $secretIdVariables) {
       $secretKey = $entry.Name

@@ -60,6 +60,8 @@ const REQUIRED_SCRIPTS = [
   "ai-link",
   "providers:dry",
   "providers:dry:json",
+  "providers:live:safe-report",
+  "providers:live:safe-report:strict",
   "workflow:dry",
   "onboard:check",
   "skills:check",
@@ -154,6 +156,8 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run bws:plan",
         "npm run bws:onboard:print",
         "npm run bws:acceptance:print",
+        "npm run providers:live:safe-report",
+        "npm run providers:live:safe-report:strict",
         "npm run providers:github:dispatch-plan"
       ],
       closeoutChecks: [
