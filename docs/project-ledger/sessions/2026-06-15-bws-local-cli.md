@@ -8,6 +8,8 @@
 - 已将安装目录写入用户 PATH；当前 Codex 桌面进程可能需要重启后才会自动继承 PATH。
 - `tools/with-bitwarden-secrets.ps1` 增加默认安装目录 fallback，避免当前会话 PATH 未刷新时无法调用。
 - 新增 `tools/check-bitwarden-secrets.ps1`，用于检查 `bws`、`AI_LINK_BWS_PROJECT_ID`、`BWS_ACCESS_TOKEN` 和项目访问状态。
+- 新增 `.ai-link/bitwarden-secrets.manifest.json`，公开记录预期 secret key 名称和项目结构，不包含真实值。
+- `tools/check-bitwarden-secrets.ps1` 会在 token 和项目 ID 存在时检查预期 secret key 是否已创建，但不会打印 secret value。
 
 ## 当前边界
 

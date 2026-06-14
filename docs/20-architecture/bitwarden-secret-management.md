@@ -48,7 +48,7 @@ Access token 默认设置 90 天过期，到期前轮换。除非正在执行轮
 
 Secret key 必须直接等于 AI Link 读取的环境变量名。Secret value 才是真实值。
 
-当前建议保留这些 key：
+当前公开清单保存在 `.ai-link/bitwarden-secrets.manifest.json`，只记录环境变量名和项目结构，不记录真实值。`localDev.expectedSecretKeys` 建议保留这些 key：
 
 ```text
 OPENAI_COMPATIBLE_API_KEY
@@ -82,6 +82,8 @@ $env:BWS_ACCESS_TOKEN="<machine-account-access-token>"
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
 ```
+
+检查脚本会读取 `.ai-link/bitwarden-secrets.manifest.json`，在 `BWS_ACCESS_TOKEN` 和 `AI_LINK_BWS_PROJECT_ID` 存在时验证预期 secret key 是否都已创建。它不会打印 secret value。
 
 检查 AI Link provider 状态：
 
