@@ -9,7 +9,7 @@ const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-fresh-"));
 const clonePath = path.join(tempRoot, "repo");
 
 const commands = [
-  ["git", ["clone", "--local", root, clonePath], root],
+  ["git", ["clone", "--no-local", root, clonePath], root],
   ["npm", ["ci"], clonePath],
   ["npm", ["run", "check"], clonePath],
   ["npm", ["test"], clonePath],
