@@ -1,0 +1,42 @@
+{
+  "name": "@xiaoqi-ai/ai-link",
+  "version": "0.1.0",
+  "description": "AI Link routes Codex tasks to configured models, agents, and workflows.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "ai-link": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs",
+    "examples"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"dist/**/*.test.js\" && npm run auth-hub:test",
+    "ai-link": "tsx src/cli.ts",
+    "auth-hub:start": "node src/server.js",
+    "auth-hub:executor": "node src/executor/localExecutor.js",
+    "auth-hub:executor:once": "node src/executor/localExecutor.js --once",
+    "auth-hub:test": "node --test tests/*.test.js",
+    "security:scan": "node tools/security-scan.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "nodemailer": "^8.0.11",
+    "pg": "^8.12.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

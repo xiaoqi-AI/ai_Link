@@ -1,0 +1,31 @@
+version: 1
+
+routes:
+  auto_ops.research:
+    provider: grok
+    fallback:
+      - deepseek
+      - kimi
+      - mock
+    capabilities:
+      - web_research
+      - text
+
+  auto_ops.article_draft:
+    provider: kimi
+    fallback:
+      - deepseek
+      - mock
+    capabilities:
+      - long_context
+      - text
+
+  auto_ops.agent_flow:
+    provider: mock
+    capabilities:
+      - agent_workflow
+
+policies:
+  default:
+    blockSensitive: true
+    allowOutbound: user-approved

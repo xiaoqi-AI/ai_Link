@@ -1,11 +1,11 @@
 # AI Link 工作空间
 
-`ai_Link` 是一个公开 GitHub 项目，当前处于工作空间初始化阶段。这个仓库先建立可持续维护的基础：清晰入口、用户指引、公开协作规则、知识库镜像和 Git 同步流程。具体产品方向仍待确认。
+`ai_Link` 是一个公开 GitHub 项目，目标是让 Codex 能按任务链接合适的模型、Agent 和工作流。当前第一版 MVP 已建立 TypeScript / Node.js CLI 骨架、配置分层、provider adapter、路由、策略和 auto-ops 示例。
 
 ## 当前状态
 
-- 阶段：工作空间初始化
-- 方向草案：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流
+- 阶段：MVP 第一版
+- 定位：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流
 - GitHub：`https://github.com/xiaoqi-AI/ai_Link`
 - 可见性：公开仓库
 - 默认分支：`main`
@@ -18,6 +18,10 @@
 
 - 使用指引：`docs/user-guide.md`
 - 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
+- 配置说明：`docs/20-architecture/configuration.md`
+- Provider 说明：`docs/20-architecture/provider-adapters.md`
+- Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
+- Auto Ops 示例：`examples/auto-ops/`
 - 协作规则：`AGENTS.md`
 - 贡献说明：`CONTRIBUTING.md`
 - 安全反馈：`SECURITY.md`
@@ -33,6 +37,18 @@ powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1
 powershell -ExecutionPolicy Bypass -File tools/sync-knowledge-mirror.ps1
 powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
 ```
+
+## 快速试用
+
+```powershell
+npm install
+npm run ai-link -- doctor
+npm run ai-link -- providers list
+npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
+npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
+```
+
+真实外部模型调用需要用户自行配置 API key，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`。公开仓不会保存真实密钥。
 
 重要会话结束时可运行：
 
@@ -53,12 +69,17 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 
 从内部仓同步到公开仓前，必须完成脱敏和用户指引检查。公开仓不接收内部路径、内部判断、未确认承诺、账号信息或任何敏感资料。
 
-## 当前产品探索
+## 当前产品能力
 
-当前探索方向是：让 Codex 能按任务链接合适的模型、Agent 和工作流。
+当前已经具备：
 
-这一方向仍处于头脑风暴和草案阶段。公开草案见 `docs/10-product/ai-link-product-direction-draft.md`，其中内容用于讨论产品边界、配置方式和第一版 MVP，不代表已经完成或正式承诺的功能。
+- `ai-link` CLI 本地运行入口。
+- 配置优先级：会话临时指定 > 项目 local 私有配置 > 项目公开配置 > 用户全局配置 > 默认配置。
+- `mock/local-dry-run`、`openai-compatible`、`deepseek`、`kimi`、`grok` provider。
+- 敏感信息出站拦截策略。
+- Codex skill 自然语言生成候选路由。
+- `examples/auto-ops/` 轻量示例。
 
 ## 许可证
 
-许可证尚未选择。公开仓库不等于自动授予开源使用许可；在许可证确认前，请不要假设本项目可被自由复制、修改或再发布。
+本项目使用 Apache-2.0 许可证。

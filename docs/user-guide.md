@@ -2,9 +2,9 @@
 
 ## 当前阶段
 
-`ai_Link` 当前处于公开仓库初始化阶段。仓库已经建立基础文档、治理流程、知识库镜像和 GitHub 同步规则；具体产品能力仍待确认。
+`ai_Link` 当前处于 MVP 第一版阶段。仓库已经建立基础文档、治理流程、知识库镜像、GitHub 同步规则，以及可本地运行的 `ai-link` CLI。
 
-当前探索方向是：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。该方向仍是头脑风暴草案，不代表已有可用产品功能。
+当前定位是：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。
 
 ## 适合谁阅读
 
@@ -23,14 +23,45 @@
 
 - 项目治理文档：`docs/00-governance/`
 - 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
+- 配置说明：`docs/20-architecture/configuration.md`
+- Provider 说明：`docs/20-architecture/provider-adapters.md`
+- Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
+- Auto Ops 示例：`examples/auto-ops/`
 - 项目账本：`docs/project-ledger/`
 - 文档模板：`docs/90-templates/`
 - 本地检查和知识库同步脚本：`tools/`
 
+## 快速试用
+
+```powershell
+npm install
+npm run ai-link -- doctor
+npm run ai-link -- providers list
+npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
+```
+
+如果没有外部模型 API key，可以先使用 `mock`：
+
+```powershell
+npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
+```
+
+## 外部模型配置
+
+真实调用 DeepSeek、Kimi、Grok 或 OpenAI-compatible provider 前，需要在本机配置环境变量：
+
+```powershell
+$env:DEEPSEEK_API_KEY="..."
+$env:MOONSHOT_API_KEY="..."
+$env:XAI_API_KEY="..."
+```
+
+不要把真实 key 写入公开仓库、issue、PR 或知识库。
+
 ## 当前不可假设
 
-- 不要假设本项目已有完整产品功能。
-- 不要假设公开仓库已经选择开源许可证。
+- 不要假设所有 provider 的高级能力都已经完整实现。
+- 不要假设扣子工作流已在 MVP runtime 中可真实调用；当前是预留接口。
 - 不要把私密数据、账号、token、二维码、登录态或未脱敏截图提交到 issue、PR 或仓库文件。
 - 不要把私有内部仓中的草稿、判断或实验结果视为公开承诺；公开仓内容才是对外口径。
 

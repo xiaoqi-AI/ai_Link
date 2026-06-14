@@ -1,6 +1,6 @@
 # AI Link 产品方向草案
 
-状态：头脑风暴草案，尚未作为正式产品承诺。
+状态：第一版 MVP 已按本草案启动实现，后续仍可迭代。
 
 日期：2026-06-14
 
@@ -19,7 +19,7 @@ AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。
 - 第一版优先支持 Codex 本地会话和 Codex skill 工作流。
 - 公开仓提供可复用能力；私密配置、密钥和内部策略留在用户本机或私有仓。
 - 支持模型接入，也支持扣子等 Agent / workflow 平台接入。
-- 最终目标是开源，但许可证仍需确认。
+- 使用 Apache-2.0 许可证。
 
 ## 设计原则
 
@@ -169,7 +169,7 @@ routes:
 2. 定义 provider adapter 接口。
 3. 支持至少一个通用 OpenAI-compatible provider。
 4. 支持 DeepSeek 和 Kimi 作为首批示例 provider。
-5. 为 Grok 和扣子预留 provider 类型和示例配置。
+5. 支持 Grok provider；为扣子预留 Agent / workflow provider 类型。
 6. 提供 `ai-link run` 的最小命令行入口。
 7. 提供 Codex skill 调用约定。
 8. 提供安全策略：敏感信息不出站、密钥不进 Git、路由可审计。
@@ -185,10 +185,7 @@ routes:
 
 ## 待确认问题
 
-- 公开许可证选择：MIT、Apache-2.0，还是其他方案。
-- 第一版首批必须跑通哪些 provider。
-- `ai-link` 命令行的技术栈和安装方式。
-- Codex skill 调用 AI Link 的具体约定。
-- 自然语言 skill 说明如何转换为路由配置。
+- 是否需要补充豆包 provider。
+- 是否需要发布 npm 包，或继续只支持仓库本地运行。
 - 扣子接入优先走 API、命令行、MCP，还是其他方式。
-- 是否需要为公开仓提供完整示例项目。
+- 是否需要将 auto-ops 从轻量示例扩展成完整示例项目。

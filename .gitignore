@@ -33,6 +33,12 @@ runtime/private/
 runtime/downloads/
 runtime/tmp/
 
+# Local/private service experiments
+render.yaml
+src/**/*.js
+tests/
+tools/security-scan.js
+
 # Logs and caches
 *.log
 .cache/

@@ -11,14 +11,13 @@
 
 ## 产品方向
 
-- 当前草案定位：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。是否确认作为第一阶段公开定位？
-- 第一版主要服务 Codex 本地工作流，同时允许 GitHub 其他用户复用。是否需要同步定义更明确的目标用户画像？
-- 第一版是否优先实现命令行 `ai-link`、配置文件和 Codex skill 调用约定？
-- 首批必须跑通哪些 provider：DeepSeek、Kimi、Grok、豆包、扣子、OpenAI-compatible，还是先做其中一部分？
-- 扣子接入优先作为模型 provider、Agent / workflow provider，还是两者都支持？
-- 自然语言 skill 说明如何转换为路由配置？
-- 是否需要提供公开示例项目，例如自动运营项目：Grok 调研、Kimi 写作、Codex 落地？
-- 项目许可证尚未确认；最终开源时选择 MIT、Apache-2.0，还是其他许可证？
+- 第一阶段公开定位已确认：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。
+- MVP 已采用 Apache-2.0 许可证、TypeScript / Node.js CLI、配置文件和 Codex skill 调用约定。
+- 首批 provider 已覆盖：mock/local-dry-run、openai-compatible、DeepSeek、Kimi、Grok。
+- 后续是否需要补充豆包 provider？
+- 扣子真实接入优先走 API、MCP，还是命令行兜底？
+- 是否需要把 `examples/auto-ops/` 扩展成完整示例项目或保持轻量？
+- 是否需要发布 npm 包，或继续只支持仓库本地运行？
 
 ## 技术与部署
 
