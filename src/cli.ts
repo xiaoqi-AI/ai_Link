@@ -33,6 +33,9 @@ async function main(): Promise<void> {
     case "workflow":
       await workflowCommand(args);
       return;
+    case "runs":
+      runsCommand(args);
+      return;
     case "config":
       configCommand(args);
       return;
@@ -150,6 +153,70 @@ async function runCommand(args: ParsedArgs): Promise<void> {
     input,
     result
   });
+}
+
+function runsCommand(args: ParsedArgs): void {
+  const subcommand = args.positional[1] ?? "list";
+  if (subcommand === "list") {
+    listRunRecordsCommand(args);
+    return;
+  }
+  if (subcommand === "show") {
+    showRunRecordCommand(args);
+    return;
+  }
+  throw new AiLinkError("Usage: ai-link runs <list|show> [id]", "CLI_USAGE");
+}
+
+function listRunRecordsCommand(args: ParsedArgs): void {
+  const index = readRunRecordIndex(getRunRecordIndexPath());
+  const limit = positiveIntegerFlag(args, "limit") ?? 10;
+  const records = index.records.slice(0, limit);
+
+  if (booleanFlag(args, "json")) {
+    console.log(JSON.stringify({
+      schemaVersion: index.schemaVersion,
+      updatedAt: index.updatedAt,
+      count: index.records.length,
+      records
+    }, null, 2));
+    return;
+  }
+
+  if (records.length === 0) {
+    console.log("No AI Link run records found.");
+    console.log("Create one with: ai-link workflow run auto_ops --dry-run --record");
+    return;
+  }
+
+  console.table(records.map((record) => ({
+    id: record.id,
+    kind: record.kind,
+    target: record.workflow ?? record.task ?? "",
+    dryRun: record.dryRun ? "yes" : "no",
+    createdAt: record.createdAt,
+    path: record.path
+  })));
+}
+
+function showRunRecordCommand(args: ParsedArgs): void {
+  const selector = args.positional[2] ?? stringFlag(args, "id");
+  if (!selector) {
+    throw new AiLinkError("Usage: ai-link runs show <id>", "CLI_USAGE");
+  }
+
+  const targetPath = resolveRunRecordPath(selector);
+  if (!targetPath) {
+    throw new AiLinkError(`Run record not found: ${selector}`, "RUN_RECORD_NOT_FOUND");
+  }
+
+  const record = JSON.parse(readFileSync(targetPath, "utf8")) as Record<string, unknown>;
+  if (booleanFlag(args, "json")) {
+    console.log(JSON.stringify(record, null, 2));
+    return;
+  }
+
+  printRunRecord(record, path.relative(process.cwd(), targetPath).replaceAll("\\", "/"));
 }
 
 async function providersCommand(args: ParsedArgs): Promise<void> {
@@ -534,6 +601,18 @@ function arrayFlag(args: ParsedArgs, name: string): string[] {
   return typeof value === "string" ? [value] : [];
 }
 
+function positiveIntegerFlag(args: ParsedArgs, name: string): number | undefined {
+  const value = stringFlag(args, name);
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed.toString() !== value) {
+    throw new AiLinkError(`--${name} must be a positive integer.`, "CLI_USAGE");
+  }
+  return parsed;
+}
+
 function parseStageFlags(args: ParsedArgs): string[] {
   return [...arrayFlag(args, "stage"), ...arrayFlag(args, "stages")]
     .flatMap((value) => value.split(","))
@@ -666,7 +745,7 @@ function writeRunRecord(args: ParsedArgs, recordInput: RunRecordInput): void {
 }
 
 function updateRunRecordIndex(entry: RunRecordIndexEntry): void {
-  const indexPath = path.resolve(process.cwd(), "runtime", "tmp", "ai-link-runs", "index.json");
+  const indexPath = getRunRecordIndexPath();
   const existing = readRunRecordIndex(indexPath);
   const records = [entry, ...existing.records.filter((record) => record.id !== entry.id)].slice(0, 50);
   const index: RunRecordIndex = {
@@ -675,6 +754,42 @@ function updateRunRecordIndex(entry: RunRecordIndexEntry): void {
     records
   };
   writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+}
+
+function getRunRecordsDir(): string {
+  return path.resolve(process.cwd(), "runtime", "tmp", "ai-link-runs");
+}
+
+function getRunRecordIndexPath(): string {
+  return path.join(getRunRecordsDir(), "index.json");
+}
+
+function resolveRunRecordPath(selector: string): string | undefined {
+  const directPath = path.resolve(process.cwd(), selector);
+  if (selector.endsWith(".json")) {
+    return isRunRecordFileTarget(directPath) && existsSync(directPath) ? directPath : undefined;
+  }
+
+  const index = readRunRecordIndex(getRunRecordIndexPath());
+  const matches = index.records.filter((record) => record.id === selector || record.id.startsWith(selector));
+  if (matches.length > 1) {
+    throw new AiLinkError(`Run record selector is ambiguous: ${selector}`, "RUN_RECORD_AMBIGUOUS");
+  }
+  const match = matches[0];
+  if (!match) {
+    return undefined;
+  }
+
+  const targetPath = path.resolve(process.cwd(), match.path);
+  return isRunRecordFileTarget(targetPath) && existsSync(targetPath) ? targetPath : undefined;
+}
+
+function isRunRecordFileTarget(targetPath: string): boolean {
+  if (path.basename(targetPath) === "index.json" || !targetPath.endsWith(".json")) {
+    return false;
+  }
+  const relative = path.relative(getRunRecordsDir(), targetPath);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function readRunRecordIndex(indexPath: string): RunRecordIndex {
@@ -718,6 +833,65 @@ function safeRecordName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "record";
 }
 
+function printRunRecord(record: Record<string, unknown>, relativePath: string): void {
+  const request = isRecord(record.request) ? record.request : {};
+  const result = isRecord(record.result) ? record.result : {};
+  const kind = typeof record.kind === "string" ? record.kind : "(unknown)";
+
+  console.log("AI Link run record");
+  console.log(`ID: ${typeof record.id === "string" ? record.id : "(unknown)"}`);
+  console.log(`Kind: ${kind}`);
+  console.log(`Created: ${typeof record.createdAt === "string" ? record.createdAt : "(unknown)"}`);
+  console.log(`Path: ${relativePath}`);
+  if (typeof request.workflow === "string") {
+    console.log(`Workflow: ${request.workflow}`);
+  }
+  if (typeof request.task === "string") {
+    console.log(`Task: ${request.task}`);
+  }
+  console.log(`Dry run: ${request.dryRun === true ? "yes" : "no"}`);
+  console.log(`Input stored: ${request.inputStored === true ? "yes" : "no"}`);
+  console.log(`Input length: ${typeof request.inputLength === "number" ? request.inputLength : 0}`);
+  if (typeof request.outputPath === "string") {
+    console.log(`Output file: ${request.outputPath}`);
+  }
+
+  if (Array.isArray(result.stages)) {
+    console.log("");
+    console.table(result.stages.map((stage) => {
+      const stageRecord = isRecord(stage) ? stage : {};
+      const stageResult = isRecord(stageRecord.result) ? stageRecord.result : {};
+      return {
+        stage: stringValue(stageRecord.name),
+        task: stringValue(stageRecord.task),
+        provider: stringValue(stageResult.provider),
+        model: stringValue(stageResult.model),
+        inputFrom: stringValue(stageRecord.inputFrom)
+      };
+    }));
+    return;
+  }
+
+  if (typeof result.provider === "string") {
+    console.log(`Provider: ${result.provider}`);
+    if (typeof result.model === "string") {
+      console.log(`Model: ${result.model}`);
+    }
+    if (typeof result.output === "string") {
+      console.log("");
+      console.log(firstLine(result.output));
+    }
+  }
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isRuntimeTmpOutputTarget(targetPath: string): boolean {
   const runtimeTmpPath = path.resolve(process.cwd(), "runtime", "tmp");
   const relative = path.relative(runtimeTmpPath, targetPath);
@@ -747,6 +921,8 @@ function printHelp(): void {
 Usage:
   ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
+  ai-link runs list [--limit 10] [--json]
+  ai-link runs show <id> [--json]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain

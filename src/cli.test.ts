@@ -205,6 +205,49 @@ test("workflow run records local run history without storing original input", ()
   }
 });
 
+test("runs list and show read local run records", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-read-"));
+  try {
+    const create = runCli(tempRoot, [
+      "run",
+      "auto_ops.research",
+      "--dry-run",
+      "--input",
+      "fresh run record read check",
+      "--record"
+    ]);
+    assert.equal(create.status, 0);
+
+    const list = runCli(tempRoot, ["runs", "list", "--json"]);
+    assert.equal(list.status, 0);
+    const index = JSON.parse(list.stdout);
+    assert.equal(index.count, 1);
+    assert.equal(index.records[0].kind, "run");
+    assert.equal(index.records[0].task, "auto_ops.research");
+
+    const show = runCli(tempRoot, ["runs", "show", index.records[0].id, "--json"]);
+    assert.equal(show.status, 0);
+    const record = JSON.parse(show.stdout);
+    assert.equal(record.id, index.records[0].id);
+    assert.equal(record.kind, "run");
+    assert.equal(record.request.task, "auto_ops.research");
+    assert.equal(record.request.inputStored, false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runs show refuses paths outside local run records", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-guard-"));
+  try {
+    const result = runCli(tempRoot, ["runs", "show", "docs/result.json"]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Run record not found/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("structured output refuses paths outside runtime tmp", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-run-output-guard-"));
   try {

@@ -114,11 +114,11 @@ AI Link 会把任务信息作为 stdin JSON 传给本机命令。命令可以返
 
 ```powershell
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
-$env:BWS_ACCESS_TOKEN="<machine-account-access-token>"
-powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- doctor"
+npm run bws:session
+npm run bws:doctor
 ```
 
-`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
+`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时设置并在结束时恢复环境。`BWS_ACCESS_TOKEN` 是当前会话的 bootstrap secret，只能放在本机会话环境中，不写入项目目录。`AI_LINK_BWS_PROJECT_ID` 不是密钥，可以作为本机环境变量保存。
 
 Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`、`AI_LINK_EXECUTOR_TOKEN`。Secret value 才是真实值。
 
@@ -160,6 +160,7 @@ npm run ai-link -- providers list
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿"
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --output runtime/tmp/auto-ops-workflow.json
 npm run ai-link -- workflow run auto_ops --dry-run --input "调研一个公开选题并写初稿" --record
+npm run ai-link -- runs list
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```
