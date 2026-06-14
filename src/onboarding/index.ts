@@ -72,6 +72,8 @@ const REQUIRED_SCRIPTS = [
   "github:safety:json",
   "release:plan",
   "release:plan:json",
+  "release:manual-gates",
+  "release:manual-gates:json",
   "release:readiness",
   "release:readiness:json",
   "skills:check",
@@ -106,6 +108,12 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
   addCheck(checks, "providers", providerNames.length > 0 ? "pass" : "fail", providerNames.join(", ") || "none");
   addCheck(checks, "routes", routeNames.length > 0 ? "pass" : "fail", routeNames.join(", ") || "none");
   addCheck(checks, "workflows", workflowNames.length > 0 ? "pass" : "fail", workflowNames.join(", ") || "none");
+  addCheck(
+    checks,
+    "quickstart guide",
+    existsRepo(cwd, "docs/quickstart.md") ? "pass" : "warn",
+    "docs/quickstart.md"
+  );
   addCheck(
     checks,
     "auto ops Codex skill",
@@ -159,6 +167,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run package:install-smoke:json",
         "npm run github:safety:json",
         "npm run release:plan:json",
+        "npm run release:manual-gates:json",
         "npm run release:readiness:json",
         "npm run workflow:dry",
         "npm run ai-link -- skill draft --skill auto_ops --description \"research with Grok, article draft with Kimi\" --write .ai-link/local.yaml --diff --json",
@@ -182,6 +191,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run package:install-smoke",
         "npm run github:safety",
         "npm run release:plan",
+        "npm run release:manual-gates",
         "npm run release:readiness",
         "npm run security:scan",
         "npm run verify:fresh"

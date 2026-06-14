@@ -86,6 +86,8 @@ for (const file of [
   "tools/check-package-install.js",
   "tools/check-github-repo-safety.js",
   "tools/check-release-plan.js",
+  "tools/show-release-manual-gates.js",
+  "docs/quickstart.md",
   "docs/user-guide.md",
   "docs/releases/v0.1.0.md",
   "docs/00-governance/release-process.md",
@@ -131,6 +133,8 @@ for (const scriptName of [
   "github:safety:json",
   "release:plan",
   "release:plan:json",
+  "release:manual-gates",
+  "release:manual-gates:json",
   "release:readiness",
   "release:readiness:json"
 ]) {
@@ -148,8 +152,37 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run package:install-smoke",
   "npm run github:safety",
   "npm run release:plan",
+  "npm run release:manual-gates",
   "npm run release:readiness",
   "npm audit --omit=dev --audit-level=high"
+]);
+
+checkContains("README.md", "README quickstart link", [
+  "docs/quickstart.md",
+  "5 分钟快速试用"
+]);
+
+checkContains("docs/user-guide.md", "user guide quickstart link", [
+  "docs/quickstart.md",
+  "5 分钟快速试用"
+]);
+
+checkContains("docs/quickstart.md", "public quickstart commands", [
+  "npm ci",
+  "npm run onboard:print",
+  "npm run ai-link -- config validate",
+  "npm run providers:dry",
+  "npm run workflow:dry",
+  "npm run ai-link -- skill draft",
+  "npm run ai-link -- run auto_ops.article_draft --provider mock"
+]);
+
+checkContains("tools/show-release-manual-gates.js", "release manual gates report", [
+  "github-branch-protection",
+  "github-secret-scanning",
+  "npm-publish-decision",
+  "provider-live-credentials",
+  "Does not read API keys"
 ]);
 
 checkContains(".github/workflows/provider-live.yml", "provider live safe workflow", [

@@ -101,11 +101,13 @@ if (!packageJson) {
 
 for (const file of [
   "CHANGELOG.md",
+  "docs/quickstart.md",
   "docs/releases/v0.1.0.md",
   "docs/00-governance/release-process.md",
   "docs/00-governance/open-questions.md",
   "tools/check-package-install.js",
-  "tools/check-release-plan.js"
+  "tools/check-release-plan.js",
+  "tools/show-release-manual-gates.js"
 ]) {
   checkFile(file);
 }
@@ -122,9 +124,18 @@ checkContains("docs/releases/v0.1.0.md", "GitHub release draft", [
   "# AI Link v0.1.0",
   "Highlights",
   "Safety Model",
+  "docs/quickstart.md",
   "Maintainer Gate",
   "Known Pending Decisions",
   "npm run release:plan"
+]);
+
+checkContains("docs/quickstart.md", "public quickstart release path", [
+  "AI Link 5-Minute Quickstart",
+  "npm ci",
+  "npm run onboard:print",
+  "npm run workflow:dry",
+  "does not require provider API keys"
 ]);
 
 checkContains("docs/00-governance/release-process.md", "release process gate", [
@@ -134,8 +145,16 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run package:install-smoke",
   "npm run github:safety",
   "npm run verify:fresh",
+  "npm run release:manual-gates",
   "git tag -a v0.1.0",
   "npm publish --dry-run --access public"
+]);
+
+checkContains("tools/show-release-manual-gates.js", "release manual gates handoff", [
+  "github-branch-protection",
+  "github-secret-scanning",
+  "npm-publish-decision",
+  "provider-live-credentials"
 ]);
 
 checkContains("docs/00-governance/open-questions.md", "release open questions", [
@@ -148,6 +167,8 @@ checkContains("docs/00-governance/open-questions.md", "release open questions", 
 for (const scriptName of [
   "release:plan",
   "release:plan:json",
+  "release:manual-gates",
+  "release:manual-gates:json",
   "release:readiness",
   "release:readiness:json",
   "package:check",
@@ -194,7 +215,8 @@ const report = {
     tag: releaseTag,
     changelog: "CHANGELOG.md",
     releaseNotes: "docs/releases/v0.1.0.md",
-    process: "docs/00-governance/release-process.md"
+    process: "docs/00-governance/release-process.md",
+    manualGates: "tools/show-release-manual-gates.js"
   },
   summary: {
     ok: counts.fail === 0,

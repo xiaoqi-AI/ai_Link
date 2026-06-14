@@ -13,6 +13,7 @@ npm run package:check
 npm run package:install-smoke
 npm run github:safety
 npm run release:plan
+npm run release:manual-gates
 npm run release:readiness
 npm run security:scan
 npm run verify:fresh
@@ -25,6 +26,7 @@ npm run package:check:json
 npm run package:install-smoke:json
 npm run github:safety:json
 npm run release:plan:json
+npm run release:manual-gates:json
 npm run release:readiness:json
 ```
 
@@ -38,6 +40,8 @@ Before publishing v0.1, confirm:
 - Provider-live credentials are configured through Bitwarden Secrets Manager and model cost boundaries are approved.
 - The npm publish decision is explicit: publish `@xiaoqi-ai/ai-link` or keep repository-local usage.
 - The GitHub Release draft in `docs/releases/v0.1.0.md` matches the final public scope.
+
+Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to print the owner, action list, evidence, and safety boundary for each manual gate. The command is read-only: it does not change GitHub settings, create tags, publish npm packages, read secrets, or dispatch provider-live checks.
 
 ## Tag And GitHub Release
 

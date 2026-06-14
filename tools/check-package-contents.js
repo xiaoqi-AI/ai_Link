@@ -54,6 +54,7 @@ function checkRequiredFiles(files) {
     "dist/cli.js",
     "dist/index.js",
     "dist/types.d.ts",
+    "docs/quickstart.md",
     "docs/user-guide.md",
     "docs/20-architecture/configuration.md",
     "docs/20-architecture/provider-adapters.md",

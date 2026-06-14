@@ -9,6 +9,7 @@
 ## 每次更新必查
 
 - `README.md` 是否仍然准确。
+- `docs/quickstart.md` 是否仍然能让外部用户在无密钥、无真实模型调用的情况下完成 5 分钟试用。
 - `docs/user-guide.md` 是否覆盖新的使用方式、限制或入口。
 - `.github/ISSUE_TEMPLATE/` 是否能引导用户提交有效反馈。
 - `CONTRIBUTING.md` 是否能说明协作预期。
@@ -17,6 +18,7 @@
 - `npm run package:install-smoke` 是否通过，确认 tarball 安装后的 CLI 能启动。
 - `npm run github:safety` 是否通过；如果输出 manual，是否已在 GitHub UI 或 `gh` 环境中确认对应安全项。
 - `npm run release:plan` 是否通过，且 changelog、GitHub Release 草稿、tag 计划和 npm 决策项是否明确。
+- `npm run release:manual-gates` 是否已复核，且 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批是否有明确 owner。
 - `npm run release:readiness` 是否通过，且人工确认项是否有明确 owner 或后续动作。
 - 是否有敏感信息、账号信息、二维码、登录态、私密截图或个人数据误入 Git。
 - 本地 `main` 是否已推送并与 `origin/main` 对齐。

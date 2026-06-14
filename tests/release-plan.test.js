@@ -39,8 +39,11 @@ describe("release plan report", () => {
     assert.equal(report.summary.ok, true);
     assert.equal(report.summary.counts.fail, 0);
     assert.equal(report.release.tag, "v0.1.0");
+    assert.equal(report.release.manualGates, "tools/show-release-manual-gates.js");
     assert.equal(report.checks.some((check) => check.name === "CHANGELOG v0.1.0 entry" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "GitHub release draft" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "public quickstart release path" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "release manual gates handoff" && check.status === "pass"), true);
     assert.equal(report.summary.manualOpen > 0, true);
   });
 

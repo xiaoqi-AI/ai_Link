@@ -16,7 +16,9 @@
 ## 默认文档位置
 
 - `README.md`：外部访问者的最快入口。
+- `docs/quickstart.md`：外部用户无密钥试用的最短路径。
 - `docs/user-guide.md`：面向用户的详细说明。
+- `docs/00-governance/release-process.md`：维护者发布前的本地检查和人工门槛说明。
 - `CONTRIBUTING.md`：面向贡献者的协作说明。
 - `SECURITY.md`：安全反馈边界。
 - `.github/ISSUE_TEMPLATE/`：结构化收集反馈。
@@ -27,4 +29,3 @@
 - 明确当前阶段，不夸大能力。
 - 对未完成或待确认内容标明状态。
 - 不暴露私密路径、账号、token、登录态、二维码或未脱敏资料。
-

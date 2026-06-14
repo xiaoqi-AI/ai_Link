@@ -31,6 +31,8 @@
     "github:safety:json": "node tools/check-github-repo-safety.js --json",
     "release:plan": "node tools/check-release-plan.js",
     "release:plan:json": "node tools/check-release-plan.js --json",
+    "release:manual-gates": "node tools/show-release-manual-gates.js",
+    "release:manual-gates:json": "node tools/show-release-manual-gates.js --json",
     "release:readiness": "node tools/check-release-readiness.js",
     "release:readiness:json": "node tools/check-release-readiness.js --json",
     "onboard": "npm run ai-link -- onboard",
