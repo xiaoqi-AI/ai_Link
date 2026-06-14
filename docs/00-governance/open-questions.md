@@ -6,6 +6,8 @@
 - 是否要为 `main` 配置 GitHub branch protection 或 ruleset？
 - 是否需要启用 GitHub Discussions？
 - 项目许可证尚未确认，后续需要选择是否添加 `LICENSE`。
+- 是否在 GitHub UI 开启公开仓和私有仓的 secret scanning / push protection？
+- 是否给私有仓 `ai_Link-internal` 配置独立 branch protection 或 ruleset？
 
 ## 产品方向
 

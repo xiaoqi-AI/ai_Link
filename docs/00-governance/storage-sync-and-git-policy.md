@@ -5,6 +5,7 @@
 - 本地工作区：`G:\codex_workpace\ai_Link`
 - GitHub 远端：`https://github.com/xiaoqi-AI/ai_Link`
 - GitHub 可见性：公开仓库
+- 内部私有仓：`https://github.com/xiaoqi-AI/ai_Link-internal`
 - 个人知识库镜像：`D:\llm-wiki\wiki\projects\ai_Link`
 
 多电脑协作时，GitHub 远端是项目真源；知识库镜像用于长期上下文和会话交接，不代替 Git。
@@ -18,6 +19,12 @@
 5. 提交到本地 Git。
 6. 推送到 GitHub。
 7. 确认本地分支与 `origin/main` 对齐。
+
+如果本次改动来自私有内部仓，还要确认：
+
+- 内部来源已记录在 `ai_Link-internal`。
+- 公开内容已通过脱敏和用户指引检查。
+- 公开仓没有内部路径、内部判断或未确认承诺。
 
 ## 公开仓库提交范围
 
@@ -59,4 +66,3 @@
 3. 检查 `D:\llm-wiki` 是否存在。
 4. 运行治理检查和必要安装脚本。
 5. 再开始功能开发。
-

@@ -10,6 +10,7 @@
 - 默认分支：`main`
 - 本地路径：`G:\codex_workpace\ai_Link`
 - 知识库镜像：`D:\llm-wiki\wiki\projects\ai_Link`
+- 内部私有仓：`https://github.com/xiaoqi-AI/ai_Link-internal`
 - 业务范围：待确认，不在初始化文档中提前定案
 
 ## 用户入口
@@ -44,7 +45,12 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - 每次新增面向外部用户的行为时，补充 issue/PR 指引或相关说明。
 - 不把密钥、token、二维码、登录状态、未脱敏截图、个人财务或交易信息、运行缓存、构建产物写入 Git 或知识库。
 
+## 公开 / 私有双仓模式
+
+本仓库是对外主仓，只放可以公开给用户和贡献者看的内容。内部规划、实验、供应商评估、运维说明和公开前审查放在私有 companion 仓 `xiaoqi-AI/ai_Link-internal`。
+
+从内部仓同步到公开仓前，必须完成脱敏和用户指引检查。公开仓不接收内部路径、内部判断、未确认承诺、账号信息或任何敏感资料。
+
 ## 许可证
 
 许可证尚未选择。公开仓库不等于自动授予开源使用许可；在许可证确认前，请不要假设本项目可被自由复制、修改或再发布。
-
