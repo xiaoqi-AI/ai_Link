@@ -11,6 +11,7 @@ import {
   draftRoutesFromNaturalLanguage,
   draftSkillConfigFromNaturalLanguage
 } from "./skills/naturalLanguage.js";
+import { buildOnboardingReport, renderOnboardingMarkdown } from "./onboarding/index.js";
 import { runWorkflow } from "./workflows/index.js";
 import type {
   AiLinkConfig,
@@ -70,6 +71,9 @@ async function main(): Promise<void> {
       return;
     case "doctor":
       doctorCommand(args);
+      return;
+    case "onboard":
+      onboardCommand(args);
       return;
     case "version":
     case "--version":
@@ -663,6 +667,32 @@ function providerHealth(name: string, provider: ProviderConfig): Record<string, 
     status: "needs-key",
     detail: provider.apiKeyEnv ? `set ${provider.apiKeyEnv}` : "set provider.apiKeyEnv"
   };
+}
+
+function onboardCommand(args: ParsedArgs): void {
+  const outputPath = stringFlag(args, "output") ?? stringFlag(args, "output-file");
+  const report = buildOnboardingReport({ cwd: process.cwd() });
+  const json = booleanFlag(args, "json");
+  const content = json ? JSON.stringify(report, null, 2) : renderOnboardingMarkdown(report);
+
+  if (booleanFlag(args, "print") || json && !outputPath) {
+    console.log(content);
+    return;
+  }
+
+  const target = outputPath ?? "runtime/tmp/ai-link-onboarding.md";
+  const targetPath = path.resolve(process.cwd(), target);
+  if (!isRuntimeTmpOutputTarget(targetPath)) {
+    throw new AiLinkError(
+      "Refusing to write onboarding output outside runtime/tmp. Use --print or --json for stdout consumers.",
+      "CONFIG_WRITE_GUARD"
+    );
+  }
+
+  const targetDir = path.dirname(targetPath);
+  mkdirSync(targetDir, { recursive: true });
+  writeFileSync(targetPath, content, "utf8");
+  console.log(`AI Link onboarding ${json ? "JSON " : ""}written to ${target}.`);
 }
 
 function liveSkipReason(provider: ProviderConfig): string {
@@ -1314,6 +1344,7 @@ Usage:
   ai-link runs submit-audit <id|latest> --task-id <auth-hub-task-id> [--base-url url]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
+  ai-link onboard [--print] [--json] [--output runtime/tmp/ai-link-onboarding.md]
   ai-link config explain
   ai-link config validate
   ai-link skill draft --description "research with grok, write with kimi" [--write .ai-link/local.yaml --diff --json --yes]

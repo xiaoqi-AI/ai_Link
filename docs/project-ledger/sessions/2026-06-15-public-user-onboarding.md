@@ -2,10 +2,11 @@
 
 ## 本次推进
 
-- 新增 `tools/new-user-onboarding.js`，生成公开用户一页式入场引导。
-- 新增 `npm run onboard`，默认写入 `runtime/tmp/ai-link-onboarding.md`。
-- 新增 `npm run onboard:print`，只打印引导内容，不写文件。
-- fresh clone 验证已加入 `npm run onboard:print`，覆盖新用户克隆后的第一入口。
+- 新增 `src/onboarding/index.ts`，生成公开用户一页式入场引导。
+- 新增 `ai-link onboard` CLI 子命令；`npm run onboard` 默认写入 `runtime/tmp/ai-link-onboarding.md`。
+- 新增 `npm run onboard:print` / `ai-link onboard --print`，只打印引导内容，不写文件。
+- 新增 `npm run onboard:json` / `ai-link onboard --json`，输出机器可读入场状态。
+- fresh clone 验证已加入 `npm run onboard:print` 和 `npm run onboard:json`，覆盖新用户克隆后的第一入口。
 - README、用户指南和 auto-ops 示例已补充 `onboard:print` 与 `skill draft --diff --json` 路径。
 
 ## 安全边界
@@ -17,5 +18,4 @@
 
 ## 后续建议
 
-- 后续可以把 onboarding 输出扩展为 JSON，方便 UI 或其他 agent 读取。
-- 后续可以增加 `ai-link onboard` CLI 子命令，但当前先用 npm script 保持实现轻量、跨平台。
+- 后续可以把 `ai-link onboard --json` 接入 UI 或其他 agent 的入场状态检查。

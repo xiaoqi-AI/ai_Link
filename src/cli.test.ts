@@ -8,6 +8,62 @@ import { createServer } from "node:http";
 
 const cliPath = path.resolve("dist", "cli.js");
 
+test("onboard --print renders the public onboarding runbook", () => {
+  const result = runCli(process.cwd(), ["onboard", "--print"]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /AI Link Public User Onboarding/);
+  assert.match(result.stdout, /First Dry-Run Path/);
+  assert.match(result.stdout, /skill draft .*--diff --json/);
+});
+
+test("onboard --json renders a machine-readable public onboarding report", () => {
+  const result = runCli(process.cwd(), ["onboard", "--json"]);
+  const output = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 0);
+  assert.equal(Array.isArray(output.snapshot.providers), true);
+  assert.equal(output.snapshot.providers.includes("grok"), true);
+  assert.equal(output.snapshot.workflows.includes("auto_ops"), true);
+  assert.equal(output.commands.firstDryRunPath.includes("npm run providers:dry"), true);
+  assert.match(output.safety.join(" "), /Does not read API keys/);
+});
+
+test("onboard writes markdown only inside runtime tmp", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-onboard-write-"));
+  try {
+    writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({
+      name: "onboard-test",
+      version: "0.0.0",
+      scripts: { "ai-link": "echo test", "providers:dry": "echo test" }
+    }), "utf8");
+    mkdirSync(path.join(tempRoot, ".ai-link"), { recursive: true });
+    writeFileSync(path.join(tempRoot, ".ai-link", "project.yaml"), "version: 1\nproviders:\n  mock:\n    type: mock\nworkflows:\n  demo: {}\n", "utf8");
+
+    const result = runCli(tempRoot, ["onboard", "--output", "runtime/tmp/onboard.md"]);
+    const targetPath = path.join(tempRoot, "runtime", "tmp", "onboard.md");
+
+    assert.equal(result.status, 0);
+    assert.equal(existsSync(targetPath), true);
+    assert.match(readFileSync(targetPath, "utf8"), /AI Link Public User Onboarding/);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("onboard refuses writes outside runtime tmp", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-onboard-guard-"));
+  try {
+    const result = runCli(tempRoot, ["onboard", "--output", "README.md"]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /outside runtime\/tmp/);
+    assert.equal(existsSync(path.join(tempRoot, "README.md")), false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("skill draft --write previews without --yes", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-skill-preview-"));
   try {
