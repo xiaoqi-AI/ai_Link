@@ -22,6 +22,8 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test \"dist/**/*.test.js\" && npm run auth-hub:test",
     "verify:fresh": "node tools/verify-fresh-clone.js",
+    "providers:dry": "npm run ai-link -- providers verify",
+    "providers:live": "npm run ai-link -- providers verify --live",
     "start": "node src/server.js",
     "ai-link": "tsx src/cli.ts",
     "auth-hub:start": "node src/server.js",
@@ -32,6 +34,8 @@
     "auth-hub:executor:start": "powershell -ExecutionPolicy Bypass -File tools/start-auth-hub-executor.ps1",
     "auth-hub:executor:stop": "powershell -ExecutionPolicy Bypass -File tools/stop-auth-hub-executor.ps1",
     "auth-hub:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-flow.ps1",
+    "auth-hub:deploy:check": "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1",
+    "auth-hub:remote:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1",
     "auth-hub:test": "node --test tests/*.test.js",
     "security:scan": "node tools/security-scan.js"
   },

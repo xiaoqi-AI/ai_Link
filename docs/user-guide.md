@@ -26,6 +26,7 @@
 - 配置说明：`docs/20-architecture/configuration.md`
 - Bitwarden 密钥托管模式：`docs/20-architecture/bitwarden-secret-management.md`
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
+- Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - 统一授权中枢说明：`docs/20-architecture/auth-hub.md`
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
@@ -41,6 +42,7 @@ npm install
 npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
+npm run providers:dry
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 ```
 
@@ -56,6 +58,7 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 
 ```powershell
 npm run auth-hub:local:start
+npm run auth-hub:deploy:check
 npm run auth-hub:smoke
 npm run auth-hub:executor:start
 ```
@@ -81,6 +84,8 @@ powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -Comma
 ```
 
 Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`XAI_API_KEY`。Secret value 才是真实值。不要把真实 key 写入公开仓库、issue、PR、知识库或聊天记录。完整流程见 `docs/20-architecture/bitwarden-secret-management.md`。
+
+公开仓中的 `.ai-link/bitwarden-secrets.manifest.json` 只记录预期环境变量名，用来帮助 `tools/check-bitwarden-secrets.ps1` 检查 Bitwarden 项目是否配置完整，不包含任何真实密钥。
 
 ## 当前不可假设
 
@@ -113,6 +118,7 @@ Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KE
 npm run check
 npm test
 npm run ai-link -- config validate
+npm run providers:dry
 npm run security:scan
 npm run verify:fresh
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1

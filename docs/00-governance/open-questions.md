@@ -9,6 +9,7 @@
 - 是否在 GitHub UI 开启公开仓和私有仓的 secret scanning / push protection？
 - 是否给私有仓 `ai_Link-internal` 配置独立 branch protection 或 ruleset？
 - GitHub Actions CI 已补充，是否将其纳入 branch protection 必需检查？
+- Branch protection 建议清单已写入 `docs/00-governance/github-branch-protection.md`，仍需在 GitHub UI 配置。
 
 ## 产品方向
 
@@ -24,6 +25,7 @@
 
 - AI Link CLI 已采用 TypeScript / Node.js；统一授权中枢公开骨架已采用 Node.js / Express。
 - MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
+- Provider dry-run 验收已补充；真实调用验收仍需用户本机或 GitHub Secrets 中配置 provider key。
 - 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？
 - 是否为 Render 服务启用付费持久盘，或长期坚持浏览器登录态只放本地执行器？
 - 是否需要移动端、小程序或浏览器插件？

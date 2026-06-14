@@ -23,7 +23,7 @@ async function main(): Promise<void> {
       await runCommand(args);
       return;
     case "providers":
-      providersCommand(args);
+      await providersCommand(args);
       return;
     case "config":
       configCommand(args);
@@ -82,10 +82,14 @@ async function runCommand(args: ParsedArgs): Promise<void> {
   console.log(result.output);
 }
 
-function providersCommand(args: ParsedArgs): void {
+async function providersCommand(args: ParsedArgs): Promise<void> {
   const subcommand = args.positional[1] ?? "list";
+  if (subcommand === "verify") {
+    await verifyProvidersCommand(args);
+    return;
+  }
   if (subcommand !== "list") {
-    throw new AiLinkError("Usage: ai-link providers list", "CLI_USAGE");
+    throw new AiLinkError("Usage: ai-link providers <list|verify>", "CLI_USAGE");
   }
 
   const loaded = loadFromArgs(args);
@@ -104,6 +108,94 @@ function providersCommand(args: ParsedArgs): void {
     return;
   }
   console.table(rows);
+}
+
+async function verifyProvidersCommand(args: ParsedArgs): Promise<void> {
+  const loaded = loadFromArgs(args);
+  const providers = loaded.config.providers ?? {};
+  const requested = arrayFlag(args, "provider");
+  const live = booleanFlag(args, "live");
+  const strict = booleanFlag(args, "strict");
+  const input = stringFlag(args, "input") ?? "AI Link provider verification. Reply briefly.";
+  const selected = requested.length > 0 ? requested : Object.keys(providers);
+  const rows: Array<Record<string, string>> = [];
+  let hasFailure = false;
+
+  for (const name of selected) {
+    const provider = providers[name];
+    if (!provider) {
+      hasFailure = true;
+      rows.push({
+        name,
+        type: "",
+        mode: live ? "live" : "dry-run",
+        status: "failed",
+        detail: "provider is not configured"
+      });
+      continue;
+    }
+
+    if (provider.type === "coze") {
+      rows.push({
+        name,
+        type: provider.type,
+        mode: live ? "live" : "dry-run",
+        status: "skipped",
+        detail: "agent workflow provider is reserved in this MVP"
+      });
+      continue;
+    }
+
+    const skipReason = live ? liveSkipReason(provider) : "";
+    if (skipReason) {
+      if (strict) {
+        hasFailure = true;
+      }
+      rows.push({
+        name,
+        type: provider.type,
+        mode: "live",
+        status: strict ? "failed" : "skipped",
+        detail: skipReason
+      });
+      continue;
+    }
+
+    try {
+      const result = await runAiLink(loaded.config, {
+        task: `provider.verify.${name}`,
+        provider: name,
+        input,
+        dryRun: !live
+      });
+      rows.push({
+        name,
+        type: provider.type,
+        mode: live ? "live" : "dry-run",
+        status: "ok",
+        detail: firstLine(result.output)
+      });
+    } catch (error) {
+      hasFailure = true;
+      rows.push({
+        name,
+        type: provider.type,
+        mode: live ? "live" : "dry-run",
+        status: "failed",
+        detail: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  if (booleanFlag(args, "json")) {
+    console.log(JSON.stringify(rows, null, 2));
+  } else {
+    console.table(rows);
+  }
+
+  if (hasFailure) {
+    process.exitCode = 2;
+  }
 }
 
 function configCommand(args: ParsedArgs): void {
@@ -222,6 +314,34 @@ function providerHealth(name: string, provider: ProviderConfig): Record<string, 
   };
 }
 
+function liveSkipReason(provider: ProviderConfig): string {
+  if (provider.type === "mock") {
+    return "";
+  }
+
+  if (provider.baseUrl?.includes("api.example.com")) {
+    return "replace placeholder baseUrl before live verification";
+  }
+
+  if (provider.apiKey) {
+    return "";
+  }
+
+  if (!provider.apiKeyEnv) {
+    return "provider has no apiKeyEnv configured";
+  }
+
+  if (!process.env[provider.apiKeyEnv]) {
+    return `set ${provider.apiKeyEnv}`;
+  }
+
+  return "";
+}
+
+function firstLine(value: string): string {
+  return value.split(/\r?\n/, 1)[0]?.slice(0, 120) ?? "";
+}
+
 function loadFromArgs(args: ParsedArgs): LoadedConfig {
   return loadConfig({
     extraConfigPaths: arrayFlag(args, "config")
@@ -326,6 +446,7 @@ function printHelp(): void {
 Usage:
   ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run]
   ai-link providers list
+  ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain
   ai-link config validate
   ai-link skill draft-route --description "research with grok, write with kimi"

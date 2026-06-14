@@ -10,6 +10,7 @@
 npm install
 npm test
 npm run security:scan
+npm run auth-hub:deploy:check
 npm run auth-hub:local:start
 npm run auth-hub:smoke
 npm run auth-hub:executor:start
@@ -42,6 +43,18 @@ npm run auth-hub:local:stop
 - `APPROVAL_EMAIL_FROM`
 
 所有真实值只放 Render Secrets、Bitwarden Secrets Manager 或本机环境变量，不写入 Git。
+
+生产部署前，在只注入生产环境变量的终端中运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://voice.xiao-qi-ai.com"
+```
+
+如果已人工确认 Cloudflare Access 生效，可在该终端设置：
+
+```powershell
+$env:AI_LINK_CLOUDFLARE_ACCESS_ENABLED="1"
+```
 
 ## 3. Cloudflare Access
 
@@ -94,3 +107,18 @@ npm run auth-hub:executor:start
 - `auth-hub:smoke` 可跑通 mock 全链路。
 - 发布动作仍需要审批。
 - `npm run security:scan` 无敏感发现。
+
+远端部署后可运行：
+
+```powershell
+$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
+$env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+npm run auth-hub:remote:smoke
+```
+
+如果只想先确认远端健康和 API 创建任务，不启动本地执行器，可用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -SkipExecutor
+```

@@ -21,6 +21,7 @@
 - 配置说明：`docs/20-architecture/configuration.md`
 - Bitwarden 密钥托管模式：`docs/20-architecture/bitwarden-secret-management.md`
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
+- Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - 统一授权中枢：`docs/20-architecture/auth-hub.md`
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
@@ -53,6 +54,7 @@ npm install
 npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
+npm run providers:dry
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```
@@ -71,6 +73,7 @@ powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -Comma
 
 ```powershell
 npm run auth-hub:local:start
+npm run auth-hub:deploy:check
 npm run auth-hub:smoke
 npm run auth-hub:executor:start
 ```
@@ -113,6 +116,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - 配置优先级：会话临时指定 > 项目 local 私有配置 > 项目公开配置 > 用户全局配置 > 默认配置。
 - `mock/local-dry-run`、`openai-compatible`、`deepseek`、`kimi`、`grok` provider。
 - `ai-link config validate` 配置校验。
+- `ai-link providers verify` provider dry-run / live 验收。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选路由。
 - `examples/auto-ops/` 轻量示例。

@@ -36,6 +36,9 @@ jobs:
       - name: Validate AI Link config
         run: npm run ai-link -- config validate
 
+      - name: Dry-run provider verification
+        run: npm run providers:dry
+
       - name: Security scan
         run: npm run security:scan
 

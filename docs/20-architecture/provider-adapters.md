@@ -13,6 +13,8 @@
 
 真实外部调用需要用户自行配置 API key。没有 key 时，可以用 `--dry-run` 验证路由、模型、endpoint 和请求构造。
 
+真实调用验收流程见 `docs/20-architecture/provider-live-verification.md`。
+
 ## Adapter 接口
 
 所有 provider 最终接入统一的运行接口：
