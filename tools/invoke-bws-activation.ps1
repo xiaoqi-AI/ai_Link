@@ -138,8 +138,9 @@ if ($Plan) {
   Write-Host "4. Optionally run doctor through bws run."
   Write-Host "5. Prompt hidden GitHub Actions machine-account token."
   Write-Host "6. Generate GitHub provider-live variable worksheet from CI project secret IDs."
-  Write-Host "7. Optionally check remote GitHub Environment names when GH_TOKEN/GITHUB_TOKEN is present."
-  Write-Host "8. Keep provider live verification disabled unless -RunProviderLive is explicitly passed."
+  Write-Host "7. Optionally apply GitHub Environment Variables with npm run bws:github-vars:apply."
+  Write-Host "8. Optionally check remote GitHub Environment names when GH_TOKEN/GITHUB_TOKEN is present."
+  Write-Host "9. Keep provider live verification disabled unless -RunProviderLive is explicitly passed."
   Write-Host ""
   Write-Host "No token is required for this plan output."
   exit 0
@@ -235,7 +236,7 @@ foreach ($step in $steps) {
 Write-Host ""
 if ($failed.Count -eq 0) {
   Write-Host "BWS activation checks completed without failed steps."
-  Write-Host "Next: run npm run bws:acceptance:strict in a scoped session, then npm run bws:doctor."
+  Write-Host "Next: set BW_ACCESS_TOKEN as a GitHub Environment Secret, apply variables if desired, then run npm run bws:acceptance:strict and npm run bws:doctor."
 } else {
   Write-Host "BWS activation has failed steps. Fix them before using BWS-backed live automation."
   exit 1

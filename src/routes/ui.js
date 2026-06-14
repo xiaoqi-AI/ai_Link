@@ -3,7 +3,7 @@ import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { createSessionCookie, clearSessionCookie } from "../security/session.js";
 import { requireAppSession } from "../security/auth.js";
 import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
-import { connectorsPage, dashboardPage, loginPage, newTaskPage, taskPage } from "../ui/html.js";
+import { auditPage, connectorsPage, dashboardPage, loginPage, newTaskPage, taskPage } from "../ui/html.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
 export function createUiRouter() {
@@ -56,6 +56,24 @@ export function createUiRouter() {
 
   router.get("/dashboard/connectors", requireAppSession, (req, res) => {
     res.send(connectorsPage(describeConnectorRegistry(req.app.locals.connectorRegistry)));
+  });
+
+  router.get("/dashboard/audit", requireAppSession, async (req, res) => {
+    const limit = boundedLimit(req.query.limit, 100, 200);
+    const filters = {
+      taskId: req.query.taskId || "",
+      eventType: req.query.eventType || "",
+      limit
+    };
+    const auditEvents = await req.app.locals.store.listAuditEvents({
+      taskId: filters.taskId || undefined,
+      eventType: filters.eventType || undefined,
+      limit
+    });
+    res.send(auditPage({
+      auditEvents: auditEvents.map(publicAuditEvent),
+      filters
+    }));
   });
 
   router.post("/dashboard/tasks", requireAppSession, async (req, res) => {
@@ -124,4 +142,12 @@ export function createUiRouter() {
   });
 
   return router;
+}
+
+function boundedLimit(value, fallback, max) {
+  const parsed = Number(value || fallback);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return Math.min(Math.floor(parsed), max);
 }

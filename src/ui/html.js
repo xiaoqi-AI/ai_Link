@@ -50,7 +50,7 @@ export function layout({ title, body }) {
 <body>
   <header>
     <strong>AI Link 授权中枢</strong>
-    <nav><a href="/dashboard">任务</a> · <a href="/dashboard/connectors">连接器</a> · <a href="/logout">退出</a></nav>
+    <nav><a href="/dashboard">任务</a> · <a href="/dashboard/audit">审计</a> · <a href="/dashboard/connectors">连接器</a> · <a href="/logout">退出</a></nav>
   </header>
   <main>${body}</main>
 </body>
@@ -179,6 +179,56 @@ export function connectorsPage({ connectors = [], issues = [] }) {
   });
 }
 
+export function auditPage({ auditEvents = [], filters = {} }) {
+  const eventRows = auditEvents.map((event) => `<tr>
+    <td>${escapeHtml(event.createdAt)}</td>
+    <td>${event.taskId ? `<a href="/dashboard/tasks/${escapeHtml(event.taskId)}">${escapeHtml(event.taskId.slice(0, 8))}</a>` : "-"}</td>
+    <td>${escapeHtml(event.eventType)}</td>
+    <td>${escapeHtml(event.actor)}</td>
+    <td>${escapeHtml(auditEventSummary(event))}</td>
+  </tr>`).join("");
+
+  const aiLinkRows = auditEvents
+    .filter((event) => event.eventType === "ai_link.audit")
+    .flatMap((event) => aiLinkAuditRows(event.detail?.audit, event.detail?.recordId || event.id, event.detail?.status));
+
+  return layout({
+    title: "审计",
+    body: `<section class="panel">
+      <div class="toolbar">
+        <div>
+          <h1>审计日志</h1>
+          <p class="muted">只展示脱敏后的任务事件和 AI Link 审计摘要。</p>
+        </div>
+      </div>
+      <form method="get" action="/dashboard/audit">
+        <div class="grid">
+          <div>
+            <label for="taskId">Task ID</label>
+            <input id="taskId" name="taskId" value="${escapeHtml(filters.taskId || "")}" placeholder="可选">
+          </div>
+          <div>
+            <label for="eventType">事件类型</label>
+            <select id="eventType" name="eventType">
+              ${auditEventTypeOptions(filters.eventType || "")}
+            </select>
+          </div>
+          <div>
+            <label for="limit">数量</label>
+            <input id="limit" name="limit" type="number" min="1" max="200" value="${escapeHtml(filters.limit || 100)}">
+          </div>
+        </div>
+        <p><button type="submit">筛选</button></p>
+      </form>
+    </section>
+    ${aiLinkRows.length ? `<section class="panel"><h2>AI Link 审计摘要</h2>${auditSummaryTable(aiLinkRows)}</section>` : ""}
+    <section class="panel">
+      <h2>事件</h2>
+      <table><thead><tr><th>时间</th><th>任务</th><th>类型</th><th>操作者</th><th>摘要</th></tr></thead><tbody>${eventRows || "<tr><td colspan=\"5\">暂无审计事件</td></tr>"}</tbody></table>
+    </section>`
+  });
+}
+
 export function newTaskPage() {
   return layout({
     title: "新建任务",
@@ -264,6 +314,44 @@ function auditSummaryTable(rows) {
     <td>${escapeHtml(row.usage)}</td>
     <td>${escapeHtml(row.status)}</td>
   </tr>`).join("")}</tbody></table>`;
+}
+
+function auditEventTypeOptions(selected) {
+  const options = [
+    ["", "全部"],
+    ["ai_link.audit", "AI Link 审计"],
+    ["task.created", "任务创建"],
+    ["task.leased", "任务领取"],
+    ["task.completed", "任务完成"],
+    ["task.approval_required", "待审批"],
+    ["task.action_required", "待人工处理"],
+    ["task.failed", "失败"],
+    ["task.requeued", "重新排队"]
+  ];
+  return options.map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
+
+function auditEventSummary(event) {
+  if (event.eventType === "ai_link.audit" && event.detail?.audit) {
+    const rows = aiLinkAuditRows(event.detail.audit, event.detail?.recordId || event.id, event.detail?.status);
+    const first = rows[0];
+    if (first) {
+      return [first.provider, first.model, first.policy, first.status].filter((item) => item && item !== "-").join(" / ");
+    }
+  }
+  if (event.detail?.status) {
+    return event.detail.status;
+  }
+  if (event.detail?.workflow) {
+    return event.detail.workflow;
+  }
+  if (event.detail?.currentStep) {
+    return event.detail.currentStep;
+  }
+  if (event.detail?.error?.message) {
+    return event.detail.error.message;
+  }
+  return JSON.stringify(event.detail || {});
 }
 
 function aiLinkAuditRows(audit, source, status = "") {

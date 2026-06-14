@@ -307,6 +307,26 @@ describe("AI Link task flow", () => {
     });
     assert.equal(empty.response.status, 200);
     assert.equal(empty.data.auditEvents.length, 0);
+
+    const login = await fetch(`${server.baseUrl}/login`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ password: "test-password", next: "/dashboard/audit" }),
+      redirect: "manual"
+    });
+    const cookie = login.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(cookie);
+
+    const page = await fetch(`${server.baseUrl}/dashboard/audit?taskId=${created.data.task.id}&eventType=ai_link.audit`, {
+      headers: { cookie }
+    });
+    const html = await page.text();
+    assert.equal(page.status, 200);
+    assert.match(html, /审计日志/);
+    assert.match(html, /AI Link 审计摘要/);
+    assert.match(html, /grok/);
+    assert.equal(html.includes("public audit append test"), false);
+    assert.equal(html.includes("rawSecret"), false);
   });
 
   it("can mark a task action_required and retry it", async () => {

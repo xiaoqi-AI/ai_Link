@@ -31,6 +31,7 @@ $plan = [ordered]@{
       "npm run bws:check:strict",
       "npm run bws:rotation",
       "npm run bws:github-vars",
+      "npm run bws:github-vars:apply-plan",
       "npm run bws:acceptance",
       "npm run bws:acceptance:strict"
     )

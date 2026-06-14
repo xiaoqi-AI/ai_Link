@@ -116,7 +116,20 @@ Add-Line '$env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"'
 Add-Line 'npm run bws:session'
 Add-Line 'npm run bws:doctor'
 Add-Line 'npm run bws:github-vars'
+Add-Line 'npm run bws:github-vars:apply-plan'
 Add-Line 'npm run bws:acceptance'
+Add-Line '```'
+Add-Line ""
+Add-Line "If current-session BWS and GitHub tokens are available, apply non-secret GitHub variables with:"
+Add-Line ""
+Add-Line '```powershell'
+Add-Line 'npm run bws:github-vars:apply'
+Add-Line '```'
+Add-Line ""
+Add-Line "Set the GitHub Environment Secret manually:"
+Add-Line ""
+Add-Line '```text'
+Add-Line 'BW_ACCESS_TOKEN = <ma-ai-link-github-actions-token>'
 Add-Line '```'
 Add-Line ""
 Add-Line "Run these after GitHub provider-live is configured:"
