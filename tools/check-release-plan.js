@@ -107,7 +107,9 @@ for (const file of [
   "docs/00-governance/open-questions.md",
   "tools/check-package-install.js",
   "tools/new-github-hardening-worksheet.js",
+  "tools/show-setup-handoff.js",
   "tools/check-release-decisions.js",
+  "tools/update-release-decision.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js"
@@ -158,6 +160,8 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run github:safety",
   "npm run github:hardening",
   "npm run release:decisions",
+  "npm run release:decisions:update",
+  "npm run setup:handoff",
   "npm run verify:fresh",
   "npm run release:manual-gates",
   "npm run release:evidence",
@@ -172,13 +176,22 @@ checkContains("tools/show-release-manual-gates.js", "release manual gates handof
   "provider-live-credentials"
 ]);
 
+checkContains("tools/update-release-decision.js", "release decision update helper", [
+  "v0.1.0-decisions.json",
+  "approved decisions need public-safe evidence",
+  "Does not read API keys",
+  "--yes"
+]);
+
 checkContains("tools/new-release-evidence.js", "release evidence handoff", [
   "release-evidence.json",
   "packageContents",
   "nextActions",
+  "setupHandoff",
   "githubSafety",
   "githubHardening",
   "releaseDecisions",
+  "releaseDecisionUpdatePreview",
   "releaseReadiness",
   "runtime/tmp"
 ]);
@@ -199,6 +212,8 @@ for (const scriptName of [
   "release:evidence:json",
   "release:readiness",
   "release:readiness:json",
+  "setup:handoff",
+  "setup:handoff:json",
   "package:check",
   "package:install-smoke",
   "package:install-smoke:json",
@@ -208,6 +223,7 @@ for (const scriptName of [
   "release:decisions",
   "release:decisions:json",
   "release:decisions:strict",
+  "release:decisions:update",
   "security:scan",
   "verify:fresh"
 ]) {
@@ -251,7 +267,9 @@ const report = {
     process: "docs/00-governance/release-process.md",
     manualGates: "tools/show-release-manual-gates.js",
     githubHardening: "tools/new-github-hardening-worksheet.js",
+    setupHandoff: "tools/show-setup-handoff.js",
     decisions: "tools/check-release-decisions.js",
+    decisionsUpdate: "tools/update-release-decision.js",
     evidence: "tools/new-release-evidence.js"
   },
   summary: {

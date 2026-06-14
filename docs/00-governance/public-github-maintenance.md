@@ -21,6 +21,7 @@
 - `npm run github:hardening` 是否已生成并复核 GitHub UI 加固工作单，确认 branch protection、required `Verify`、secret scanning 和 push protection 的 owner 与证据。
 - `npm run release:plan` 是否通过，且 changelog、GitHub Release 草稿、tag 计划和 npm 决策项是否明确。
 - `npm run release:decisions` 是否已复核，确认 v0.1 发布渠道、GitHub 加固和 provider-live 成本审批仍然是公开安全的 pending/approved/waived 状态。
+- 如人工决策已确认，是否先用 `npm run release:decisions:update -- --id <decision-id> ...` 预览，再加 `--yes` 写入公开安全 evidence 或 note。
 - `npm run release:manual-gates` 是否已复核，且 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批是否有明确 owner。
 - `npm run release:evidence` 是否已生成脱敏发布证据包，并确认只写入 `runtime/tmp/`。
 - `npm run release:readiness` 是否通过，且人工确认项是否有明确 owner 或后续动作。

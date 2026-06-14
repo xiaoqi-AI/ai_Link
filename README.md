@@ -52,6 +52,8 @@ npm run package:install-smoke
 npm run package:install-smoke:json
 npm run next:actions
 npm run next:actions:json
+npm run setup:handoff
+npm run setup:handoff:json
 npm run github:safety
 npm run github:safety:json
 npm run github:hardening
@@ -61,6 +63,7 @@ npm run release:plan:json
 npm run release:decisions
 npm run release:decisions:json
 npm run release:decisions:strict
+npm run release:decisions:update
 npm run release:manual-gates
 npm run release:manual-gates:json
 npm run release:evidence
@@ -129,6 +132,8 @@ npm run providers:github:dispatch-plan
 
 `bws:onboard` 会生成不含真实密钥的一页入场引导到 `runtime/tmp/bws-onboarding.md`，汇总当前状态、目标结构和下一步动作；`bws:profile` 会生成只包含非敏感 Bitwarden project ID 的本地 PowerShell 片段到 `runtime/tmp/bws-local-profile.ps1`，不保存 `BWS_ACCESS_TOKEN`；`bws:activate` 会分两段隐藏输入本地 Codex machine account token 和 GitHub Actions machine account token，分别验收 `ai-link-local-dev` 与 `ai-link-ci`，不落盘 token；`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/bws-setup-worksheet.md`；`bws:rotation` 会生成不含真实 token 的 90 天轮换计划和验收证据清单；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单，不输出 secret value；`bws:github-vars:apply-plan` 会预览自动写入 GitHub Environment Variables 的计划，真正写入时用 `bws:github-vars:apply`，但 `BW_ACCESS_TOKEN` 仍需作为 GitHub Environment Secret 单独安全设置；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告，配置完成后用 `bws:acceptance:strict` 做正式验收；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`；`providers:live:safe-report` 会把真实 provider 验收结果写入 `runtime/tmp/provider-live-report.json`，只保留脱敏摘要，适合人工复盘或 GitHub Actions artifact。
 
+`release:decisions:update` 用于把人工确认后的 v0.1 决策安全写入 `docs/releases/v0.1.0-decisions.json`。它默认只预览，只有加 `--yes` 才会写入；`approved` 必须带公开安全 evidence，`waived` 必须带公开安全 note，并会拒绝常见密钥形态。
+
 ## 统一授权中枢 MVP
 
 本仓库新增一个私有授权中枢的公开 MVP 骨架，用于减少 Codex 在跨平台运营任务中反复等待人工登录的成本。
@@ -184,10 +189,12 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `package:check` npm dry-run 打包内容检查，确认公开包不携带测试产物、运行态或私有文件。
 - `package:install-smoke` 临时 tarball 安装检查，确认安装后的 CLI 能启动并校验配置。
 - `next:actions` 当前下一步行动图，汇总本地基线、GitHub 加固、Bitwarden 配置、provider-live 和 v0.1 发布决策。
+- `setup:handoff` 有序配置交接单，把本地基线、Bitwarden、GitHub provider-live、GitHub 加固、release decisions、provider-live 成本审批和发布渠道决策串成一条安全执行路径。
 - `github:safety` GitHub 公开仓安全基线检查，支持本地基线和可选远端只读核验。
 - `github:hardening` GitHub 加固工作单，生成 branch protection、required Verify、secret scanning 和 push protection 的人工配置与验收清单。
 - `release:plan` v0.1 发布计划检查，覆盖 changelog、release notes、tag、npm 决策和发布流程。
 - `release:decisions` v0.1 公开安全决策记录检查，把 GitHub 加固、npm 渠道和 provider-live 成本审批的 pending/approved/waived 状态变成机器可读门槛。
+- `release:decisions:update` v0.1 决策记录安全更新入口，默认只预览；加 `--yes` 后才写入公开安全证据。
 - `release:manual-gates` v0.1 人工门槛计划，列出 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批的 owner、动作与完成证据。
 - `release:evidence` v0.1 发布证据包，汇总安全的机器可读检查摘要并写入 `runtime/tmp/release-evidence.json`。
 - `release:readiness` v0.1 公开发布基线检查。

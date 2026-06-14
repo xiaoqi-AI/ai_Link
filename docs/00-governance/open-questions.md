@@ -34,6 +34,7 @@
 - MVP 已补充 `github:hardening` / `github:hardening:json`，用于把 branch protection、required `Verify`、secret scanning 和 push protection 的人工配置证据单独输出。
 - MVP 已补充 `release:plan` / `release:plan:json`，用于检查 changelog、release notes、发布流程、tag 计划和 npm 发布决策项。
 - MVP 已补充 `release:decisions` / `release:decisions:json` / `release:decisions:strict`，用于把 v0.1 的人工发布决策记录为公开安全、机器可读的 pending/approved/waived 状态。
+- MVP 已补充 `release:decisions:update`，用于在人工确认后预览或写入公开安全决策证据；默认不写文件，只有加 `--yes` 才会更新记录。
 - MVP 已补充 `release:manual-gates` / `release:manual-gates:json`，用于把 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批拆成 owner、动作和完成证据。
 - MVP 已补充 `release:evidence` / `release:evidence:json`，用于生成脱敏发布证据包并限制默认输出到 `runtime/tmp/`。
 - MVP 已补充 `release:readiness` / `release:readiness:json`，用于区分仓库内发布基线和 GitHub UI / npm 发布决策等人工确认项。

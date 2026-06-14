@@ -144,12 +144,14 @@ try {
   runTextStep("build", "Runtime build", [process.execPath, "tools/build-runtime.js"], { heavy: true });
   runJsonStep("onboarding", "Public onboarding", [process.execPath, "--import", "tsx", "src/cli.ts", "onboard", "--json", "--strict"]);
   runJsonStep("nextActions", "Next actions", [process.execPath, "tools/show-next-actions.js", "--json"]);
+  runJsonStep("setupHandoff", "Setup handoff", [process.execPath, "tools/show-setup-handoff.js", "--json"]);
   runJsonStep("packageContents", "Package contents", [process.execPath, "tools/check-package-contents.js", "--json"], { heavy: true });
   runJsonStep("packageInstallSmoke", "Package install smoke", [process.execPath, "tools/check-package-install.js", "--json"], { heavy: true });
   runJsonStep("githubSafety", "GitHub repository safety", [process.execPath, "tools/check-github-repo-safety.js", "--json"]);
   runJsonStep("githubHardening", "GitHub hardening worksheet", [process.execPath, "tools/new-github-hardening-worksheet.js", "--json"]);
   runJsonStep("releasePlan", "Release plan", [process.execPath, "tools/check-release-plan.js", "--json"]);
   runJsonStep("releaseDecisions", "Release decisions", [process.execPath, "tools/check-release-decisions.js", "--json"]);
+  runJsonStep("releaseDecisionUpdatePreview", "Release decision update preview", [process.execPath, "tools/update-release-decision.js", "--json", "--id", "npm-publish-decision", "--status", "approved", "--selected-channel", "repository-local", "--evidence", "Release owner selected repository-local after package smoke checks."]);
   runJsonStep("releaseManualGates", "Release manual gates", [process.execPath, "tools/show-release-manual-gates.js", "--json"]);
   runJsonStep("releaseReadiness", "Release readiness", [process.execPath, "tools/check-release-readiness.js", "--json"]);
   runTextStep("securityScan", "Security scan", [process.execPath, "tools/security-scan.js"], { heavy: true });
@@ -170,6 +172,7 @@ for (const step of steps) {
 
 const manualOpen = Math.max(
   Number(reports.releaseManualGates?.summary?.manualOpen ?? 0),
+  Number(reports.setupHandoff?.summary?.manualOpen ?? 0),
   Number(reports.releaseDecisions?.summary?.manualOpen ?? 0),
   Number(reports.releaseReadiness?.summary?.manualOpen ?? 0),
   Number(reports.releasePlan?.summary?.manualOpen ?? 0)
@@ -252,7 +255,7 @@ function renderMarkdown(evidenceReport) {
   lines.push("");
   lines.push("## Manual Gates");
   lines.push("");
-  lines.push("Run `npm run release:manual-gates` for the owner/action/evidence checklist before creating a tag, publishing npm, or dispatching live providers.");
+  lines.push("Run `npm run setup:handoff` and `npm run release:manual-gates` for the ordered owner/action/evidence checklist before creating a tag, publishing npm, or dispatching live providers.");
   lines.push("");
   return `${lines.join("\n")}\n`;
 }

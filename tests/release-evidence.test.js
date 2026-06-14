@@ -42,6 +42,7 @@ describe("release evidence report", () => {
     assert.equal(report.summary.manualOpen > 0, true);
     assert.equal(stepIds.includes("onboarding"), true);
     assert.equal(stepIds.includes("nextActions"), true);
+    assert.equal(stepIds.includes("setupHandoff"), true);
     assert.equal(stepIds.includes("packageInstallSmoke"), true);
     assert.equal(stepIds.includes("githubHardening"), true);
     assert.equal(stepIds.includes("releaseDecisions"), true);

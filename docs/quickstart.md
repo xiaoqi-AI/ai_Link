@@ -76,10 +76,12 @@ Use this path when you want a command that works without provider credentials.
 - Save structured workflow output with `--output runtime/tmp/auto-ops-workflow.json`.
 - Keep a local run record with `--record`, then inspect it with `npm run ai-link -- runs list`.
 - Run `npm run next:actions` when you want the current top-level handoff map.
+- Run `npm run setup:handoff` when you want the ordered Bitwarden, GitHub, provider-live, and release setup checklist.
 - Run `npm run github:hardening` when a maintainer is ready to review GitHub branch protection and secret scanning setup.
 - Configure real provider keys through Bitwarden Secrets Manager before using live providers.
 - Run `npm run package:install-smoke` before publishing or distributing a package build.
 - Run `npm run release:decisions` to review the v0.1 public-safe decision record.
+- Run `npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence "Release owner selected repository-local after package smoke checks."` to preview a safe decision update; add `--yes` only after review.
 - Run `npm run release:manual-gates` to review the manual release decisions before public release work.
 - Run `npm run release:evidence` to generate a sanitized release evidence bundle.
 - Run `npm run release:readiness` before creating a public release.

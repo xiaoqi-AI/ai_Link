@@ -12,10 +12,12 @@ npm test
 npm run package:check
 npm run package:install-smoke
 npm run next:actions
+npm run setup:handoff
 npm run github:safety
 npm run github:hardening
 npm run release:plan
 npm run release:decisions
+npm run release:decisions:update -- --help
 npm run release:manual-gates
 npm run release:evidence
 npm run release:readiness
@@ -29,10 +31,12 @@ Machine-readable reports:
 npm run package:check:json
 npm run package:install-smoke:json
 npm run next:actions:json
+npm run setup:handoff:json
 npm run github:safety:json
 npm run github:hardening:json
 npm run release:plan:json
 npm run release:decisions:json
+npm run release:decisions:update -- --json --id npm-publish-decision --status approved --selected-channel repository-local --evidence "Release owner selected repository-local after package smoke checks."
 npm run release:manual-gates:json
 npm run release:evidence:json
 npm run release:readiness:json
@@ -51,9 +55,11 @@ Before publishing v0.1, confirm:
 
 Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to print the owner, action list, evidence, and safety boundary for each manual gate. The command is read-only: it does not change GitHub settings, create tags, publish npm packages, read secrets, or dispatch provider-live checks.
 
+Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the ordered handoff across Bitwarden setup, GitHub provider-live wiring, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
+
 Use `npm run github:hardening` to generate the GitHub UI worksheet for branch protection, required `Verify`, secret scanning, push protection, and post-configuration evidence. The default worksheet is written under `runtime/tmp/` and is safe for public logs.
 
-Use `npm run release:decisions` to review the public-safe v0.1 decision record in `docs/releases/v0.1.0-decisions.json`. Use `npm run release:decisions:strict` only when preparing to tag, publish npm, or claim live provider verification; pending decisions intentionally fail strict mode.
+Use `npm run release:decisions` to review the public-safe v0.1 decision record in `docs/releases/v0.1.0-decisions.json`. Use `npm run release:decisions:update -- --id <decision-id> --status <status> --evidence "<public-safe evidence>"` to preview a decision update, then add `--yes` only after review. `approved` decisions need public-safe evidence, `waived` decisions need a public-safe note, and the updater rejects common secret-like values without echoing them. Use `npm run release:decisions:strict` only when preparing to tag, publish npm, or claim live provider verification; pending decisions intentionally fail strict mode.
 
 Use `npm run release:evidence` to generate a sanitized release evidence bundle at `runtime/tmp/release-evidence.json`. Use `npm run release:evidence:json` when another agent or CI needs machine-readable output without writing the default file.
 

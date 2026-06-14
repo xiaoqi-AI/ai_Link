@@ -17,6 +17,7 @@ const actions = [
       "npm run package:check",
       "npm run package:install-smoke",
       "npm run security:scan",
+      "npm run setup:handoff",
       "npm run verify:fresh"
     ],
     evidence: [
@@ -55,6 +56,7 @@ const actions = [
     commands: [
       "npm run release:decisions",
       "npm run release:decisions:json",
+      "npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence \"Release owner selected repository-local after package smoke checks.\"",
       "npm run release:decisions:strict"
     ],
     evidence: [

@@ -51,6 +51,9 @@ jobs:
       - name: Next actions
         run: npm run next:actions
 
+      - name: Setup handoff
+        run: npm run setup:handoff
+
       - name: GitHub repository safety baseline
         run: npm run github:safety
         env:
@@ -64,6 +67,9 @@ jobs:
 
       - name: Release decisions
         run: npm run release:decisions
+
+      - name: Release decision update helper
+        run: npm run release:decisions:update
 
       - name: Release manual gates
         run: npm run release:manual-gates

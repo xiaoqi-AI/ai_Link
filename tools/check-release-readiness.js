@@ -85,8 +85,10 @@ for (const file of [
   "tools/check-package-contents.js",
   "tools/check-package-install.js",
   "tools/check-github-repo-safety.js",
+  "tools/show-setup-handoff.js",
   "tools/new-github-hardening-worksheet.js",
   "tools/check-release-decisions.js",
+  "tools/update-release-decision.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js",
@@ -136,6 +138,8 @@ for (const scriptName of [
   "package:install-smoke:json",
   "next:actions",
   "next:actions:json",
+  "setup:handoff",
+  "setup:handoff:json",
   "github:safety",
   "github:safety:json",
   "github:hardening",
@@ -145,6 +149,7 @@ for (const scriptName of [
   "release:decisions",
   "release:decisions:json",
   "release:decisions:strict",
+  "release:decisions:update",
   "release:manual-gates",
   "release:manual-gates:json",
   "release:evidence",
@@ -165,10 +170,12 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run package:check",
   "npm run package:install-smoke",
   "npm run next:actions",
+  "npm run setup:handoff",
   "npm run github:safety",
   "npm run github:hardening",
   "npm run release:plan",
   "npm run release:decisions",
+  "npm run release:decisions:update",
   "npm run release:manual-gates",
   "npm run release:evidence",
   "npm run release:readiness",
@@ -210,6 +217,7 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "nextActions",
   "githubHardening",
   "releaseDecisions",
+  "releaseDecisionUpdatePreview",
   "releaseManualGates",
   "Does not read API keys"
 ]);
@@ -230,6 +238,13 @@ checkContains("tools/check-release-decisions.js", "release decisions report", [
   "Does not read API keys"
 ]);
 
+checkContains("tools/update-release-decision.js", "release decision update helper", [
+  "v0.1.0-decisions.json",
+  "approved decisions need public-safe evidence",
+  "Does not read API keys",
+  "--yes"
+]);
+
 checkContains("tools/show-next-actions.js", "next actions report", [
   "github:hardening",
   "record-v0-1-release-decisions",
@@ -237,6 +252,17 @@ checkContains("tools/show-next-actions.js", "next actions report", [
   "configure-provider-live-environment",
   "approve-provider-live-cost",
   "decide-v0-1-release-channel",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-setup-handoff.js", "setup handoff report", [
+  "AI Link Setup Handoff",
+  "bitwarden-foundation",
+  "github-provider-live-wiring",
+  "github-hardening",
+  "release-decision-record",
+  "provider-live-cost-and-verification",
+  "release-channel",
   "Does not read API keys"
 ]);
 
