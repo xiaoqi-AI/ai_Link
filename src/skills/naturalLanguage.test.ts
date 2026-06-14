@@ -35,3 +35,13 @@ test("draftSkillConfigFromNaturalLanguage adds a workflow in clause order", () =
     ]
   );
 });
+
+test("draftSkillConfigFromNaturalLanguage omits workflow when no routable provider is found", () => {
+  const draft = draftSkillConfigFromNaturalLanguage({
+    skillName: "auto_ops",
+    description: "Codex 负责落地、检查和提交"
+  });
+
+  assert.deepEqual(draft.routes, {});
+  assert.equal(draft.workflows, undefined);
+});
