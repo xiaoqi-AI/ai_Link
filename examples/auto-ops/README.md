@@ -27,13 +27,13 @@ npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml
 npm run ai-link -- run auto_ops.article_draft --config examples/auto-ops/project.yaml --provider mock --input-file examples/auto-ops/sample-input.md
 ```
 
-## 自然语言生成路由
+## 自然语言生成 Skill 配置
 
 ```powershell
-npm run ai-link -- skill draft-route --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地"
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地"
 ```
 
-生成内容需要人工确认后再写入项目配置。
+生成内容会包含 `routes` 和 `workflows`，需要人工确认后再写入项目配置。只想生成 route 时，可以使用 `skill draft-route`。
 
 ## Codex Skill 示例
 

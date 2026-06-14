@@ -17,10 +17,10 @@ Skill 只声明意图，AI Link 负责路由，Codex 负责执行落地。
 Codex 负责落地、检查和提交。
 ```
 
-AI Link 可以生成候选路由配置：
+AI Link 可以生成候选 skill 配置，包括 route 和 workflow：
 
 ```powershell
-npm run ai-link -- skill draft-route --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地"
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地"
 ```
 
 输出示例：
@@ -51,9 +51,28 @@ routes:
       - mock
     capabilities:
       - agent_workflow
+workflows:
+  auto_ops:
+    description: 调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地
+    stages:
+      - name: research
+        task: auto_ops.research
+        inputFrom: original
+      - name: article_draft
+        task: auto_ops.article_draft
+        inputFrom: original-and-previous
+      - name: agent_flow
+        task: auto_ops.agent_flow
+        inputFrom: original-and-previous
 ```
 
 第一版采用半自动流程：AI Link 生成候选配置，用户或 Codex 审核后再写入 `.ai-link/project.yaml` 或 `.ai-link/local.yaml`。
+
+如果只想生成 route，不生成 workflow，可以继续使用兼容命令：
+
+```powershell
+npm run ai-link -- skill draft-route --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi"
+```
 
 ## Skill 调用工作流
 

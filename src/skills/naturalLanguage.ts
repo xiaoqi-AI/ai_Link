@@ -1,4 +1,4 @@
-import type { AiLinkConfig, RouteConfig } from "../types.js";
+import type { AiLinkConfig, RouteConfig, WorkflowStageConfig } from "../types.js";
 
 const PROVIDERS: Array<{ name: string; aliases: string[]; routable: boolean }> = [
   { name: "grok", aliases: ["grok"], routable: true },
@@ -46,23 +46,10 @@ export interface DraftRouteOptions {
 export function draftRoutesFromNaturalLanguage(options: DraftRouteOptions): AiLinkConfig {
   const skillName = normalizeSkillName(options.skillName ?? "new_skill");
   const routes: Record<string, RouteConfig> = {};
-  const clauses = splitClauses(options.description);
+  const drafts = inferRouteDrafts(options.description);
 
-  for (const provider of PROVIDERS) {
-    if (!provider.routable) {
-      continue;
-    }
-
-    const clause = clauses.find((candidate) => includesAnyAlias(candidate, provider.aliases));
-    if (!clause) {
-      continue;
-    }
-
-    const stage = inferStage(clause);
+  for (const { provider, stage } of drafts) {
     const routeKey = `${skillName}.${stage.stage}`;
-    if (routes[routeKey]) {
-      continue;
-    }
     routes[routeKey] = {
       provider: provider.name,
       fallback: stage.fallback,
@@ -74,6 +61,57 @@ export function draftRoutesFromNaturalLanguage(options: DraftRouteOptions): AiLi
     version: 1,
     routes
   };
+}
+
+export function draftSkillConfigFromNaturalLanguage(options: DraftRouteOptions): AiLinkConfig {
+  const skillName = normalizeSkillName(options.skillName ?? "new_skill");
+  const routeConfig = draftRoutesFromNaturalLanguage({ ...options, skillName });
+  const stages: WorkflowStageConfig[] = Object.keys(routeConfig.routes ?? {}).map((task, index) => ({
+    name: task.slice(skillName.length + 1),
+    task,
+    inputFrom: index === 0 ? "original" : "original-and-previous"
+  }));
+
+  if (stages.length === 0) {
+    return routeConfig;
+  }
+
+  return {
+    ...routeConfig,
+    workflows: {
+      [skillName]: {
+        description: options.description,
+        stages
+      }
+    }
+  };
+}
+
+function inferRouteDrafts(description: string): Array<{
+  provider: { name: string; aliases: string[]; routable: boolean };
+  stage: { stage: string; fallback?: string[] };
+}> {
+  const seenStages = new Set<string>();
+  const drafts: Array<{
+    provider: { name: string; aliases: string[]; routable: boolean };
+    stage: { stage: string; fallback?: string[] };
+  }> = [];
+
+  for (const clause of splitClauses(description)) {
+    const provider = PROVIDERS.find((candidate) => candidate.routable && includesAnyAlias(clause, candidate.aliases));
+    if (!provider) {
+      continue;
+    }
+
+    const stage = inferStage(clause);
+    if (seenStages.has(stage.stage)) {
+      continue;
+    }
+    seenStages.add(stage.stage);
+    drafts.push({ provider, stage });
+  }
+
+  return drafts;
 }
 
 function splitClauses(description: string): string[] {

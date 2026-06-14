@@ -32,15 +32,16 @@ If the user asks for a temporary model change, pass it as a session override:
 npm run ai-link -- run auto_ops.research --provider deepseek --dry-run --input "<public research brief>"
 ```
 
-## New Skill Route Draft
+## New Skill Draft
 
-When creating a related skill, draft route config from the natural-language instruction:
+When creating a related skill, draft route and workflow config from the natural-language instruction:
 
 ```powershell
-npm run ai-link -- skill draft-route --skill auto_ops --description "research with Grok, write with Kimi, Codex does implementation and checks"
+npm run ai-link -- skill draft --skill auto_ops --description "research with Grok, write with Kimi, Codex does implementation and checks"
 ```
 
 Review the output before writing it to `.ai-link/project.yaml` or `.ai-link/local.yaml`.
+Use `skill draft-route` only when you want route entries without a workflow.
 
 ## Safety
 

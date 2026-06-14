@@ -6,7 +6,10 @@ import { loadConfig } from "./config/load.js";
 import { hasValidationErrors, validateConfig } from "./config/validate.js";
 import { AiLinkError } from "./errors.js";
 import { runAiLink } from "./router/index.js";
-import { draftRoutesFromNaturalLanguage } from "./skills/naturalLanguage.js";
+import {
+  draftRoutesFromNaturalLanguage,
+  draftSkillConfigFromNaturalLanguage
+} from "./skills/naturalLanguage.js";
 import { runWorkflow } from "./workflows/index.js";
 import type { AiLinkConfig, LoadedConfig, ProviderConfig, WorkflowRunResult } from "./types.js";
 
@@ -290,8 +293,8 @@ function validateConfigCommand(args: ParsedArgs): void {
 
 function skillCommand(args: ParsedArgs): void {
   const subcommand = args.positional[1];
-  if (subcommand !== "draft-route") {
-    throw new AiLinkError("Usage: ai-link skill draft-route --description \"...\"", "CLI_USAGE");
+  if (subcommand !== "draft-route" && subcommand !== "draft") {
+    throw new AiLinkError("Usage: ai-link skill <draft|draft-route> --description \"...\"", "CLI_USAGE");
   }
 
   const description = stringFlag(args, "description") ?? args.positional.slice(2).join(" ");
@@ -299,10 +302,13 @@ function skillCommand(args: ParsedArgs): void {
     throw new AiLinkError("Missing --description.", "CLI_USAGE");
   }
 
-  const draft = draftRoutesFromNaturalLanguage({
+  const options = {
     description,
     skillName: stringFlag(args, "skill") ?? stringFlag(args, "skill-name")
-  });
+  };
+  const draft = subcommand === "draft"
+    ? draftSkillConfigFromNaturalLanguage(options)
+    : draftRoutesFromNaturalLanguage(options);
 
   if (booleanFlag(args, "json")) {
     console.log(JSON.stringify(draft, null, 2));
@@ -510,6 +516,7 @@ Usage:
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain
   ai-link config validate
+  ai-link skill draft --description "research with grok, write with kimi"
   ai-link skill draft-route --description "research with grok, write with kimi"
   ai-link doctor
 
