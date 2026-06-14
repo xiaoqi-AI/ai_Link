@@ -32,6 +32,7 @@ export function layout({ title, body }) {
     .status.completed { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
     .status.failed, .status.cancelled { color:var(--danger); border-color:#fecdca; background:#fef3f2; }
     .status.approval_required { color:#9a6700; border-color:#fedf89; background:#fffaeb; }
+    .status.action_required { color:#b54708; border-color:#fed7aa; background:#fff7ed; }
     button, .button { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; padding:9px 12px; font-weight:600; cursor:pointer; }
     button.secondary { color:var(--text); background:#fff; border-color:var(--line); }
     input, textarea, select { width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font:inherit; background:#fff; }
@@ -129,6 +130,7 @@ export function newTaskPage() {
 
 export function taskPage({ task, approvals, artifacts, auditEvents }) {
   const pendingApproval = approvals.find((item) => item.status === "pending");
+  const needsAction = task.status === "action_required";
   return layout({
     title: `任务 ${task.id.slice(0, 8)}`,
     body: `<section class="panel">
@@ -142,6 +144,12 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
       </div>
       <h2>摘要</h2>
       <p>${escapeHtml(task.summary || "暂无摘要")}</p>
+      ${task.error ? `<h2>待处理事项</h2><pre>${escapeHtml(JSON.stringify(task.error, null, 2))}</pre>` : ""}
+      ${needsAction ? `<form method="post" action="/dashboard/tasks/${escapeHtml(task.id)}/retry">
+        <label for="retry-note">处理备注</label>
+        <input id="retry-note" name="note" placeholder="例如：已续登、已完成验证码、稍后重试">
+        <button type="submit">已处理，重新执行</button>
+      </form>` : ""}
       <h2>脱敏结果</h2>
       <pre>${escapeHtml(JSON.stringify(task.result || {}, null, 2))}</pre>
       ${pendingApproval ? `<form method="post" action="/dashboard/tasks/${escapeHtml(task.id)}/approve">

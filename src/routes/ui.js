@@ -102,5 +102,14 @@ export function createUiRouter() {
     res.redirect(`/dashboard/tasks/${req.params.id}`);
   });
 
+  router.post("/dashboard/tasks/:id/retry", requireAppSession, async (req, res) => {
+    await req.app.locals.store.retryTask({
+      taskId: req.params.id,
+      actor: "console",
+      note: req.body?.note || ""
+    });
+    res.redirect(`/dashboard/tasks/${req.params.id}`);
+  });
+
   return router;
 }

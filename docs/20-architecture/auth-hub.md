@@ -63,8 +63,9 @@ npm run auth-hub:local:stop
 - `POST /api/tasks`：创建任务，支持 `full_chain`、`read_detect`、`draft_only`、`metrics`。
 - `GET /api/tasks/:id`：读取脱敏任务状态。
 - `POST /api/tasks/:id/approve`：确认或拒绝发布等高风险动作。
+- `POST /api/tasks/:id/retry`：人工处理完成后，把 `action_required` 或失败任务重新排队。
 - `POST /api/executor/lease`：本地执行器领取任务。
-- `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败或待审批结果。
+- `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果。
 - `GET /api/audit`：读取审计日志。
 
 所有 API 使用 Bearer token；token 只以哈希形式入库。
@@ -129,5 +130,6 @@ npm audit --audit-level=high
 
 - 原有 AI Link CLI 路由和 provider 行为。
 - 授权中枢 mock 全链路：创建任务、执行器领取、检测和草稿摘要、审批、发布完成。
+- 待人工处理状态：执行器可回传 `needs_action`，管理员处理后可 retry 重新排队。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。

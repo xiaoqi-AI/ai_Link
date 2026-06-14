@@ -310,6 +310,21 @@ export class PostgresStore {
     return rowTask(rows[0]);
   }
 
+  async markTaskNeedsAction({ taskId, summary, result, error, artifacts = [], actor }) {
+    const { rows } = await this.pool.query(
+      `UPDATE tasks
+       SET status = $1, summary = $2, result = $3, error = $4, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       WHERE id = $5
+       RETURNING *`,
+      [TASK_STATUSES.ACTION_REQUIRED, summary || "", json(result || null), json(error || null), taskId]
+    );
+    for (const artifact of artifacts) {
+      await this.addArtifact({ taskId, ...artifact });
+    }
+    await this.appendAudit({ taskId, actor, eventType: "task.action_required", detail: { error } });
+    return rowTask(rows[0]);
+  }
+
   async failTask({ taskId, error, actor }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
@@ -319,6 +334,18 @@ export class PostgresStore {
       [TASK_STATUSES.FAILED, json(error || {}), taskId]
     );
     await this.appendAudit({ taskId, actor, eventType: "task.failed", detail: { error } });
+    return rowTask(rows[0]);
+  }
+
+  async retryTask({ taskId, actor, note = "" }) {
+    const { rows } = await this.pool.query(
+      `UPDATE tasks
+       SET status = $1, error = NULL, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [TASK_STATUSES.QUEUED, taskId]
+    );
+    await this.appendAudit({ taskId, actor, eventType: "task.requeued", detail: { note } });
     return rowTask(rows[0]);
   }
 

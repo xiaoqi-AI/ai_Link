@@ -156,6 +156,85 @@ describe("AI Link task flow", () => {
     assert.equal(result.status, "completed");
   });
 
+  it("can mark a task action_required and retry it", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "draft_only",
+        input: { text: "公开测试文本", title: "需要人工处理" }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
+      token: "executor-token",
+      method: "POST",
+      body: { executorId: "action-test-executor" }
+    });
+    assert.equal(leased.data.task.id, created.data.task.id);
+
+    const actionRequired = await requestJson(server.baseUrl, `/api/executor/tasks/${leased.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "needs_action",
+        summary: "需要人工续登",
+        error: { message: "login_required" },
+        result: { nextStep: "refresh_login" }
+      }
+    });
+    assert.equal(actionRequired.response.status, 200);
+    assert.equal(actionRequired.data.task.status, "action_required");
+    assert.equal(actionRequired.data.task.error.message, "login_required");
+
+    const deniedRetry = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/retry`, {
+      token: "codex-token",
+      method: "POST",
+      body: { note: "codex cannot requeue high-risk actions" }
+    });
+    assert.equal(deniedRetry.response.status, 403);
+
+    const retried = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/retry`, {
+      token: "admin-token",
+      method: "POST",
+      body: { note: "login refreshed" }
+    });
+    assert.equal(retried.response.status, 200);
+    assert.equal(retried.data.task.status, "queued");
+    assert.equal(retried.data.task.error, null);
+  });
+
+  it("classifies connector login expiry as a manual action", async () => {
+    const result = await runTask(
+      {
+        workflow: "read_detect",
+        currentStep: "process",
+        input: { url: "https://mp.weixin.qq.com/s/login-needed" }
+      },
+      {
+        registry: {
+          wechat_official: {
+            readContent: async () => {
+              const error = new Error("微信公众号登录已过期，需要本机续登。");
+              error.code = "login_expired";
+              error.platform = "wechat_official";
+              error.action = "打开本地浏览器 profile 续登公众号后台";
+              error.needsAction = true;
+              throw error;
+            }
+          },
+          zhuque_ai: {}
+        }
+      }
+    );
+
+    assert.equal(result.status, "needs_action");
+    assert.equal(result.error.code, "login_expired");
+    assert.equal(result.error.platform, "wechat_official");
+    assert.equal(result.error.retryable, true);
+  });
+
   it("redacts sensitive keys and raw content", () => {
     const value = redact({
       token: "placeholder",

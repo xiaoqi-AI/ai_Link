@@ -1,6 +1,7 @@
 export const TASK_STATUSES = Object.freeze({
   QUEUED: "queued",
   RUNNING: "running",
+  ACTION_REQUIRED: "action_required",
   APPROVAL_REQUIRED: "approval_required",
   COMPLETED: "completed",
   FAILED: "failed",

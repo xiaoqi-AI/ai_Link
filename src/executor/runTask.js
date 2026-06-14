@@ -1,12 +1,30 @@
 import { createConnectorRegistry } from "../connectors/registry.js";
 import { redact } from "../security/redact.js";
 
+const ACTION_REQUIRED_CODES = new Set([
+  "captcha_required",
+  "login_expired",
+  "manual_action_required",
+  "platform_rate_limited",
+  "rate_limited",
+  "session_expired",
+  "verification_required"
+]);
+
 function approvalTitle(task) {
   if (task.currentStep === "publish") return "确认正式发布";
   return "确认继续";
 }
 
 export async function runTask(task, { registry = createConnectorRegistry() } = {}) {
+  try {
+    return await runTaskInner(task, { registry });
+  } catch (error) {
+    return resultFromError(error);
+  }
+}
+
+async function runTaskInner(task, { registry }) {
   if (task.currentStep === "publish") {
     const draftId = task.result?.draft?.draftId;
     if (!draftId) {
@@ -92,5 +110,35 @@ export async function runTask(task, { registry = createConnectorRegistry() } = {
       summary: `确认后将继续发布草稿：${draft.title}`,
       nextStep: "publish"
     }
+  };
+}
+
+function resultFromError(error) {
+  const code = String(error?.code || "executor_error");
+  const message = error?.message || "Executor failed while running the task.";
+  const common = {
+    code,
+    message,
+    platform: error?.platform || "",
+    action: error?.action || "",
+    retryable: error?.retryable !== false
+  };
+
+  if (error?.needsAction || ACTION_REQUIRED_CODES.has(code)) {
+    return {
+      status: "needs_action",
+      summary: message,
+      error: redact(common),
+      result: redact(error?.result || {}),
+      artifacts: []
+    };
+  }
+
+  return {
+    status: "failed",
+    error: redact({
+      ...common,
+      retryable: false
+    })
   };
 }

@@ -71,6 +71,20 @@ export function createApiRouter() {
     res.json({ task: publicTask(decision.task), approval: decision.approval });
   });
 
+  router.post("/tasks/:id/retry", requireApiScope("tasks:approve"), async (req, res) => {
+    const task = await req.app.locals.store.getTask(req.params.id);
+    if (!task) {
+      res.status(404).json({ error: "task_not_found" });
+      return;
+    }
+    const retried = await req.app.locals.store.retryTask({
+      taskId: task.id,
+      actor: actorName(req),
+      note: req.body?.note || ""
+    });
+    res.json({ task: publicTask(retried) });
+  });
+
   router.post("/executor/lease", requireApiScope("executor:lease"), async (req, res) => {
     const executorId = req.body?.executorId || actorName(req);
     const task = await req.app.locals.store.leaseTask({
@@ -112,6 +126,19 @@ export function createApiRouter() {
         actor
       });
       res.json({ task: publicTask(completed) });
+      return;
+    }
+
+    if (body.status === "needs_action") {
+      const actionRequired = await req.app.locals.store.markTaskNeedsAction({
+        taskId: task.id,
+        summary: body.summary || "",
+        result: redact(body.result || {}),
+        error: redact(body.error || { message: "Manual action required" }),
+        artifacts: redact(body.artifacts || []),
+        actor
+      });
+      res.json({ task: publicTask(actionRequired) });
       return;
     }
 

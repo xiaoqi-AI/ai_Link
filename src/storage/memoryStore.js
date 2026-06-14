@@ -133,6 +133,23 @@ export class MemoryStore {
     return clone(task);
   }
 
+  async markTaskNeedsAction({ taskId, summary, result, error, artifacts = [], actor }) {
+    const task = this.tasks.get(taskId);
+    if (!task) return null;
+    task.status = TASK_STATUSES.ACTION_REQUIRED;
+    task.summary = summary || task.summary;
+    task.result = result || task.result;
+    task.error = error || null;
+    task.leasedBy = null;
+    task.leaseExpiresAt = null;
+    task.updatedAt = nowIso();
+    for (const artifact of artifacts) {
+      await this.addArtifact({ taskId, ...artifact });
+    }
+    await this.appendAudit({ taskId, actor, eventType: "task.action_required", detail: { error } });
+    return clone(task);
+  }
+
   async failTask({ taskId, error, actor }) {
     const task = this.tasks.get(taskId);
     if (!task) return null;
@@ -142,6 +159,18 @@ export class MemoryStore {
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
     await this.appendAudit({ taskId, actor, eventType: "task.failed", detail: { error } });
+    return clone(task);
+  }
+
+  async retryTask({ taskId, actor, note = "" }) {
+    const task = this.tasks.get(taskId);
+    if (!task) return null;
+    task.status = TASK_STATUSES.QUEUED;
+    task.error = null;
+    task.leasedBy = null;
+    task.leaseExpiresAt = null;
+    task.updatedAt = nowIso();
+    await this.appendAudit({ taskId, actor, eventType: "task.requeued", detail: { note } });
     return clone(task);
   }
 
