@@ -33,3 +33,58 @@ test("runWorkflow dry-runs configured stages in order", async () => {
   assert.equal(result.stages[2].name, "agent_flow");
   assert.match(result.stages[2].result.output, /\[dry-run:coze]/);
 });
+
+test("runWorkflow resumes after previous stages", async () => {
+  const seed = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    stages: ["research"],
+    input: "research first",
+    dryRun: true
+  });
+
+  const result = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    previousStages: seed.stages,
+    resumeFromRecordId: "seed-record",
+    input: "continue from seed",
+    dryRun: true
+  });
+
+  assert.equal(result.resume?.fromRecordId, "seed-record");
+  assert.equal(result.resume?.startAtStage, "article_draft");
+  assert.equal(result.resume?.previousStageCount, 1);
+  assert.deepEqual(
+    result.stages.map((stage) => [stage.name, stage.source]),
+    [
+      ["research", "resume"],
+      ["article_draft", "current"],
+      ["agent_flow", "current"]
+    ]
+  );
+});
+
+test("runWorkflow can rerun from a selected stage", async () => {
+  const seed = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    input: "full seed",
+    dryRun: true
+  });
+
+  const result = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    previousStages: seed.stages,
+    startAtStage: "article_draft",
+    input: "rerun draft",
+    dryRun: true
+  });
+
+  assert.equal(result.resume?.startAtStage, "article_draft");
+  assert.deepEqual(
+    result.stages.map((stage) => [stage.name, stage.source]),
+    [
+      ["research", "resume"],
+      ["article_draft", "current"],
+      ["agent_flow", "current"]
+    ]
+  );
+});

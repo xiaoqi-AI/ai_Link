@@ -16,10 +16,12 @@ npm run ai-link -- workflow run auto_ops --dry-run --input "<public task brief>"
 npm run ai-link -- workflow run auto_ops --dry-run --input "<public task brief>" --output runtime/tmp/auto-ops-workflow.json
 npm run ai-link -- workflow run auto_ops --dry-run --input "<public task brief>" --record
 npm run ai-link -- runs list --limit 5
+npm run ai-link -- workflow run auto_ops --dry-run --stages research --input "<public task brief>" --record
+npm run ai-link -- workflow run auto_ops --dry-run --resume-from latest --input "<public task brief>"
 ```
 
 Use `--output runtime/tmp/*.json` when the next step needs structured handoff. AI Link refuses output paths outside `runtime/tmp/`; the output file is local runtime state and should not be committed.
-Use `--record` when the next step needs a local run index for audit or continuation. Records live under `runtime/tmp/ai-link-runs/`; use `runs list` and `runs show <id> --json` to inspect them. Records do not store the original input in the request block and should not be committed. Provider output may still echo task content.
+Use `--record` when the next step needs a local run index for audit or continuation. Records live under `runtime/tmp/ai-link-runs/`; use `runs list` and `runs show <id> --json` to inspect them, and `workflow run --resume-from <id|latest>` to continue a workflow record. Add `--from-stage <stage>` when a later stage should be rerun. Records do not store the original input in the request block and should not be committed. Provider output may still echo task content.
 
 For a real provider call, remove `--dry-run` only after the user has approved outbound content and provider keys are available through the configured secret manager.
 

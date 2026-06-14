@@ -23,6 +23,8 @@ const commands = [
   ["npm", ["run", "ai-link", "--", "workflow", "run", "auto_ops", "--dry-run", "--input", "fresh clone output check", "--output", "runtime/tmp/auto-ops-workflow.json"], clonePath],
   ["npm", ["run", "ai-link", "--", "workflow", "run", "auto_ops", "--dry-run", "--input", "fresh clone record check", "--record"], clonePath],
   ["npm", ["run", "ai-link", "--", "runs", "list", "--json"], clonePath],
+  ["npm", ["run", "ai-link", "--", "workflow", "run", "auto_ops", "--dry-run", "--stages", "research", "--input", "fresh clone resume seed", "--record"], clonePath],
+  ["npm", ["run", "ai-link", "--", "workflow", "run", "auto_ops", "--dry-run", "--resume-from", "latest", "--input", "fresh clone resume continuation"], clonePath],
   ["npm", ["run", "ai-link", "--", "skill", "draft", "--skill", "auto_ops", "--description", "research with Grok, article draft with Kimi, Coze handles workflow, Codex handles implementation"], clonePath],
   ["npm", ["run", "ai-link", "--", "skill", "draft", "--skill", "auto_ops", "--description", "research with Grok, article draft with Kimi", "--write", ".ai-link/local.yaml"], clonePath],
   ["npm", ["run", "ai-link", "--", "run", "auto_ops.agent_flow", "--dry-run", "--input", "fresh clone agent check"], clonePath],

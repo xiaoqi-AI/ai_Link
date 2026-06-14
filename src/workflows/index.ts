@@ -22,9 +22,20 @@ export async function runWorkflow(
   request: WorkflowRunRequest
 ): Promise<WorkflowRunResult> {
   const stages = resolveWorkflowStages(config, request.workflow, request.stages);
-  const results: WorkflowStageResult[] = [];
+  const startIndex = resolveStartIndex(stages, request);
+  const seedStages = seedResumeStages(stages, request.previousStages ?? [], startIndex);
+  const previousStageCount = seedStages.length;
+  const results: WorkflowStageResult[] = [...seedStages];
+  const stagesToRun = stages.slice(startIndex);
 
-  for (const stage of stages) {
+  if (stagesToRun.length === 0) {
+    throw new AiLinkError(
+      `Workflow "${request.workflow}" has no remaining stages to run. Use --from-stage to rerun a stage.`,
+      "WORKFLOW_RESUME_COMPLETE"
+    );
+  }
+
+  for (const stage of stagesToRun) {
     const task = stage.task ?? `${request.workflow}.${stage.name}`;
     const inputFrom = stage.inputFrom ?? (results.length === 0 ? "original" : "original-and-previous");
     const result = await runAiLink(config, {
@@ -41,13 +52,23 @@ export async function runWorkflow(
       name: stage.name,
       task,
       inputFrom,
+      source: "current",
       result
     });
   }
 
+  const resume = request.previousStages && request.previousStages.length > 0
+    ? {
+        fromRecordId: request.resumeFromRecordId,
+        startAtStage: stages[startIndex]?.name ?? "",
+        previousStageCount
+      }
+    : undefined;
+
   return {
     workflow: request.workflow,
     dryRun: request.dryRun ?? false,
+    resume,
     stages: results
   };
 }
@@ -114,6 +135,54 @@ function buildStageInput(
   }
 
   return original || undefined;
+}
+
+function resolveStartIndex(stages: WorkflowStageConfig[], request: WorkflowRunRequest): number {
+  if (request.startAtStage) {
+    const index = findStageIndex(stages, request.startAtStage);
+    if (index === -1) {
+      throw new AiLinkError(`Workflow stage not found: ${request.startAtStage}`, "WORKFLOW_STAGE_NOT_FOUND");
+    }
+    return index;
+  }
+
+  if (!request.previousStages || request.previousStages.length === 0) {
+    return 0;
+  }
+
+  const previousIndexes = request.previousStages
+    .map((stage) => findStageIndex(stages, stage.name) !== -1 ? findStageIndex(stages, stage.name) : findStageIndex(stages, stage.task))
+    .filter((index) => index !== -1);
+
+  if (previousIndexes.length === 0) {
+    throw new AiLinkError(
+      `Resume record has no stages that match workflow "${request.workflow}".`,
+      "WORKFLOW_RESUME_MISMATCH"
+    );
+  }
+
+  return Math.max(...previousIndexes) + 1;
+}
+
+function seedResumeStages(
+  stages: WorkflowStageConfig[],
+  previousStages: WorkflowStageResult[],
+  startIndex: number
+): WorkflowStageResult[] {
+  return previousStages
+    .filter((stage) => {
+      const index = findStageIndex(stages, stage.name) !== -1 ? findStageIndex(stages, stage.name) : findStageIndex(stages, stage.task);
+      return index !== -1 && index < startIndex;
+    })
+    .map((stage) => ({
+      ...stage,
+      source: "resume" as const
+    }))
+    .sort((left, right) => findStageIndex(stages, left.name) - findStageIndex(stages, right.name));
+}
+
+function findStageIndex(stages: WorkflowStageConfig[], stageNameOrTask: string): number {
+  return stages.findIndex((stage) => stage.name === stageNameOrTask || stage.task === stageNameOrTask);
 }
 
 function normalizeStageName(workflowName: string, value: string): string {

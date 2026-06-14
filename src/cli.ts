@@ -12,7 +12,14 @@ import {
   draftSkillConfigFromNaturalLanguage
 } from "./skills/naturalLanguage.js";
 import { runWorkflow } from "./workflows/index.js";
-import type { AiLinkConfig, LoadedConfig, ProviderConfig, RunResult, WorkflowRunResult } from "./types.js";
+import type {
+  AiLinkConfig,
+  LoadedConfig,
+  ProviderConfig,
+  RunResult,
+  WorkflowRunResult,
+  WorkflowStageResult
+} from "./types.js";
 
 interface ParsedArgs {
   positional: string[];
@@ -74,9 +81,13 @@ async function workflowCommand(args: ParsedArgs): Promise<void> {
 
   const loaded = loadFromArgs(args);
   const input = await readInput(args);
+  const resume = loadWorkflowResumeState(args, workflow);
   const result = await runWorkflow(loaded.config, {
     workflow,
     stages: parseStageFlags(args),
+    previousStages: resume?.stages,
+    startAtStage: stringFlag(args, "from-stage") ?? stringFlag(args, "start-at"),
+    resumeFromRecordId: resume?.id,
     input,
     system: stringFlag(args, "system"),
     provider: stringFlag(args, "provider"),
@@ -205,12 +216,7 @@ function showRunRecordCommand(args: ParsedArgs): void {
     throw new AiLinkError("Usage: ai-link runs show <id>", "CLI_USAGE");
   }
 
-  const targetPath = resolveRunRecordPath(selector);
-  if (!targetPath) {
-    throw new AiLinkError(`Run record not found: ${selector}`, "RUN_RECORD_NOT_FOUND");
-  }
-
-  const record = JSON.parse(readFileSync(targetPath, "utf8")) as Record<string, unknown>;
+  const { record, targetPath } = readRunRecordBySelector(selector);
   if (booleanFlag(args, "json")) {
     console.log(JSON.stringify(record, null, 2));
     return;
@@ -672,6 +678,66 @@ function writeStructuredOutput(args: ParsedArgs, value: unknown): void {
   }
 }
 
+interface WorkflowResumeState {
+  id: string;
+  stages: WorkflowStageResult[];
+}
+
+function loadWorkflowResumeState(args: ParsedArgs, workflow: string): WorkflowResumeState | undefined {
+  const selector = stringFlag(args, "resume-from") ?? stringFlag(args, "resume");
+  if (!selector) {
+    return undefined;
+  }
+
+  const { record } = readRunRecordBySelector(selector);
+  if (record.kind !== "workflow") {
+    throw new AiLinkError("Only workflow run records can be used with --resume-from.", "WORKFLOW_RESUME_INVALID");
+  }
+
+  const result = isRecord(record.result) ? record.result : undefined;
+  if (!result || result.workflow !== workflow) {
+    throw new AiLinkError(
+      `Resume record does not belong to workflow "${workflow}".`,
+      "WORKFLOW_RESUME_MISMATCH"
+    );
+  }
+
+  const stages = Array.isArray(result.stages)
+    ? result.stages.map(toWorkflowStageResult).filter((stage): stage is WorkflowStageResult => Boolean(stage))
+    : [];
+
+  if (stages.length === 0) {
+    throw new AiLinkError("Resume record has no workflow stages.", "WORKFLOW_RESUME_INVALID");
+  }
+
+  return {
+    id: stringValue(record.id) || selector,
+    stages
+  };
+}
+
+function toWorkflowStageResult(value: unknown): WorkflowStageResult | undefined {
+  if (!isRecord(value) || !isRecord(value.result)) {
+    return undefined;
+  }
+  const name = stringValue(value.name);
+  const task = stringValue(value.task);
+  const inputFrom = value.inputFrom === "original" || value.inputFrom === "previous" || value.inputFrom === "original-and-previous"
+    ? value.inputFrom
+    : "original-and-previous";
+  const result = value.result as unknown as RunResult;
+  if (!name || !task || !stringValue(result.output)) {
+    return undefined;
+  }
+  return {
+    name,
+    task,
+    inputFrom,
+    result,
+    source: value.source === "resume" ? "resume" : "current"
+  };
+}
+
 interface RunRecordInput {
   kind: "run" | "workflow";
   task?: string;
@@ -771,6 +837,15 @@ function resolveRunRecordPath(selector: string): string | undefined {
   }
 
   const index = readRunRecordIndex(getRunRecordIndexPath());
+  if (selector === "latest") {
+    const latest = index.records[0];
+    if (!latest) {
+      return undefined;
+    }
+    const latestPath = path.resolve(process.cwd(), latest.path);
+    return isRunRecordFileTarget(latestPath) && existsSync(latestPath) ? latestPath : undefined;
+  }
+
   const matches = index.records.filter((record) => record.id === selector || record.id.startsWith(selector));
   if (matches.length > 1) {
     throw new AiLinkError(`Run record selector is ambiguous: ${selector}`, "RUN_RECORD_AMBIGUOUS");
@@ -782,6 +857,15 @@ function resolveRunRecordPath(selector: string): string | undefined {
 
   const targetPath = path.resolve(process.cwd(), match.path);
   return isRunRecordFileTarget(targetPath) && existsSync(targetPath) ? targetPath : undefined;
+}
+
+function readRunRecordBySelector(selector: string): { record: Record<string, unknown>; targetPath: string } {
+  const targetPath = resolveRunRecordPath(selector);
+  if (!targetPath) {
+    throw new AiLinkError(`Run record not found: ${selector}`, "RUN_RECORD_NOT_FOUND");
+  }
+  const record = JSON.parse(readFileSync(targetPath, "utf8")) as Record<string, unknown>;
+  return { record, targetPath };
 }
 
 function isRunRecordFileTarget(targetPath: string): boolean {
@@ -903,10 +987,15 @@ function printWorkflowResult(result: WorkflowRunResult): void {
   console.log(`Workflow: ${result.workflow}`);
   console.log(`Stages: ${result.stages.length}`);
   console.log(`Dry run: ${result.dryRun ? "yes" : "no"}`);
+  if (result.resume) {
+    console.log(`Resume: ${result.resume.fromRecordId ?? "(record)"} -> ${result.resume.startAtStage}`);
+    console.log(`Resume stages: ${result.resume.previousStageCount}`);
+  }
 
   for (const [index, stage] of result.stages.entries()) {
     console.log("");
     console.log(`[${index + 1}] ${stage.name}`);
+    console.log(`Source: ${stage.source ?? "current"}`);
     console.log(`Task: ${stage.task}`);
     console.log(`Provider: ${stage.result.provider}`);
     console.log(`Model: ${stage.result.model ?? "(default)"}`);
@@ -921,8 +1010,9 @@ function printHelp(): void {
 Usage:
   ai-link run <task> [--input text] [--provider name] [--model name] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
   ai-link workflow run <workflow> [--stages research,article_draft] [--dry-run] [--json] [--output runtime/tmp/result.json] [--record]
+  ai-link workflow run <workflow> --resume-from <record-id> [--from-stage stage] [--record]
   ai-link runs list [--limit 10] [--json]
-  ai-link runs show <id> [--json]
+  ai-link runs show <id|latest> [--json]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
   ai-link config explain

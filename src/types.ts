@@ -137,6 +137,9 @@ export interface RunResult {
 export interface WorkflowRunRequest {
   workflow: string;
   stages?: string[];
+  previousStages?: WorkflowStageResult[];
+  startAtStage?: string;
+  resumeFromRecordId?: string;
   input?: string;
   system?: string;
   provider?: string;
@@ -149,11 +152,17 @@ export interface WorkflowStageResult {
   name: string;
   task: string;
   inputFrom: "original" | "previous" | "original-and-previous";
+  source?: "current" | "resume";
   result: RunResult;
 }
 
 export interface WorkflowRunResult {
   workflow: string;
   dryRun: boolean;
+  resume?: {
+    fromRecordId?: string;
+    startAtStage: string;
+    previousStageCount: number;
+  };
   stages: WorkflowStageResult[];
 }

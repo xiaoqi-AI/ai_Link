@@ -22,9 +22,11 @@ npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml
 npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --input-file examples/auto-ops/sample-input.md --output runtime/tmp/auto-ops-example.json
 npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --input-file examples/auto-ops/sample-input.md --record
 npm run ai-link -- runs list
+npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --stages research --input-file examples/auto-ops/sample-input.md --record
+npm run ai-link -- workflow run auto_ops --config examples/auto-ops/project.yaml --dry-run --resume-from latest --input-file examples/auto-ops/sample-input.md
 ```
 
-`--output` 会写入完整 JSON 结果，方便 Codex skill 或后续脚本继续读取；`--record` 会写入本地运行记录并更新 `runtime/tmp/ai-link-runs/index.json`，之后可用 `runs list` / `runs show <id>` 查看。运行产物只写入 `runtime/tmp/`，不要提交到 Git。
+`--output` 会写入完整 JSON 结果，方便 Codex skill 或后续脚本继续读取；`--record` 会写入本地运行记录并更新 `runtime/tmp/ai-link-runs/index.json`，之后可用 `runs list` / `runs show <id>` 查看，也可用 `workflow run --resume-from <id|latest>` 续跑剩余阶段。运行产物只写入 `runtime/tmp/`，不要提交到 Git。
 
 ## Mock 本地执行
 

@@ -237,6 +237,110 @@ test("runs list and show read local run records", () => {
   }
 });
 
+test("workflow run resumes from a local workflow run record", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-workflow-resume-"));
+  try {
+    const seed = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--stages",
+      "research",
+      "--input",
+      "fresh workflow resume seed",
+      "--record"
+    ]);
+    assert.equal(seed.status, 0);
+
+    const index = JSON.parse(runCli(tempRoot, ["runs", "list", "--json"]).stdout);
+    const resume = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--resume-from",
+      index.records[0].id,
+      "--input",
+      "fresh workflow resume continuation",
+      "--json"
+    ]);
+
+    assert.equal(resume.status, 0);
+    const result = JSON.parse(resume.stdout);
+    assert.equal(result.resume.fromRecordId, index.records[0].id);
+    assert.equal(result.resume.startAtStage, "article_draft");
+    assert.equal(result.resume.previousStageCount, 1);
+    assert.deepEqual(
+      result.stages.map((stage: { name: string; source: string }) => [stage.name, stage.source]),
+      [
+        ["research", "resume"],
+        ["article_draft", "current"],
+        ["agent_flow", "current"]
+      ]
+    );
+
+    const latest = runCli(tempRoot, ["runs", "show", "latest", "--json"]);
+    assert.equal(latest.status, 0);
+    assert.equal(JSON.parse(latest.stdout).id, index.records[0].id);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("workflow resume refuses completed records unless a stage is selected", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-workflow-resume-complete-"));
+  try {
+    const seed = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--input",
+      "fresh complete workflow resume seed",
+      "--record"
+    ]);
+    assert.equal(seed.status, 0);
+
+    const index = JSON.parse(runCli(tempRoot, ["runs", "list", "--json"]).stdout);
+    const complete = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--resume-from",
+      index.records[0].id
+    ]);
+    assert.notEqual(complete.status, 0);
+    assert.match(complete.stderr, /no remaining stages/);
+
+    const rerun = runCli(tempRoot, [
+      "workflow",
+      "run",
+      "auto_ops",
+      "--dry-run",
+      "--resume-from",
+      index.records[0].id,
+      "--from-stage",
+      "article_draft",
+      "--json"
+    ]);
+    assert.equal(rerun.status, 0);
+    const result = JSON.parse(rerun.stdout);
+    assert.equal(result.resume.startAtStage, "article_draft");
+    assert.deepEqual(
+      result.stages.map((stage: { name: string; source: string }) => [stage.name, stage.source]),
+      [
+        ["research", "resume"],
+        ["article_draft", "current"],
+        ["agent_flow", "current"]
+      ]
+    );
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("runs show refuses paths outside local run records", () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-runs-guard-"));
   try {

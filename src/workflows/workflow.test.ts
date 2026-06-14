@@ -70,3 +70,26 @@ test("runWorkflow can pass previous stage output to a later stage", async () => 
   assert.match(result.stages[1].result.output, /Previous stage outputs/);
   assert.match(result.stages[1].result.output, /task: demo.first/);
 });
+
+test("runWorkflow resumes from previous workflow stages", async () => {
+  const seed = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    stages: ["research"],
+    input: "resume seed",
+    dryRun: true
+  });
+
+  const result = await runWorkflow(DEFAULT_CONFIG, {
+    workflow: "auto_ops",
+    previousStages: seed.stages,
+    dryRun: true,
+    resumeFromRecordId: "record-1"
+  });
+
+  assert.equal(result.resume?.fromRecordId, "record-1");
+  assert.equal(result.resume?.startAtStage, "article_draft");
+  assert.equal(result.resume?.previousStageCount, 1);
+  assert.deepEqual(result.stages.map((stage) => stage.name), ["research", "article_draft", "agent_flow"]);
+  assert.deepEqual(result.stages.map((stage) => stage.source), ["resume", "current", "current"]);
+  assert.equal(result.stages[1].result.provider, "kimi");
+});
