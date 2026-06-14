@@ -22,18 +22,17 @@ npm run ai-link -- providers verify --provider grok
 
 ## 本地真实调用
 
-先用 Bitwarden Secrets Manager 或当前本机会话环境变量注入真实 key：
+推荐先用 Bitwarden Secrets Manager 注入真实 key：
 
 ```powershell
-$env:DEEPSEEK_API_KEY="..."
-$env:MOONSHOT_API_KEY="..."
-$env:XAI_API_KEY="..."
+powershell -ExecutionPolicy Bypass -File tools/check-bitwarden-secrets.ps1
+powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run providers:live"
 ```
 
-再执行：
+也可以只验收某一个 provider：
 
 ```powershell
-npm run providers:live
+powershell -ExecutionPolicy Bypass -File tools/with-bitwarden-secrets.ps1 -CommandLine "npm run ai-link -- providers verify --live --provider grok"
 ```
 
 默认行为：
@@ -61,12 +60,20 @@ npm run ai-link -- providers verify --live --provider grok
 
 仓库包含 `Provider Live Verification` workflow，只能手动触发。
 
-GitHub Secrets 名称：
+GitHub Environment 建议使用 `provider-live`。
 
-- `OPENAI_COMPATIBLE_API_KEY`
-- `DEEPSEEK_API_KEY`
-- `MOONSHOT_API_KEY`
-- `XAI_API_KEY`
+GitHub Environment Secret 只保存：
+
+- `BW_ACCESS_TOKEN`
+
+GitHub Environment Variables 保存 Bitwarden secret ID：
+
+- `BWS_OPENAI_COMPATIBLE_API_KEY_SECRET_ID`
+- `BWS_DEEPSEEK_API_KEY_SECRET_ID`
+- `BWS_MOONSHOT_API_KEY_SECRET_ID`
+- `BWS_XAI_API_KEY_SECRET_ID`
+
+真实 API key 仍保留在 Bitwarden Secrets Manager 中。workflow 通过 `bitwarden/sm-action@v2` 临时注入环境变量。
 
 建议先用默认非 strict 模式确认 workflow 可运行；确认 secrets 都配置后，再用 strict 模式验收。
 

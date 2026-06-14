@@ -19,11 +19,7 @@ jobs:
   verify-providers:
     name: Verify providers
     runs-on: ubuntu-latest
-    env:
-      OPENAI_COMPATIBLE_API_KEY: ${{ secrets.OPENAI_COMPATIBLE_API_KEY }}
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
-      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+    environment: provider-live
 
     steps:
       - name: Checkout
@@ -40,6 +36,38 @@ jobs:
 
       - name: Dry-run all providers
         run: npm run providers:dry
+
+      - name: Get OpenAI-compatible key from Bitwarden
+        if: ${{ vars.BWS_OPENAI_COMPATIBLE_API_KEY_SECRET_ID != '' }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BWS_OPENAI_COMPATIBLE_API_KEY_SECRET_ID }} > OPENAI_COMPATIBLE_API_KEY
+
+      - name: Get DeepSeek key from Bitwarden
+        if: ${{ vars.BWS_DEEPSEEK_API_KEY_SECRET_ID != '' }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BWS_DEEPSEEK_API_KEY_SECRET_ID }} > DEEPSEEK_API_KEY
+
+      - name: Get Kimi key from Bitwarden
+        if: ${{ vars.BWS_MOONSHOT_API_KEY_SECRET_ID != '' }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BWS_MOONSHOT_API_KEY_SECRET_ID }} > MOONSHOT_API_KEY
+
+      - name: Get Grok key from Bitwarden
+        if: ${{ vars.BWS_XAI_API_KEY_SECRET_ID != '' }}
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BWS_XAI_API_KEY_SECRET_ID }} > XAI_API_KEY
 
       - name: Live verify configured providers
         if: ${{ inputs.strict == 'false' }}
