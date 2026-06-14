@@ -227,6 +227,7 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
       </form>` : ""}
       <h2>脱敏结果</h2>
       <pre>${escapeHtml(JSON.stringify(task.result || {}, null, 2))}</pre>
+      ${task.result?.aiLinkAudit ? `<h2>AI Link Audit</h2><pre>${escapeHtml(JSON.stringify(task.result.aiLinkAudit, null, 2))}</pre>` : ""}
       ${pendingApproval ? `<form method="post" action="/dashboard/tasks/${escapeHtml(task.id)}/approve">
         <input type="hidden" name="approvalId" value="${escapeHtml(pendingApproval.id)}">
         <label for="note">确认备注</label>

@@ -30,11 +30,29 @@ export function redact(value) {
 
 export function publicTask(task) {
   if (!task) return null;
+  const result = redact(task.result || null);
+  if (task.result?.aiLinkAudit && result && typeof result === "object" && !Array.isArray(result)) {
+    result.aiLinkAudit = task.result.aiLinkAudit;
+  }
   return {
     ...task,
     input: redact(task.input),
     options: redact(task.options || {}),
-    result: redact(task.result || null),
+    result,
     error: redact(task.error || null)
   };
+}
+
+export function publicAuditEvent(event) {
+  const redacted = redact(event);
+  if (
+    event?.eventType === "ai_link.audit"
+    && event.detail?.audit
+    && redacted?.detail
+    && typeof redacted.detail === "object"
+    && !Array.isArray(redacted.detail)
+  ) {
+    redacted.detail.audit = event.detail.audit;
+  }
+  return redacted;
 }

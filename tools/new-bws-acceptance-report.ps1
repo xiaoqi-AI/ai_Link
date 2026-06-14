@@ -246,6 +246,7 @@ if ($npmPath) {
   Invoke-Tool "Public sensitive-content scan" { Invoke-Npm @("run", "security:scan") } "no sensitive content found in scanned public files" | Out-Null
   Invoke-Tool "BWS setup plan" { Invoke-Npm @("run", "bws:plan") } "public BWS plan renders without secret values" | Out-Null
   Invoke-Tool "BWS onboarding runbook" { Invoke-Npm @("run", "bws:onboard:print") } "onboarding runbook renders without secret values" | Out-Null
+  Invoke-Tool "BWS local project profile helper" { Invoke-Npm @("run", "bws:profile:print") } "local profile helper renders without bootstrap tokens" | Out-Null
   Invoke-Tool "BWS worksheet" { Invoke-Npm @("run", "bws:worksheet:print") } "worksheet renders without secret values" | Out-Null
   Invoke-Tool "BWS GitHub vars helper help" { Invoke-Npm @("run", "bws:github-vars:help") } "helper is available without real credentials" | Out-Null
 

@@ -1,7 +1,8 @@
 import express from "express";
+import { attachAiLinkAudit, extractAiLinkAudit } from "../audit/aiLinkAudit.js";
 import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { requireApiScope } from "../security/auth.js";
-import { publicTask, redact } from "../security/redact.js";
+import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
 function actorName(req) {
@@ -50,7 +51,7 @@ export function createApiRouter() {
       task: publicTask(task),
       approvals: approvals.filter((item) => item.taskId === task.id),
       artifacts: redact(artifacts),
-      auditEvents: redact(auditEvents)
+      auditEvents: auditEvents.map(publicAuditEvent)
     });
   });
 
@@ -101,6 +102,7 @@ export function createApiRouter() {
   router.post("/executor/tasks/:id/result", requireApiScope("executor:result"), async (req, res) => {
     const body = req.body || {};
     const actor = actorName(req);
+    const aiLinkAudit = extractAiLinkAudit(body);
     const task = await req.app.locals.store.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "task_not_found" });
@@ -111,11 +113,12 @@ export function createApiRouter() {
       const outcome = await req.app.locals.store.markTaskNeedsApproval({
         taskId: task.id,
         summary: body.summary || "",
-        result: redact(body.result || {}),
+        result: sanitizedExecutorResult(body, aiLinkAudit),
         approval: body.approval || {},
         artifacts: redact(body.artifacts || []),
         actor
       });
+      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
       await req.app.locals.notifier.approvalRequested(outcome);
       res.json({ task: publicTask(outcome.task), approval: outcome.approval });
       return;
@@ -125,10 +128,11 @@ export function createApiRouter() {
       const completed = await req.app.locals.store.completeTask({
         taskId: task.id,
         summary: body.summary || "",
-        result: redact(body.result || {}),
+        result: sanitizedExecutorResult(body, aiLinkAudit),
         artifacts: redact(body.artifacts || []),
         actor
       });
+      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
       res.json({ task: publicTask(completed) });
       return;
     }
@@ -137,11 +141,12 @@ export function createApiRouter() {
       const actionRequired = await req.app.locals.store.markTaskNeedsAction({
         taskId: task.id,
         summary: body.summary || "",
-        result: redact(body.result || {}),
+        result: sanitizedExecutorResult(body, aiLinkAudit),
         error: redact(body.error || { message: "Manual action required" }),
         artifacts: redact(body.artifacts || []),
         actor
       });
+      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
       res.json({ task: publicTask(actionRequired) });
       return;
     }
@@ -152,6 +157,7 @@ export function createApiRouter() {
         error: redact(body.error || { message: "Unknown executor failure" }),
         actor
       });
+      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
       res.status(200).json({ task: publicTask(failed) });
       return;
     }
@@ -164,7 +170,7 @@ export function createApiRouter() {
       taskId: req.query.taskId || undefined,
       limit: Number(req.query.limit || 100)
     });
-    res.json({ auditEvents: redact(auditEvents) });
+    res.json({ auditEvents: auditEvents.map(publicAuditEvent) });
   });
 
   router.get("/connectors", requireApiScope("connectors:read"), async (req, res) => {
@@ -172,4 +178,33 @@ export function createApiRouter() {
   });
 
   return router;
+}
+
+async function appendAiLinkAuditEvent(req, { taskId, actor, status, aiLinkAudit }) {
+  if (!aiLinkAudit) {
+    return;
+  }
+
+  await req.app.locals.store.appendAudit({
+    taskId,
+    actor,
+    eventType: "ai_link.audit",
+    detail: {
+      status,
+      audit: aiLinkAudit
+    }
+  });
+}
+
+function sanitizedExecutorResult(body, aiLinkAudit) {
+  return attachAiLinkAudit(redact(withoutInlineAiLinkAudit(body.result || {})), aiLinkAudit);
+}
+
+function withoutInlineAiLinkAudit(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const { audit, aiLinkAudit, ...rest } = value;
+  return rest;
 }

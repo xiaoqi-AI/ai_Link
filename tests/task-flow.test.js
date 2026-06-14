@@ -158,6 +158,96 @@ describe("AI Link task flow", () => {
     assert.equal(result.status, "completed");
   });
 
+  it("records AI Link audit summaries from executor results", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "read_detect",
+        input: { text: "public audit test", title: "audit handoff" }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
+      token: "executor-token",
+      method: "POST",
+      body: { executorId: "audit-test-executor" }
+    });
+    assert.equal(leased.data.task.id, created.data.task.id);
+
+    const audit = {
+      kind: "run",
+      task: "auto_ops.research",
+      provider: "grok",
+      providerType: "grok",
+      model: "grok-4.3",
+      dryRun: true,
+      policy: "default",
+      allowOutbound: "user-approved",
+      policyDataClass: "public",
+      policyAuditTags: ["default-outbound"],
+      policyBudget: {
+        maxInputTokens: 12000,
+        maxOutputTokens: 3000
+      },
+      usageEstimate: {
+        inputChars: 48,
+        inputTokens: 12,
+        outputTokens: 1600,
+        estimatedCostUsd: 0.0042
+      },
+      approval: {
+        required: true,
+        approved: false,
+        enforced: false,
+        mode: "live",
+        reason: "Outbound provider calls require user approval."
+      },
+      rawSecret: "drop me"
+    };
+
+    const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${leased.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "completed",
+        summary: "audit captured",
+        audit,
+        result: {
+          output: "ok",
+          audit,
+          apiKey: "placeholder"
+        }
+      }
+    });
+
+    assert.equal(reported.response.status, 200);
+    assert.equal(reported.data.task.status, "completed");
+    assert.equal(reported.data.task.result.output, "ok");
+    assert.equal(reported.data.task.result.audit, undefined);
+    assert.equal(reported.data.task.result.apiKey, "[redacted]");
+    assert.equal(reported.data.task.result.aiLinkAudit.provider, "grok");
+    assert.equal(reported.data.task.result.aiLinkAudit.usageEstimate.inputTokens, 12);
+    assert.equal(reported.data.task.result.aiLinkAudit.rawSecret, undefined);
+
+    const detail = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}`, {
+      token: "admin-token"
+    });
+    assert.equal(detail.response.status, 200);
+    const taskAuditEvent = detail.data.auditEvents.find((event) => event.eventType === "ai_link.audit");
+    assert.equal(taskAuditEvent.detail.status, "completed");
+    assert.equal(taskAuditEvent.detail.audit.model, "grok-4.3");
+    assert.equal(taskAuditEvent.detail.audit.usageEstimate.outputTokens, 1600);
+
+    const auditList = await requestJson(server.baseUrl, `/api/audit?taskId=${leased.data.task.id}`, {
+      token: "admin-token"
+    });
+    assert.equal(auditList.response.status, 200);
+    assert.ok(auditList.data.auditEvents.some((event) => event.eventType === "ai_link.audit"));
+    assert.equal(JSON.stringify(auditList.data).includes("sk-should"), false);
+  });
+
   it("can mark a task action_required and retry it", async () => {
     const created = await requestJson(server.baseUrl, "/api/tasks", {
       token: "admin-token",
@@ -212,6 +302,70 @@ describe("AI Link task flow", () => {
     assert.equal(retried.response.status, 200);
     assert.equal(retried.data.task.status, "queued");
     assert.equal(retried.data.task.error, null);
+  });
+
+  it("accepts AI Link audit summaries without exposing raw executor payloads", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "draft_only",
+        input: { text: "公开测试文本", title: "审计摘要" }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const completed = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "completed",
+        summary: "已完成",
+        result: {
+          text: "公开摘要",
+          password: "placeholder",
+          audit: {
+            rawNote: "drop me"
+          }
+        },
+        audit: {
+          kind: "run",
+          task: "auto_ops.research",
+          provider: "grok",
+          providerType: "grok",
+          model: "grok-4.3",
+          policy: "default",
+          policyAuditTags: ["default-outbound"],
+          policyBudget: { maxInputTokens: 12000, unknown: "drop me" },
+          usageEstimate: { inputTokens: 10, outputTokens: 20 },
+          approval: {
+            required: true,
+            approved: false,
+            enforced: false,
+            mode: "live",
+            reason: "Outbound provider calls require user approval."
+          },
+          rawSecret: "drop me too"
+        }
+      }
+    });
+    assert.equal(completed.response.status, 200);
+    assert.equal(completed.data.task.result.password, "[redacted]");
+    assert.equal(completed.data.task.result.audit, undefined);
+    assert.equal(completed.data.task.result.aiLinkAudit.kind, "run");
+    assert.equal(completed.data.task.result.aiLinkAudit.providerType, "grok");
+    assert.deepEqual(completed.data.task.result.aiLinkAudit.policyAuditTags, ["default-outbound"]);
+    assert.equal(completed.data.task.result.aiLinkAudit.policyBudget.maxInputTokens, 12000);
+    assert.equal(completed.data.task.result.aiLinkAudit.policyBudget.unknown, undefined);
+    assert.equal(completed.data.task.result.aiLinkAudit.rawSecret, undefined);
+
+    const detail = await requestJson(server.baseUrl, `/api/tasks/${created.data.task.id}`, {
+      token: "admin-token"
+    });
+    assert.equal(detail.response.status, 200);
+    const auditEvent = detail.data.auditEvents.find((event) => event.eventType === "ai_link.audit");
+    assert.equal(auditEvent.detail.audit.providerType, "grok");
+    assert.equal(auditEvent.detail.audit.rawSecret, undefined);
   });
 
   it("exposes connector contracts to Codex as read-only status", async () => {

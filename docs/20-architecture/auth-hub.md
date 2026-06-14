@@ -70,6 +70,8 @@ npm run auth-hub:local:stop
 - `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果。
 - `GET /api/audit`：读取审计日志。
 
+执行器回传结果时可以带顶层 `audit` 字段，或在 `result.audit` / `result.aiLinkAudit` 中带 AI Link 审计摘要。服务端会按白名单规范化为 `task.result.aiLinkAudit`，同时追加一条 `ai_link.audit` 审计事件。该摘要只保留 provider、model、policy、审批状态、数据分类、审计标签、预算和 usage estimate，不保存原始输入、原始输出、密钥或 token。
+
 所有 API 使用 Bearer token；token 只以哈希形式入库。
 
 ## 数据与安全边界

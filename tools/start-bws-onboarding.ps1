@@ -190,6 +190,14 @@ if ($bwsPath -and -not [string]::IsNullOrWhiteSpace($CiProjectId) -and -not [str
   Add-Action "Run ``npm run bws:github-vars`` to produce the GitHub provider-live variable worksheet from Bitwarden secret IDs."
 }
 
+if (-not [string]::IsNullOrWhiteSpace($ProjectId) -or -not [string]::IsNullOrWhiteSpace($CiProjectId)) {
+  Add-Action "Run ``npm run bws:profile`` to create an ignored local PowerShell snippet for the non-secret project IDs."
+} elseif ($bwsPath -and -not [string]::IsNullOrWhiteSpace($env:BWS_ACCESS_TOKEN)) {
+  Add-Action "Run ``npm run bws:profile:from-bws`` to read Bitwarden project IDs by manifest project name and write a local profile snippet."
+} else {
+  Add-Action "Run ``npm run bws:profile:print`` to preview the local project ID profile snippet."
+}
+
 Add-Action "Run ``npm run bws:acceptance`` for a non-secret progress report; use ``npm run bws:acceptance:strict`` only after Bitwarden and GitHub are configured."
 Add-Action "Keep provider live verification disabled until model cost boundaries are confirmed."
 
@@ -262,6 +270,7 @@ Add-Line "## Useful commands"
 Add-Line ""
 Add-Line '```powershell'
 Add-Line 'npm run bws:plan'
+Add-Line 'npm run bws:profile:print'
 Add-Line 'npm run bws:worksheet'
 Add-Line 'npm run bws:session'
 Add-Line 'npm run bws:doctor'
