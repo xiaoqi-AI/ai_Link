@@ -82,6 +82,7 @@ for (const file of [
   "SECURITY.md",
   "AGENTS.md",
   "tools/check-package-contents.js",
+  "tools/check-github-repo-safety.js",
   "docs/user-guide.md",
   "docs/20-architecture/configuration.md",
   "docs/20-architecture/provider-adapters.md",
@@ -119,6 +120,8 @@ for (const scriptName of [
   "verify:fresh",
   "package:check",
   "package:check:json",
+  "github:safety",
+  "github:safety:json",
   "release:readiness",
   "release:readiness:json"
 ]) {
@@ -133,6 +136,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run providers:dry",
   "npm run security:scan",
   "npm run package:check",
+  "npm run github:safety",
   "npm run release:readiness",
   "npm audit --omit=dev --audit-level=high"
 ]);

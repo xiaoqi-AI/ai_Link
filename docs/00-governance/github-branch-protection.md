@@ -1,6 +1,6 @@
 # GitHub Branch Protection 建议
 
-状态：待在 GitHub UI 配置。当前本机未安装 `gh`，因此本文件提供可执行检查清单。
+状态：待在 GitHub UI 配置。当前可用 `npm run github:safety` 做本地基线检查；如果本机安装并登录了 `gh`，脚本还会只读核验远端 branch protection、secret scanning 和 push protection。
 
 ## 建议保护对象
 
@@ -30,6 +30,8 @@
 配置完成后，在本地运行：
 
 ```powershell
+npm run github:safety
+npm run github:safety:json
 npm run verify:fresh
 npm run security:scan
 powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1

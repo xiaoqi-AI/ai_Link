@@ -9,7 +9,7 @@
 - 是否在 GitHub UI 开启公开仓和私有仓的 secret scanning / push protection？
 - 是否给私有仓 `ai_Link-internal` 配置独立 branch protection 或 ruleset？
 - GitHub Actions CI 已补充，是否将其纳入 branch protection 必需检查？
-- Branch protection 建议清单已写入 `docs/00-governance/github-branch-protection.md`，仍需在 GitHub UI 配置。
+- Branch protection 建议清单已写入 `docs/00-governance/github-branch-protection.md`，并已补充 `github:safety` / `github:safety:json` 只读检查；远端保护、secret scanning 和 push protection 仍需在 GitHub UI 配置或用已登录 `gh` 核验。
 
 ## 产品方向
 
@@ -27,6 +27,7 @@
 - AI Link CLI 已采用 TypeScript / Node.js；统一授权中枢公开骨架已采用 Node.js / Express。
 - MVP 已补充 `ai-link config validate`、GitHub Actions CI 和 fresh clone 验证脚本。
 - MVP 已补充 `package:check` / `package:check:json`，用于在不发布 npm 的前提下模拟打包并检查公开包内容。
+- MVP 已补充 `github:safety` / `github:safety:json`，用于检查公开仓本地治理基线并在可用时只读核验 GitHub 远端安全设置。
 - MVP 已补充 `release:readiness` / `release:readiness:json`，用于区分仓库内发布基线和 GitHub UI / npm 发布决策等人工确认项。
 - Provider dry-run 验收已补充；真实调用验收仍需用户本机通过 Bitwarden Secrets Manager 注入 provider key，或 GitHub Actions 通过 `BW_ACCESS_TOKEN` 临时读取 Bitwarden secret。
 - 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？

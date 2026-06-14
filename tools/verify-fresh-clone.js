@@ -19,6 +19,8 @@ const commands = [
   ["npm", ["test"], clonePath],
   ["npm", ["run", "package:check"], clonePath],
   ["npm", ["run", "package:check:json"], clonePath],
+  ["npm", ["run", "github:safety"], clonePath],
+  ["npm", ["run", "github:safety:json"], clonePath],
   ["npm", ["run", "release:readiness"], clonePath],
   ["npm", ["run", "release:readiness:json"], clonePath],
   ["npm", ["run", "ai-link", "--", "config", "validate"], clonePath],

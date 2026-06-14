@@ -24,6 +24,8 @@
     "verify:fresh": "node tools/verify-fresh-clone.js",
     "package:check": "npm run build && node tools/check-package-contents.js",
     "package:check:json": "npm run build && node tools/check-package-contents.js --json",
+    "github:safety": "node tools/check-github-repo-safety.js",
+    "github:safety:json": "node tools/check-github-repo-safety.js --json",
     "release:readiness": "node tools/check-release-readiness.js",
     "release:readiness:json": "node tools/check-release-readiness.js --json",
     "onboard": "npm run ai-link -- onboard",

@@ -45,6 +45,11 @@ jobs:
       - name: Package contents
         run: npm run package:check
 
+      - name: GitHub repository safety baseline
+        run: npm run github:safety
+        env:
+          AI_LINK_GITHUB_SAFETY_DISABLE_REMOTE: "1"
+
       - name: Release readiness
         run: npm run release:readiness
 
