@@ -11,6 +11,11 @@ export type ApiStyle = "chat-completions" | "responses";
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 export type PolicyDataClass = "public" | "internal" | "restricted";
 
+export interface ProviderPricingConfig {
+  inputUsdPer1M?: number;
+  outputUsdPer1M?: number;
+}
+
 export interface ChatMessage {
   role: MessageRole;
   content: string;
@@ -28,6 +33,7 @@ export interface ProviderConfig {
   timeoutMs?: number;
   headers?: Record<string, string>;
   requestDefaults?: Record<string, unknown>;
+  pricing?: ProviderPricingConfig;
   command?: string;
   args?: string[];
 }
@@ -61,11 +67,21 @@ export interface WorkflowConfig {
   stages?: WorkflowStageConfig[];
 }
 
+export interface PolicyBudgetConfig {
+  maxInputChars?: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  maxEstimatedCostUsd?: number;
+}
+
 export interface PolicyConfig {
   blockSensitive?: boolean;
   allowOutbound?: "never" | "user-approved" | "always";
   allowedProviderTypes?: ProviderType[];
   blockedProviderTypes?: ProviderType[];
+  allowedModels?: string[];
+  blockedModels?: string[];
+  budget?: PolicyBudgetConfig;
   auditTags?: string[];
   dataClass?: PolicyDataClass;
   blockPatterns?: string[];

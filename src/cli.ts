@@ -808,6 +808,7 @@ function writeRunRecord(args: ParsedArgs, recordInput: RunRecordInput): void {
       inputStored: false,
       outputPath: stringFlag(args, "output") ?? stringFlag(args, "output-file")
     },
+    audit: buildRunRecordAudit(recordInput.result),
     result: recordInput.result
   };
 
@@ -838,6 +839,57 @@ function updateRunRecordIndex(entry: RunRecordIndexEntry): void {
     records
   };
   writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
+}
+
+function buildRunRecordAudit(result: RunResult | WorkflowRunResult): Record<string, unknown> {
+  if ("stages" in result) {
+    return {
+      kind: "workflow",
+      workflow: result.workflow,
+      dryRun: result.dryRun,
+      stages: result.stages.map((stage) => ({
+        name: stage.name,
+        task: stage.task,
+        source: stage.source ?? "current",
+        approval: summarizeApproval(stage.approval),
+        result: buildRunResultAudit(stage.result)
+      }))
+    };
+  }
+
+  return buildRunResultAudit(result);
+}
+
+function buildRunResultAudit(result: RunResult): Record<string, unknown> {
+  return {
+    kind: "run",
+    task: result.task,
+    provider: result.provider,
+    providerType: result.metadata.providerType,
+    model: result.model,
+    dryRun: result.dryRun,
+    policy: result.metadata.policy,
+    allowOutbound: result.metadata.allowOutbound,
+    policyDataClass: result.metadata.policyDataClass,
+    policyAuditTags: result.metadata.policyAuditTags,
+    policyBudget: result.metadata.policyBudget,
+    usageEstimate: result.metadata.usageEstimate,
+    approval: summarizeApproval(result.approval)
+  };
+}
+
+function summarizeApproval(value: unknown): Record<string, unknown> | undefined {
+  if (!isWorkflowStageApprovalResult(value)) {
+    return undefined;
+  }
+
+  return {
+    required: value.required,
+    approved: value.approved,
+    enforced: value.enforced,
+    mode: value.mode,
+    reason: value.reason
+  };
 }
 
 function getRunRecordsDir(): string {

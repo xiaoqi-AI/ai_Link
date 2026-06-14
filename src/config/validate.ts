@@ -201,6 +201,9 @@ function validateProvider(name: string, provider: ProviderConfig, issues: Valida
       message: "Provider has no default model; commands must pass --model."
     });
   }
+
+  validatePricingNumber(name, "inputUsdPer1M", provider.pricing?.inputUsdPer1M, issues);
+  validatePricingNumber(name, "outputUsdPer1M", provider.pricing?.outputUsdPer1M, issues);
 }
 
 function validateRoute(
@@ -260,6 +263,8 @@ function validatePolicy(name: string, policy: PolicyConfig, issues: ValidationIs
 
   validateProviderTypeList(name, "allowedProviderTypes", policy.allowedProviderTypes, issues);
   validateProviderTypeList(name, "blockedProviderTypes", policy.blockedProviderTypes, issues);
+  validateModelPatternList(name, "allowedModels", policy.allowedModels, issues);
+  validateModelPatternList(name, "blockedModels", policy.blockedModels, issues);
 
   const allowed = new Set(policy.allowedProviderTypes ?? []);
   for (const providerType of policy.blockedProviderTypes ?? []) {
@@ -271,6 +276,22 @@ function validatePolicy(name: string, policy: PolicyConfig, issues: ValidationIs
       });
     }
   }
+
+  const allowedModels = new Set(policy.allowedModels ?? []);
+  for (const model of policy.blockedModels ?? []) {
+    if (allowedModels.has(model)) {
+      issues.push({
+        severity: "error",
+        path: `policies.${name}.blockedModels`,
+        message: `Model pattern "${model}" cannot be both allowed and blocked.`
+      });
+    }
+  }
+
+  validateBudgetNumber(name, "maxInputChars", policy.budget?.maxInputChars, issues);
+  validateBudgetNumber(name, "maxInputTokens", policy.budget?.maxInputTokens, issues);
+  validateBudgetNumber(name, "maxOutputTokens", policy.budget?.maxOutputTokens, issues);
+  validateBudgetNumber(name, "maxEstimatedCostUsd", policy.budget?.maxEstimatedCostUsd, issues);
 
   if (policy.dataClass && !POLICY_DATA_CLASSES.has(policy.dataClass)) {
     issues.push({
@@ -313,5 +334,60 @@ function validateProviderTypeList(
         message: `Provider type "${providerType}" is not supported.`
       });
     }
+  }
+}
+
+function validateModelPatternList(
+  policyName: string,
+  field: "allowedModels" | "blockedModels",
+  values: string[] | undefined,
+  issues: ValidationIssue[]
+): void {
+  for (const [index, model] of (values ?? []).entries()) {
+    if (typeof model !== "string" || model.trim() !== model || model.length === 0 || /\s/.test(model)) {
+      issues.push({
+        severity: "error",
+        path: `policies.${policyName}.${field}.${index}`,
+        message: "Model patterns must be non-empty strings without whitespace."
+      });
+    }
+  }
+}
+
+function validateBudgetNumber(
+  policyName: string,
+  field: "maxInputChars" | "maxInputTokens" | "maxOutputTokens" | "maxEstimatedCostUsd",
+  value: number | undefined,
+  issues: ValidationIssue[]
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  if (!Number.isFinite(value) || value <= 0) {
+    issues.push({
+      severity: "error",
+      path: `policies.${policyName}.budget.${field}`,
+      message: "Budget limits must be positive numbers."
+    });
+  }
+}
+
+function validatePricingNumber(
+  providerName: string,
+  field: "inputUsdPer1M" | "outputUsdPer1M",
+  value: number | undefined,
+  issues: ValidationIssue[]
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  if (!Number.isFinite(value) || value < 0) {
+    issues.push({
+      severity: "error",
+      path: `providers.${providerName}.pricing.${field}`,
+      message: "Provider pricing values must be zero or positive numbers."
+    });
   }
 }

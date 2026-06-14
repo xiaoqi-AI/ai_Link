@@ -17,6 +17,8 @@ test("draftRoutesFromNaturalLanguage keeps provider stages separated by clauses"
   assert.equal(draft.routes?.["auto_ops.agent_flow"]?.policy, "external_action");
   assert.equal(draft.policies?.external_action?.approval?.mode, "live");
   assert.deepEqual(draft.policies?.external_action?.allowedProviderTypes, ["coze", "mock"]);
+  assert.deepEqual(draft.policies?.external_action?.allowedModels, ["coze-agent-*", "mock-*"]);
+  assert.equal(draft.policies?.external_action?.budget?.maxInputTokens, 20000);
   assert.deepEqual(draft.policies?.external_action?.auditTags, ["external-action", "human-approval"]);
   assert.equal(draft.routes?.["auto_ops.general"], undefined);
 });

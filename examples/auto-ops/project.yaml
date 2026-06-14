@@ -53,6 +53,9 @@ policies:
   default:
     blockSensitive: true
     allowOutbound: user-approved
+    budget:
+      maxInputTokens: 12000
+      maxOutputTokens: 3000
     auditTags:
       - default-outbound
     dataClass: public
@@ -62,6 +65,11 @@ policies:
     allowedProviderTypes:
       - coze
       - mock
+    allowedModels:
+      - coze-agent-*
+      - mock-*
+    budget:
+      maxInputTokens: 20000
     auditTags:
       - external-action
       - human-approval

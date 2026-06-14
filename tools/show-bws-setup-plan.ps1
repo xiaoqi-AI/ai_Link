@@ -24,6 +24,7 @@ $plan = [ordered]@{
       "BWS_ACCESS_TOKEN=<ma-ai-link-local-codex-token>"
     )
     checks = @(
+      "npm run bws:onboard",
       "npm run bws:check",
       "npm run bws:check:strict",
       "npm run bws:github-vars",

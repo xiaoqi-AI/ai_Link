@@ -199,6 +199,10 @@ test("workflow run records local run history without storing original input", ()
     assert.equal(record.request.inputLength, input.length);
     assert.equal(record.request.inputStored, false);
     assert.equal("input" in record.request, false);
+    assert.equal(record.audit.kind, "workflow");
+    assert.equal(record.audit.stages.length, 3);
+    assert.equal(record.audit.stages[0].result.policy, "default");
+    assert.deepEqual(record.audit.stages[0].result.policyAuditTags, ["default-outbound"]);
     assert.equal(record.result.stages.length, 3);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -232,6 +236,10 @@ test("runs list and show read local run records", () => {
     assert.equal(record.kind, "run");
     assert.equal(record.request.task, "auto_ops.research");
     assert.equal(record.request.inputStored, false);
+    assert.equal(record.audit.kind, "run");
+    assert.equal(record.audit.policy, "default");
+    assert.equal(record.audit.providerType, "grok");
+    assert.equal(record.audit.usageEstimate.inputTokens > 0, true);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }

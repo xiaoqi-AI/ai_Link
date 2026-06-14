@@ -233,3 +233,114 @@ test("runAiLink exposes policy audit metadata", async () => {
   assert.equal(result.metadata.allowOutbound, "never");
   assert.equal(result.metadata.providerType, "mock");
 });
+
+test("runAiLink enforces policy model patterns and can fall back", async () => {
+  const config = {
+    providers: {
+      grok: {
+        type: "grok" as const,
+        baseUrl: "https://api.x.ai/v1",
+        model: "grok-expensive",
+        apiKey: "test-key"
+      },
+      mock: {
+        type: "mock" as const,
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.research": {
+        provider: "grok",
+        fallback: ["mock"],
+        policy: "controlled"
+      }
+    },
+    policies: {
+      controlled: {
+        allowedModels: ["grok-approved", "mock-*"]
+      }
+    }
+  };
+
+  const result = await runAiLink(config, {
+    task: "demo.research",
+    input: "preview",
+    dryRun: true
+  });
+
+  assert.equal(result.provider, "mock");
+  assert.equal(result.attempts[0].ok, false);
+  assert.match(result.attempts[0].error ?? "", /Model "grok-expensive" is blocked/);
+
+  await assert.rejects(
+    () => runAiLink(config, {
+      task: "demo.research",
+      provider: "grok",
+      input: "preview",
+      dryRun: true
+    }),
+    /Model "grok-expensive" is blocked/
+  );
+});
+
+test("runAiLink enforces policy budget and exposes usage estimates", async () => {
+  const config = {
+    providers: {
+      external: {
+        type: "openai-compatible" as const,
+        baseUrl: "https://api.example.com/v1",
+        model: "approved-model",
+        apiKey: "test-key",
+        requestDefaults: {
+          max_tokens: 1000
+        },
+        pricing: {
+          inputUsdPer1M: 10,
+          outputUsdPer1M: 20
+        }
+      },
+      mock: {
+        type: "mock" as const,
+        model: "mock-echo"
+      }
+    },
+    routes: {
+      "demo.costly": {
+        provider: "external",
+        fallback: ["mock"],
+        policy: "budgeted"
+      }
+    },
+    policies: {
+      budgeted: {
+        allowedModels: ["approved-model", "mock-*"],
+        budget: {
+          maxInputTokens: 1000,
+          maxOutputTokens: 1500,
+          maxEstimatedCostUsd: 0.01
+        }
+      }
+    }
+  };
+
+  const result = await runAiLink(config, {
+    task: "demo.costly",
+    input: "this input is long enough to exceed the tiny budget",
+    dryRun: true
+  });
+
+  assert.equal(result.provider, "mock");
+  assert.match(result.attempts[0].error ?? "", /exceeds policy budget/);
+  assert.equal(result.metadata.policyBudget && typeof result.metadata.policyBudget === "object", true);
+  assert.equal(result.metadata.usageEstimate && typeof result.metadata.usageEstimate === "object", true);
+
+  await assert.rejects(
+    () => runAiLink(config, {
+      task: "demo.costly",
+      provider: "external",
+      input: "this input is long enough to exceed the tiny budget",
+      dryRun: true
+    }),
+    /exceeds policy budget/
+  );
+});

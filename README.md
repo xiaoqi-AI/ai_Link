@@ -1,6 +1,6 @@
 # AI Link 工作空间
 
-`ai_Link` 是一个公开 GitHub 项目，目标是让 Codex 能按任务链接合适的模型、Agent 和工作流。当前第一版 MVP 已建立 TypeScript / Node.js CLI 骨架、配置分层、provider adapter、路由、策略和 auto-ops 示例。
+`ai_Link` 是一个公开 GitHub 项目，目标是让 Codex 能按任务链接合适的模型、Agent 和工作流。当前第一版 MVP 已建立 TypeScript / Node.js CLI 骨架、配置分层、provider adapter、路由、策略和 auto-ops 示例；策略层已支持出站审批、provider type 门禁、模型名模式门禁、预算估算和审计元数据。
 
 ## 当前状态
 
@@ -43,6 +43,7 @@ npm run check
 npm test
 npm run ai-link -- config validate
 npm run bws:plan
+npm run bws:onboard
 npm run bws:check
 npm run bws:session:help
 npm run bws:worksheet
@@ -82,6 +83,7 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 $env:AI_LINK_BWS_PROJECT_ID="<ai-link-local-dev-project-id>"
 $env:AI_LINK_BWS_CI_PROJECT_ID="<ai-link-ci-project-id>"
 npm run bws:plan
+npm run bws:onboard
 npm run bws:worksheet
 npm run bws:github-vars
 npm run bws:acceptance
@@ -91,7 +93,7 @@ npm run bws:acceptance:strict
 npm run bws:doctor
 ```
 
-`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/bws-setup-worksheet.md`；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单，不输出 secret value；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告，配置完成后用 `bws:acceptance:strict` 做正式验收；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`。
+`bws:onboard` 会生成不含真实密钥的一页入场引导到 `runtime/tmp/bws-onboarding.md`，汇总当前状态、目标结构和下一步动作；`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/bws-setup-worksheet.md`；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单，不输出 secret value；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告，配置完成后用 `bws:acceptance:strict` 做正式验收；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`。
 
 ## 统一授权中枢 MVP
 
@@ -148,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link workflow run` 多阶段工作流串联，默认示例支持 Grok 调研后交给 Kimi 写草稿。
 - `ai-link run` / `ai-link workflow run` 支持 `--json` 和 `--output runtime/tmp/*.json`，方便 Codex skill 稳定读取结构化结果。
 - `ai-link run` / `ai-link workflow run` 支持 `--record`，把本地运行记录写入 `runtime/tmp/ai-link-runs/`；`ai-link runs list/show` 可查看本地运行索引和单次记录，`workflow run --resume-from` 可从本地 workflow 记录续跑。
-- route policy 会执行 `allowOutbound` 出站规则和 provider type 限制；默认真实外部 provider 调用需要 `--approve-policy`、`--approve-stage <stage>` 或 `--approve-all`，`agent_flow` 还会标记为 `external_action` 并保留审计 metadata。
+- route policy 会执行 `allowOutbound` 出站规则、provider type 限制、model pattern gate 和预算 gate；默认真实外部 provider 调用需要 `--approve-policy`、`--approve-stage <stage>` 或 `--approve-all`，`agent_flow` 还会标记为 `external_action` 并在结果/运行记录中保留审计 metadata。
 - 敏感信息出站拦截策略。
 - Codex skill 自然语言生成候选 route + workflow 配置。
 - `examples/auto-ops/` 和 `examples/codex-skills/auto-ops-ai-link/` 轻量示例。

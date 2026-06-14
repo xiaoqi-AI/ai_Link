@@ -53,6 +53,28 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
       continue;
     }
 
+    const preflightError = validatePolicyPreflight({
+      task: request.task,
+      policyName,
+      policy,
+      providerName,
+      provider,
+      model,
+      outboundText
+    });
+    if (preflightError) {
+      attempts.push({ provider: providerName, model, ok: false, error: preflightError.message });
+      if (request.provider) {
+        throw preflightError;
+      }
+      continue;
+    }
+
+    const usageEstimate = estimateUsage({
+      provider,
+      outboundText
+    });
+
     const approval = resolvePolicyApproval({
       task: request.task,
       policyName,
@@ -83,8 +105,10 @@ export async function runAiLink(config: AiLinkConfig, request: RunRequest): Prom
           policy: policyName,
           policyDataClass: policy.dataClass,
           policyAuditTags: policy.auditTags ?? [],
+          policyBudget: policy.budget,
           allowOutbound: policy.allowOutbound ?? "always",
-          providerType: provider.type
+          providerType: provider.type,
+          usageEstimate
         }
       };
     } catch (error) {
@@ -196,6 +220,247 @@ function resolvePolicyApproval(input: {
 
 function isOutboundProvider(provider: ProviderConfig): boolean {
   return provider.type !== "mock";
+}
+
+function validatePolicyPreflight(input: {
+  task: string;
+  policyName: string;
+  policy: PolicyConfig;
+  providerName: string;
+  provider: ProviderConfig;
+  model: string;
+  outboundText: string;
+}): AiLinkError | undefined {
+  const modelError = validateModelPolicy(input);
+  if (modelError) {
+    return modelError;
+  }
+
+  return validateBudgetPolicy(input);
+}
+
+function validateModelPolicy(input: {
+  task: string;
+  policyName: string;
+  policy: PolicyConfig;
+  providerName: string;
+  provider: ProviderConfig;
+  model: string;
+}): AiLinkError | undefined {
+  const allowed = input.policy.allowedModels ?? [];
+  if (allowed.length > 0 && !matchesAnyModelPattern(input.model, allowed)) {
+    return new AiLinkError(
+      `Model "${input.model}" is blocked by policy "${input.policyName}" for task "${input.task}".`,
+      "POLICY_MODEL_BLOCKED",
+      {
+        task: input.task,
+        policy: input.policyName,
+        provider: input.providerName,
+        providerType: input.provider.type,
+        model: input.model,
+        allowedModels: allowed
+      }
+    );
+  }
+
+  const blocked = input.policy.blockedModels ?? [];
+  if (matchesAnyModelPattern(input.model, blocked)) {
+    return new AiLinkError(
+      `Model "${input.model}" is blocked by policy "${input.policyName}" for task "${input.task}".`,
+      "POLICY_MODEL_BLOCKED",
+      {
+        task: input.task,
+        policy: input.policyName,
+        provider: input.providerName,
+        providerType: input.provider.type,
+        model: input.model,
+        blockedModels: blocked
+      }
+    );
+  }
+
+  return undefined;
+}
+
+function validateBudgetPolicy(input: {
+  task: string;
+  policyName: string;
+  policy: PolicyConfig;
+  providerName: string;
+  provider: ProviderConfig;
+  model: string;
+  outboundText: string;
+}): AiLinkError | undefined {
+  const budget = input.policy.budget;
+  if (!budget) {
+    return undefined;
+  }
+
+  const usage = estimateUsage({
+    provider: input.provider,
+    outboundText: input.outboundText
+  });
+
+  if (budget.maxInputChars !== undefined && usage.inputChars > budget.maxInputChars) {
+    return newBudgetError(input, "maxInputChars", usage, budget.maxInputChars);
+  }
+
+  if (budget.maxInputTokens !== undefined && usage.inputTokens > budget.maxInputTokens) {
+    return newBudgetError(input, "maxInputTokens", usage, budget.maxInputTokens);
+  }
+
+  if (
+    budget.maxOutputTokens !== undefined
+    && usage.outputTokens !== undefined
+    && usage.outputTokens > budget.maxOutputTokens
+  ) {
+    return newBudgetError(input, "maxOutputTokens", usage, budget.maxOutputTokens);
+  }
+
+  if (budget.maxEstimatedCostUsd !== undefined) {
+    if (usage.estimatedCostUsd === undefined) {
+      return new AiLinkError(
+        `Task "${input.task}" cannot estimate model cost under policy "${input.policyName}".`,
+        "POLICY_BUDGET_UNESTIMATED",
+        {
+          task: input.task,
+          policy: input.policyName,
+          provider: input.providerName,
+          providerType: input.provider.type,
+          model: input.model,
+          required: "provider.pricing plus an output token limit in provider.requestDefaults"
+        }
+      );
+    }
+
+    if (usage.estimatedCostUsd > budget.maxEstimatedCostUsd) {
+      return newBudgetError(input, "maxEstimatedCostUsd", usage, budget.maxEstimatedCostUsd);
+    }
+  }
+
+  return undefined;
+}
+
+function newBudgetError(
+  input: {
+    task: string;
+    policyName: string;
+    providerName: string;
+    provider: ProviderConfig;
+    model: string;
+  },
+  limitName: string,
+  usage: ReturnType<typeof estimateUsage>,
+  limit: number
+): AiLinkError {
+  return new AiLinkError(
+    `Task "${input.task}" exceeds policy budget "${input.policyName}" (${limitName}).`,
+    "POLICY_BUDGET_EXCEEDED",
+    {
+      task: input.task,
+      policy: input.policyName,
+      provider: input.providerName,
+      providerType: input.provider.type,
+      model: input.model,
+      limitName,
+      limit,
+      usage
+    }
+  );
+}
+
+function estimateUsage(input: {
+  provider: ProviderConfig;
+  outboundText: string;
+}): {
+  inputChars: number;
+  inputTokens: number;
+  outputTokens?: number;
+  estimatedCostUsd?: number;
+} {
+  const inputChars = input.outboundText.length;
+  const inputTokens = estimateTokens(input.outboundText);
+  const outputTokens = resolveOutputTokenLimit(input.provider);
+  const estimatedCostUsd = estimateCostUsd({
+    provider: input.provider,
+    inputTokens,
+    outputTokens
+  });
+
+  return {
+    inputChars,
+    inputTokens,
+    outputTokens,
+    estimatedCostUsd
+  };
+}
+
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function estimateCostUsd(input: {
+  provider: ProviderConfig;
+  inputTokens: number;
+  outputTokens?: number;
+}): number | undefined {
+  if (input.provider.type === "mock") {
+    return 0;
+  }
+
+  const pricing = input.provider.pricing;
+  if (!pricing || pricing.inputUsdPer1M === undefined) {
+    return undefined;
+  }
+
+  const inputCost = input.inputTokens * pricing.inputUsdPer1M / 1_000_000;
+  const outputCost = input.outputTokens !== undefined && pricing.outputUsdPer1M !== undefined
+    ? input.outputTokens * pricing.outputUsdPer1M / 1_000_000
+    : 0;
+
+  if (input.outputTokens === undefined && pricing.outputUsdPer1M !== undefined) {
+    return undefined;
+  }
+
+  return roundCost(inputCost + outputCost);
+}
+
+function roundCost(value: number): number {
+  return Number(value.toFixed(8));
+}
+
+function resolveOutputTokenLimit(provider: ProviderConfig): number | undefined {
+  const defaults = provider.requestDefaults ?? {};
+  for (const key of ["max_tokens", "max_completion_tokens", "max_output_tokens", "maxOutputTokens"]) {
+    const value = defaults[key];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return Math.ceil(value);
+    }
+  }
+  return undefined;
+}
+
+function matchesAnyModelPattern(model: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => matchesModelPattern(model, pattern));
+}
+
+function matchesModelPattern(model: string, pattern: string): boolean {
+  if (pattern === "*") {
+    return true;
+  }
+  if (!pattern.includes("*")) {
+    return model === pattern;
+  }
+
+  const escaped = pattern
+    .split("*")
+    .map(escapeRegExp)
+    .join(".*");
+  return new RegExp(`^${escaped}$`).test(model);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function validateProviderTypePolicy(input: {

@@ -17,6 +17,9 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       baseUrl: "https://api.example.com/v1",
       apiKeyEnv: "OPENAI_COMPATIBLE_API_KEY",
       model: "replace-with-provider-model",
+      requestDefaults: {
+        max_tokens: 1600
+      },
       capabilities: ["text", "structured_output"]
     },
     deepseek: {
@@ -24,6 +27,9 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       baseUrl: "https://api.deepseek.com",
       apiKeyEnv: "DEEPSEEK_API_KEY",
       model: "deepseek-v4-pro",
+      requestDefaults: {
+        max_tokens: 1600
+      },
       capabilities: ["text", "code_reasoning", "structured_output"]
     },
     kimi: {
@@ -31,6 +37,9 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       baseUrl: "https://api.moonshot.ai/v1",
       apiKeyEnv: "MOONSHOT_API_KEY",
       model: "kimi-k2.6",
+      requestDefaults: {
+        max_tokens: 2000
+      },
       capabilities: ["text", "long_context", "structured_output"]
     },
     grok: {
@@ -38,6 +47,9 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       baseUrl: "https://api.x.ai/v1",
       apiKeyEnv: "XAI_API_KEY",
       model: "grok-4.3",
+      requestDefaults: {
+        max_tokens: 1600
+      },
       capabilities: ["text", "web_research", "image_understanding"]
     },
     coze: {
@@ -94,6 +106,10 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
     default: {
       blockSensitive: true,
       allowOutbound: "user-approved",
+      budget: {
+        maxInputTokens: 12000,
+        maxOutputTokens: 3000
+      },
       auditTags: ["default-outbound"],
       dataClass: "public"
     },
@@ -101,6 +117,10 @@ export const DEFAULT_CONFIG: AiLinkConfig = {
       blockSensitive: true,
       allowOutbound: "user-approved",
       allowedProviderTypes: ["coze", "mock"],
+      allowedModels: ["coze-agent-*", "mock-*"],
+      budget: {
+        maxInputTokens: 20000
+      },
       auditTags: ["external-action", "human-approval"],
       dataClass: "public",
       approval: {

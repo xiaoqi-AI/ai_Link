@@ -128,10 +128,26 @@ test("validateConfig catches invalid policy approval modes", () => {
 
 test("validateConfig catches invalid policy provider gates and metadata", () => {
   const issues = validateConfig({
+    providers: {
+      pricey: {
+        type: "openai-compatible",
+        baseUrl: "https://api.example.com/v1",
+        model: "example",
+        pricing: {
+          inputUsdPer1M: -1
+        }
+      }
+    },
     policies: {
       external_action: {
         allowedProviderTypes: ["coze", "unknown"],
         blockedProviderTypes: ["coze"],
+        allowedModels: ["ok-*", "bad model"],
+        blockedModels: ["ok-*"],
+        budget: {
+          maxInputTokens: 0,
+          maxEstimatedCostUsd: -0.01
+        },
         auditTags: ["ok-tag", "bad tag"],
         dataClass: "secret"
       }
@@ -140,6 +156,11 @@ test("validateConfig catches invalid policy provider gates and metadata", () => 
 
   assert.ok(issues.some((issue) => issue.path === "policies.external_action.allowedProviderTypes.1"));
   assert.ok(issues.some((issue) => issue.path === "policies.external_action.blockedProviderTypes"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.allowedModels.1"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.blockedModels"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.budget.maxInputTokens"));
+  assert.ok(issues.some((issue) => issue.path === "policies.external_action.budget.maxEstimatedCostUsd"));
   assert.ok(issues.some((issue) => issue.path === "policies.external_action.auditTags.1"));
   assert.ok(issues.some((issue) => issue.path === "policies.external_action.dataClass"));
+  assert.ok(issues.some((issue) => issue.path === "providers.pricey.pricing.inputUsdPer1M"));
 });

@@ -77,6 +77,11 @@ policies:
     allowedProviderTypes:
       - coze
       - mock
+    allowedModels:
+      - coze-agent-*
+      - mock-*
+    budget:
+      maxInputTokens: 20000
     auditTags:
       - external-action
       - human-approval
@@ -92,6 +97,8 @@ policies:
 - `live`：dry-run 只提示审批状态；直接 `run` 真实调用必须加 `--approve-policy`，workflow 真实调用必须加 `--approve-stage <stage>` 或 `--approve-all`。
 - `always`：dry-run 和真实运行都必须显式批准，适合发布、写入外部系统等动作。
 
+`allowedModels` / `blockedModels` 支持精确模型名或 `*` pattern，例如 `grok-*`、`kimi-*`、`coze-agent-*`。`budget` 是真实调用前的预估 gate，可限制 `maxInputChars`、`maxInputTokens`、`maxOutputTokens` 和 `maxEstimatedCostUsd`；成本估算需要 provider 配置 `pricing`，并通过 `requestDefaults.max_tokens` 等字段给出输出 token 上限。`--record` 会在本地运行记录中写入顶层 `audit` 摘要，方便后续授权中枢或报表读取 policy、provider、model、审批、数据分类、审计标签和 usage estimate。
+
 `allowOutbound` 会在真实执行时控制外部 provider 出站：
 
 - `never`：禁止调用非 mock provider，即使加了审批参数也会阻断。
@@ -102,8 +109,13 @@ policy 也可以继续收紧 provider 类型和审计元数据：
 
 - `allowedProviderTypes`：只允许列出的 provider type；不匹配时会尝试 fallback，显式指定被阻断 provider 时会直接报错。
 - `blockedProviderTypes`：禁止列出的 provider type；不能和 `allowedProviderTypes` 同时包含同一个 type。
+- `allowedModels`：只允许匹配的模型名或通配模式，例如 `coze-agent-*`；不匹配时会尝试 fallback。
+- `blockedModels`：禁止匹配的模型名或通配模式；不能和 `allowedModels` 使用完全相同的模式。
+- `budget`：给 policy 增加预算边界，当前支持 `maxInputChars`、`maxInputTokens`、`maxOutputTokens` 和 `maxEstimatedCostUsd`。估算只用于执行前拦截和审计，不等同于供应商最终计费。
 - `auditTags`：稳定审计标签，只允许字母、数字、点、下划线和短横线；会进入运行结果 metadata，方便后续接授权中枢或日志。
 - `dataClass`：数据分类，当前支持 `public`、`internal`、`restricted`；会进入运行结果 metadata，用于后续风控和报表。
+
+provider 可选配置 `pricing.inputUsdPer1M` 和 `pricing.outputUsdPer1M`，用于配合 policy `budget.maxEstimatedCostUsd` 做执行前成本估算。输出 token 上限来自 provider `requestDefaults.max_tokens`、`max_completion_tokens`、`max_output_tokens` 或 `maxOutputTokens`。
 
 运行示例：
 
@@ -194,7 +206,8 @@ npm run ai-link -- config validate
 - route 的主 provider 和 fallback provider 是否已配置。
 - workflow stage 指向的 route 和 provider 是否已配置。
 - workflow stage 和 policy 的 `approval.mode` 是否为 `always` 或 `live`。
-- policy 的 `allowedProviderTypes`、`blockedProviderTypes`、`auditTags` 和 `dataClass` 是否有效。
+- policy 的 `allowedProviderTypes`、`blockedProviderTypes`、`allowedModels`、`blockedModels`、`budget`、`auditTags` 和 `dataClass` 是否有效。
+- provider 的 `pricing` 是否为非负数字。
 - provider type 是否受支持。
 - 模型 provider 是否配置了 `baseUrl` 或 `endpoint`。
 - 自定义策略正则是否有效。

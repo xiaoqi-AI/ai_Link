@@ -171,6 +171,10 @@ function buildDraftPolicies(routes: Record<string, RouteConfig>): AiLinkConfig["
       blockSensitive: true,
       allowOutbound: "user-approved",
       allowedProviderTypes: ["coze", "mock"],
+      allowedModels: ["coze-agent-*", "mock-*"],
+      budget: {
+        maxInputTokens: 20000
+      },
       auditTags: ["external-action", "human-approval"],
       dataClass: "public",
       approval: {
