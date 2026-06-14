@@ -18,10 +18,12 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node tools/build-runtime.js",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test \"dist/**/*.test.js\" && npm run auth-hub:test",
+    "test": "npm run build && node --import tsx --test \"src/**/*.test.ts\" && npm run auth-hub:test",
     "verify:fresh": "node tools/verify-fresh-clone.js",
+    "package:check": "npm run build && node tools/check-package-contents.js",
+    "package:check:json": "npm run build && node tools/check-package-contents.js --json",
     "release:readiness": "node tools/check-release-readiness.js",
     "release:readiness:json": "node tools/check-release-readiness.js --json",
     "onboard": "npm run ai-link -- onboard",

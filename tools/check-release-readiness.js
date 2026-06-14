@@ -81,6 +81,7 @@ for (const file of [
   "CONTRIBUTING.md",
   "SECURITY.md",
   "AGENTS.md",
+  "tools/check-package-contents.js",
   "docs/user-guide.md",
   "docs/20-architecture/configuration.md",
   "docs/20-architecture/provider-adapters.md",
@@ -116,6 +117,8 @@ for (const scriptName of [
   "skills:check",
   "security:scan",
   "verify:fresh",
+  "package:check",
+  "package:check:json",
   "release:readiness",
   "release:readiness:json"
 ]) {
@@ -129,6 +132,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run ai-link -- config validate",
   "npm run providers:dry",
   "npm run security:scan",
+  "npm run package:check",
   "npm run release:readiness",
   "npm audit --omit=dev --audit-level=high"
 ]);

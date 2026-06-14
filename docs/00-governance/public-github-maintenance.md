@@ -13,6 +13,7 @@
 - `.github/ISSUE_TEMPLATE/` 是否能引导用户提交有效反馈。
 - `CONTRIBUTING.md` 是否能说明协作预期。
 - `SECURITY.md` 是否说明安全问题不要直接公开细节。
+- `npm run package:check` 是否通过，确认 npm dry-run 包内容不含测试产物、运行态、自动化目录或敏感本地文件。
 - `npm run release:readiness` 是否通过，且人工确认项是否有明确 owner 或后续动作。
 - 是否有敏感信息、账号信息、二维码、登录态、私密截图或个人数据误入 Git。
 - 本地 `main` 是否已推送并与 `origin/main` 对齐。
