@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.vite/
+coverage/
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.keystore
+*.jks
+auth-state.json
+login-state.json
+
+# Private runtime files
+runtime/private/
+runtime/downloads/
+runtime/tmp/
+
+# Logs and caches
+*.log
+.cache/
+tmp/
+temp/
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
