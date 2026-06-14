@@ -22,11 +22,46 @@ test("onboard --json renders a machine-readable public onboarding report", () =>
   const output = JSON.parse(result.stdout);
 
   assert.equal(result.status, 0);
+  assert.equal(output.summary.ok, true);
+  assert.equal(output.summary.strictOk, true);
+  assert.equal(output.summary.counts.fail, 0);
+  assert.equal(output.summary.counts.warn, 0);
   assert.equal(Array.isArray(output.snapshot.providers), true);
   assert.equal(output.snapshot.providers.includes("grok"), true);
   assert.equal(output.snapshot.workflows.includes("auto_ops"), true);
   assert.equal(output.commands.firstDryRunPath.includes("npm run providers:dry"), true);
   assert.match(output.safety.join(" "), /Does not read API keys/);
+});
+
+test("onboard --json --strict passes for the repository onboarding contract", () => {
+  const result = runCli(process.cwd(), ["onboard", "--json", "--strict"]);
+  const output = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 0);
+  assert.equal(output.summary.strictOk, true);
+});
+
+test("onboard --strict fails when required public entry checks warn", () => {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "ai-link-onboard-strict-"));
+  try {
+    writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({
+      name: "onboard-strict-test",
+      version: "0.0.0",
+      scripts: { "ai-link": "echo test" }
+    }), "utf8");
+    mkdirSync(path.join(tempRoot, ".ai-link"), { recursive: true });
+    writeFileSync(path.join(tempRoot, ".ai-link", "project.yaml"), "version: 1\nproviders:\n  mock:\n    type: mock\nroutes:\n  demo.task:\n    provider: mock\nworkflows:\n  demo: {}\n", "utf8");
+
+    const result = runCli(tempRoot, ["onboard", "--json", "--strict"]);
+    const output = JSON.parse(result.stdout);
+
+    assert.equal(result.status, 2);
+    assert.equal(output.summary.ok, true);
+    assert.equal(output.summary.strictOk, false);
+    assert.equal(output.summary.counts.warn > 0, true);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test("onboard writes markdown only inside runtime tmp", () => {

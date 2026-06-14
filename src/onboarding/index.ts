@@ -10,8 +10,15 @@ export interface OnboardingCheck {
   detail: string;
 }
 
+export interface OnboardingSummary {
+  ok: boolean;
+  strictOk: boolean;
+  counts: Record<OnboardingStatus, number>;
+}
+
 export interface OnboardingReport {
   generatedAt: string;
+  summary: OnboardingSummary;
   safety: string[];
   snapshot: {
     packageName?: string;
@@ -53,6 +60,7 @@ const REQUIRED_SCRIPTS = [
   "ai-link",
   "providers:dry",
   "workflow:dry",
+  "onboard:check",
   "skills:check",
   "security:scan",
   "verify:fresh"
@@ -107,8 +115,11 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
     );
   }
 
+  const summary = summarizeChecks(checks);
+
   return {
     generatedAt: options.generatedAt ?? new Date().toISOString(),
+    summary,
     safety: [
       "Does not read API keys, tokens, .env files, login state, or provider responses.",
       "Default file output is restricted to runtime/tmp.",
@@ -161,6 +172,12 @@ export function renderOnboardingMarkdown(report: OnboardingReport): string {
   lines.push("");
   lines.push(`This runbook is safe for a public clone. ${report.safety[0]}`);
   lines.push("");
+  lines.push("## Summary");
+  lines.push("");
+  lines.push(`- OK: ${report.summary.ok ? "yes" : "no"}`);
+  lines.push(`- Strict OK: ${report.summary.strictOk ? "yes" : "no"}`);
+  lines.push(`- Counts: pass ${report.summary.counts.pass}, ready ${report.summary.counts.ready}, info ${report.summary.counts.info}, warn ${report.summary.counts.warn}, fail ${report.summary.counts.fail}`);
+  lines.push("");
   lines.push("## Current Snapshot");
   lines.push("");
   lines.push("| Check | Status | Detail |");
@@ -204,6 +221,26 @@ export function renderOnboardingMarkdown(report: OnboardingReport): string {
 
 function addCheck(checks: OnboardingCheck[], check: string, status: OnboardingStatus, detail: string): void {
   checks.push({ check, status, detail });
+}
+
+function summarizeChecks(checks: OnboardingCheck[]): OnboardingSummary {
+  const counts: Record<OnboardingStatus, number> = {
+    pass: 0,
+    ready: 0,
+    info: 0,
+    warn: 0,
+    fail: 0
+  };
+
+  for (const check of checks) {
+    counts[check.status] += 1;
+  }
+
+  return {
+    ok: counts.fail === 0,
+    strictOk: counts.fail === 0 && counts.warn === 0,
+    counts
+  };
 }
 
 function pushCommandBlock(lines: string[], commands: string[]): void {

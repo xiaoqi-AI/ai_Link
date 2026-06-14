@@ -673,10 +673,14 @@ function onboardCommand(args: ParsedArgs): void {
   const outputPath = stringFlag(args, "output") ?? stringFlag(args, "output-file");
   const report = buildOnboardingReport({ cwd: process.cwd() });
   const json = booleanFlag(args, "json");
+  const strict = booleanFlag(args, "strict");
   const content = json ? JSON.stringify(report, null, 2) : renderOnboardingMarkdown(report);
 
   if (booleanFlag(args, "print") || json && !outputPath) {
     console.log(content);
+    if (strict && !report.summary.strictOk) {
+      process.exitCode = 2;
+    }
     return;
   }
 
@@ -693,6 +697,9 @@ function onboardCommand(args: ParsedArgs): void {
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(targetPath, content, "utf8");
   console.log(`AI Link onboarding ${json ? "JSON " : ""}written to ${target}.`);
+  if (strict && !report.summary.strictOk) {
+    process.exitCode = 2;
+  }
 }
 
 function liveSkipReason(provider: ProviderConfig): string {
@@ -1344,7 +1351,7 @@ Usage:
   ai-link runs submit-audit <id|latest> --task-id <auth-hub-task-id> [--base-url url]
   ai-link providers list
   ai-link providers verify [--live] [--strict] [--provider name]
-  ai-link onboard [--print] [--json] [--output runtime/tmp/ai-link-onboarding.md]
+  ai-link onboard [--print] [--json] [--strict] [--output runtime/tmp/ai-link-onboarding.md]
   ai-link config explain
   ai-link config validate
   ai-link skill draft --description "research with grok, write with kimi" [--write .ai-link/local.yaml --diff --json --yes]

@@ -44,6 +44,7 @@ npm run check
 npm test
 npm run onboard:print
 npm run onboard:json
+npm run onboard:check
 npm run skills:check
 npm run ai-link -- config validate
 npm run bws:plan
@@ -71,6 +72,7 @@ powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
 npm install
 npm run onboard:print
 npm run onboard:json
+npm run onboard:check
 npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
@@ -110,7 +112,7 @@ npm run bws:doctor
 npm run providers:github:dispatch-plan
 ```
 
-`onboard:print` 会输出一页不含密钥的公开用户入场引导：当前项目配置、可用 provider / route / workflow、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。
+`onboard:print` 会输出一页不含密钥的公开用户入场引导：当前项目配置、可用 provider / route / workflow、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要 CI/其他 agent 用退出码判定时，用 `npm run onboard:check` 或 `npm run ai-link -- onboard --json --strict`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。
 
 `bws:onboard` 会生成不含真实密钥的一页入场引导到 `runtime/tmp/bws-onboarding.md`，汇总当前状态、目标结构和下一步动作；`bws:profile` 会生成只包含非敏感 Bitwarden project ID 的本地 PowerShell 片段到 `runtime/tmp/bws-local-profile.ps1`，不保存 `BWS_ACCESS_TOKEN`；`bws:activate` 会分两段隐藏输入本地 Codex machine account token 和 GitHub Actions machine account token，分别验收 `ai-link-local-dev` 与 `ai-link-ci`，不落盘 token；`bws:worksheet` 会生成不含真实密钥的本地实配工作单到 `runtime/tmp/bws-setup-worksheet.md`；`bws:rotation` 会生成不含真实 token 的 90 天轮换计划和验收证据清单；`bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID 并生成 GitHub Environment variable 填写清单，不输出 secret value；`bws:github-vars:apply-plan` 会预览自动写入 GitHub Environment Variables 的计划，真正写入时用 `bws:github-vars:apply`，但 `BW_ACCESS_TOKEN` 仍需作为 GitHub Environment Secret 单独安全设置；`bws:acceptance` 会生成不含真实密钥的 BWS 验收报告，配置完成后用 `bws:acceptance:strict` 做正式验收；`bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，并且只在当前子命令里临时使用；`bws:doctor` 会通过 `bws run` 注入 Bitwarden Secrets Manager 里的 provider key 后再执行 `doctor`。
 

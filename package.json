@@ -25,6 +25,7 @@
     "onboard": "npm run ai-link -- onboard",
     "onboard:print": "npm run ai-link -- onboard --print",
     "onboard:json": "npm run ai-link -- onboard --json",
+    "onboard:check": "npm run ai-link -- onboard --json --strict",
     "skills:check": "node tools/check-codex-skills.js",
     "bws:plan": "powershell -ExecutionPolicy Bypass -File tools/show-bws-setup-plan.ps1",
     "bws:onboard": "powershell -ExecutionPolicy Bypass -File tools/start-bws-onboarding.ps1 -Force",

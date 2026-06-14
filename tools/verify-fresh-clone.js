@@ -13,6 +13,7 @@ const commands = [
   ["npm", ["ci"], clonePath],
   ["npm", ["run", "onboard:print"], clonePath],
   ["npm", ["run", "onboard:json"], clonePath],
+  ["npm", ["run", "onboard:check"], clonePath],
   ["npm", ["run", "check"], clonePath],
   ["npm", ["run", "skills:check"], clonePath],
   ["npm", ["test"], clonePath],
