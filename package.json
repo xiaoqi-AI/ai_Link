@@ -61,6 +61,7 @@
     "auth-hub:executor:start": "powershell -ExecutionPolicy Bypass -File tools/start-auth-hub-executor.ps1",
     "auth-hub:executor:stop": "powershell -ExecutionPolicy Bypass -File tools/stop-auth-hub-executor.ps1",
     "auth-hub:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-flow.ps1",
+    "auth-hub:audit-smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-audit-handoff.ps1",
     "auth-hub:deploy:check": "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1",
     "auth-hub:remote:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1",
     "auth-hub:secrets:new": "powershell -ExecutionPolicy Bypass -File tools/new-auth-hub-secrets.ps1",

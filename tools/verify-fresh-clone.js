@@ -36,6 +36,7 @@ const commands = [
   ["npm", ["run", "ai-link", "--", "skill", "draft", "--skill", "auto_ops", "--description", "research with Grok, article draft with Kimi", "--write", ".ai-link/local.yaml"], clonePath],
   ["npm", ["run", "ai-link", "--", "run", "auto_ops.agent_flow", "--dry-run", "--input", "fresh clone agent check"], clonePath],
   ["npm", ["run", "ai-link", "--", "run", "auto_ops.research", "--dry-run", "--input", "fresh clone check"], clonePath],
+  ["npm", ["run", "auth-hub:audit-smoke"], clonePath],
   ["npm", ["run", "auth-hub:deploy:check"], clonePath],
   ["npm", ["run", "security:scan"], clonePath]
 ];

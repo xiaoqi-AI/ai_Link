@@ -110,12 +110,13 @@ npm run auth-hub:local:start
 npm run auth-hub:secrets:new
 npm run auth-hub:deploy:check
 npm run auth-hub:smoke
+npm run auth-hub:audit-smoke
 npm run auth-hub:executor:start
 ```
 
 默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN` 和 Cloudflare Access origin guard。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
-第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同状态；真实平台连接器应放在私有配置或私有仓中实现。
+第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。`auth-hub:audit-smoke` 会启动或复用本地授权中枢，创建测试任务，运行 AI Link dry-run workflow 生成本地 run record，再用 `runs submit-audit` 回传审计并验证 `GET /api/audit?eventType=ai_link.audit`。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同状态；真实平台连接器应放在私有配置或私有仓中实现。
 
 停止本地服务：
 

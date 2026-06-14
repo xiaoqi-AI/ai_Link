@@ -28,7 +28,10 @@ npm run auth-hub:local:start
 
 ```powershell
 npm run auth-hub:smoke
+npm run auth-hub:audit-smoke
 ```
+
+`auth-hub:smoke` 验证任务创建、执行器领取、审批和完成状态；`auth-hub:audit-smoke` 验证 Codex / AI Link 本地 run record 审计回传：创建测试任务、运行 `workflow run --record`、调用 `runs submit-audit`，并确认 `GET /api/audit?eventType=ai_link.audit` 可查到脱敏后的 Grok dry-run 审计摘要。
 
 启动常驻本地执行器：
 
@@ -71,7 +74,7 @@ npm run auth-hub:local:stop
 - `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果。
 - `GET /api/audit`：读取审计日志，支持 `taskId`、`eventType` 和 `limit` 查询参数。
 
-执行器回传结果时可以带顶层 `audit` 字段，或在 `result.audit` / `result.aiLinkAudit` 中带 AI Link 审计摘要。服务端会按白名单规范化为 `task.result.aiLinkAudit`，同时追加一条 `ai_link.audit` 审计事件。Codex 也可以通过 `POST /api/tasks/:id/audit` 或 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 把本地 run record 的审计摘要追加到任务审计日志。控制台任务详情会把 AI Link 审计摘要渲染为 provider/model/policy/预算/用量表格，`GET /api/audit?eventType=ai_link.audit` 可只读取这类事件。该摘要只保留 provider、model、policy、审批状态、数据分类、审计标签、预算和 usage estimate，不保存原始输入、原始输出、密钥或 token。
+执行器回传结果时可以带顶层 `audit` 字段，或在 `result.audit` / `result.aiLinkAudit` 中带 AI Link 审计摘要。服务端会按白名单规范化为 `task.result.aiLinkAudit`，同时追加一条 `ai_link.audit` 审计事件。Codex 也可以通过 `POST /api/tasks/:id/audit` 或 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 把本地 run record 的审计摘要追加到任务审计日志。控制台任务详情会把 AI Link 审计摘要渲染为 provider/model/policy/预算/用量表格，`GET /api/audit?eventType=ai_link.audit` 可只读取这类事件；本地可用 `npm run auth-hub:audit-smoke` 验证 dry-run record、审计提交和脱敏读取整条链路。该摘要只保留 provider、model、policy、审批状态、数据分类、审计标签、预算和 usage estimate，不保存原始输入、原始输出、密钥或 token。
 
 所有 API 使用 Bearer token；token 只以哈希形式入库。
 

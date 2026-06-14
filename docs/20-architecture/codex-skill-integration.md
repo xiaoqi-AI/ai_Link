@@ -184,3 +184,11 @@ npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>
 ```
 
 该命令只把 run record 顶层 `audit` 的白名单字段写入授权中枢审计日志，不改变 task 状态，也不会上传原始 input、原始 output、密钥或 token。默认读取 `AI_LINK_CODEX_TOKEN`，本地开发地址可使用默认 dev token；公网地址必须显式配置 token。
+
+本地联调时可以直接运行：
+
+```powershell
+npm run auth-hub:audit-smoke
+```
+
+该 smoke 会自启动或复用本地授权中枢，生成 dry-run workflow run record，提交 audit，并验证 `eventType=ai_link.audit` 查询结果。

@@ -76,12 +76,13 @@ npm run auth-hub:local:start
 npm run auth-hub:secrets:new
 npm run auth-hub:deploy:check
 npm run auth-hub:smoke
+npm run auth-hub:audit-smoke
 npm run auth-hub:executor:start
 ```
 
 本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
 
-控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 也可读取平台能力契约，用来确认微信、朱雀AI和预留平台当前是可用、预留还是配置异常。执行器回传 AI Link `audit` 摘要后，任务详情页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可调用 `GET /api/audit?eventType=ai_link.audit`。
+控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 也可读取平台能力契约，用来确认微信、朱雀AI和预留平台当前是可用、预留还是配置异常。执行器回传 AI Link `audit` 摘要后，任务详情页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
 
 停止本地执行器和控制台：
 
