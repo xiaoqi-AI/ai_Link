@@ -11,9 +11,14 @@
 
 ## 产品方向
 
-- `ai_Link` 的核心定位是什么？
-- 它是网页应用、桌面工具、自动化 Agent、知识库工具，还是其他形态？
-- 首个可交付版本希望解决谁的什么问题？
+- 当前草案定位：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。是否确认作为第一阶段公开定位？
+- 第一版主要服务 Codex 本地工作流，同时允许 GitHub 其他用户复用。是否需要同步定义更明确的目标用户画像？
+- 第一版是否优先实现命令行 `ai-link`、配置文件和 Codex skill 调用约定？
+- 首批必须跑通哪些 provider：DeepSeek、Kimi、Grok、豆包、扣子、OpenAI-compatible，还是先做其中一部分？
+- 扣子接入优先作为模型 provider、Agent / workflow provider，还是两者都支持？
+- 自然语言 skill 说明如何转换为路由配置？
+- 是否需要提供公开示例项目，例如自动运营项目：Grok 调研、Kimi 写作、Codex 落地？
+- 项目许可证尚未确认；最终开源时选择 MIT、Apache-2.0，还是其他许可证？
 
 ## 技术与部署
 

@@ -4,6 +4,8 @@
 
 `ai_Link` 当前处于公开仓库初始化阶段。仓库已经建立基础文档、治理流程、知识库镜像和 GitHub 同步规则；具体产品能力仍待确认。
 
+当前探索方向是：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流。该方向仍是头脑风暴草案，不代表已有可用产品功能。
+
 ## 适合谁阅读
 
 - 想了解这个项目当前状态的人。
@@ -20,6 +22,7 @@
 ## 当前可用内容
 
 - 项目治理文档：`docs/00-governance/`
+- 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
 - 项目账本：`docs/project-ledger/`
 - 文档模板：`docs/90-templates/`
 - 本地检查和知识库同步脚本：`tools/`

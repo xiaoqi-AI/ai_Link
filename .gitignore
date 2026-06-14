@@ -14,6 +14,9 @@ coverage/
 # Local environment and secrets
 .env
 .env.*
+.ai-link/local.yaml
+.ai-link/secrets.yaml
+.ai-link/*.local.yaml
 *.pem
 *.key
 *.p12
@@ -41,4 +44,3 @@ temp/
 Thumbs.db
 .idea/
 .vscode/
-

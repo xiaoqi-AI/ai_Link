@@ -5,6 +5,7 @@
 ## 当前状态
 
 - 阶段：工作空间初始化
+- 方向草案：AI Link 让 Codex 能按任务链接合适的模型、Agent 和工作流
 - GitHub：`https://github.com/xiaoqi-AI/ai_Link`
 - 可见性：公开仓库
 - 默认分支：`main`
@@ -16,6 +17,7 @@
 ## 用户入口
 
 - 使用指引：`docs/user-guide.md`
+- 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
 - 协作规则：`AGENTS.md`
 - 贡献说明：`CONTRIBUTING.md`
 - 安全反馈：`SECURITY.md`
@@ -50,6 +52,12 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 本仓库是对外主仓，只放可以公开给用户和贡献者看的内容。内部规划、实验、供应商评估、运维说明和公开前审查放在私有 companion 仓 `xiaoqi-AI/ai_Link-internal`。
 
 从内部仓同步到公开仓前，必须完成脱敏和用户指引检查。公开仓不接收内部路径、内部判断、未确认承诺、账号信息或任何敏感资料。
+
+## 当前产品探索
+
+当前探索方向是：让 Codex 能按任务链接合适的模型、Agent 和工作流。
+
+这一方向仍处于头脑风暴和草案阶段。公开草案见 `docs/10-product/ai-link-product-direction-draft.md`，其中内容用于讨论产品边界、配置方式和第一版 MVP，不代表已经完成或正式承诺的功能。
 
 ## 许可证
 
