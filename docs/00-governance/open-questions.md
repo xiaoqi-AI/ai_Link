@@ -9,7 +9,7 @@
 - 是否在 GitHub UI 开启公开仓和私有仓的 secret scanning / push protection？
 - 是否给私有仓 `ai_Link-internal` 配置独立 branch protection 或 ruleset？
 - GitHub Actions CI 已补充，是否将其纳入 branch protection 必需检查？
-- Branch protection 建议清单已写入 `docs/00-governance/github-branch-protection.md`，并已补充 `github:safety` / `github:safety:json` 只读检查；远端保护、secret scanning 和 push protection 仍需在 GitHub UI 配置或用已登录 `gh` 核验。
+- Branch protection 建议清单已写入 `docs/00-governance/github-branch-protection.md`，并已补充 `github:safety` / `github:safety:json` 只读检查；远端保护、secret scanning 和 push protection 仍需在 GitHub UI 配置，并可用已登录 `gh` 或当前会话 `GH_TOKEN` / `GITHUB_TOKEN` 核验。
 - MVP 已补充 `github:hardening` / `github:hardening:json`，用于生成 GitHub UI 加固工作单；它只写 `runtime/tmp/`，不修改 GitHub 设置。
 
 ## 产品方向
@@ -34,6 +34,7 @@
 - MVP 已补充 `github:hardening` / `github:hardening:json`，用于把 branch protection、required `Verify`、secret scanning 和 push protection 的人工配置证据单独输出。
 - MVP 已补充 `release:plan` / `release:plan:json`，用于检查 changelog、release notes、发布流程、tag 计划和 npm 发布决策项。
 - MVP 已补充 `release:decisions` / `release:decisions:json` / `release:decisions:strict`，用于把 v0.1 的人工发布决策记录为公开安全、机器可读的 pending/approved/waived 状态。
+- MVP 已补充 `release:decisions:next` / `release:decisions:next:json`，用于为每个 pending 决策生成公开安全的 preview / write 命令。
 - MVP 已补充 `release:decisions:update`，用于在人工确认后预览或写入公开安全决策证据；默认不写文件，只有加 `--yes` 才会更新记录。
 - MVP 已补充 `release:manual-gates` / `release:manual-gates:json`，用于把 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批拆成 owner、动作和完成证据。
 - MVP 已补充 `release:evidence` / `release:evidence:json`，用于生成脱敏发布证据包并限制默认输出到 `runtime/tmp/`。

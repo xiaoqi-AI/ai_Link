@@ -40,6 +40,8 @@
     "release:decisions": "node tools/check-release-decisions.js",
     "release:decisions:json": "node tools/check-release-decisions.js --json",
     "release:decisions:strict": "node tools/check-release-decisions.js --strict",
+    "release:decisions:next": "node tools/show-release-decision-next.js",
+    "release:decisions:next:json": "node tools/show-release-decision-next.js --json",
     "release:decisions:update": "node tools/update-release-decision.js",
     "release:manual-gates": "node tools/show-release-manual-gates.js",
     "release:manual-gates:json": "node tools/show-release-manual-gates.js --json",

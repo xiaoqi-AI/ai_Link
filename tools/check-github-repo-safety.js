@@ -11,6 +11,7 @@ const owner = "xiaoqi-AI";
 const repo = "ai_Link";
 const branch = "main";
 const fullName = `${owner}/${repo}`;
+const apiBaseUrl = process.env.AI_LINK_GITHUB_SAFETY_API_BASE_URL || "https://api.github.com";
 const checks = [];
 
 function addCheck(name, status, detail, category = "github") {
@@ -128,7 +129,7 @@ function checkLocalBaseline(packageJson) {
   ], "docs");
 }
 
-function checkGhRemote() {
+async function checkGhRemote() {
   if (process.env.AI_LINK_GITHUB_SAFETY_DISABLE_REMOTE === "1") {
     addCheck("GitHub remote checks", "manual", "Skipped by AI_LINK_GITHUB_SAFETY_DISABLE_REMOTE=1.", "remote");
     return;
@@ -137,10 +138,8 @@ function checkGhRemote() {
   const ghCommand = process.env.AI_LINK_GITHUB_SAFETY_GH_COMMAND || "gh";
   const version = run(ghCommand, ["--version"]);
   if (version.error || version.status !== 0) {
-    addCheck("GitHub CLI availability", "manual", "Install gh or run from an authenticated environment to verify remote UI settings.", "remote");
-    addCheck("GitHub branch protection", "manual", "Could not verify remote branch protection without gh.", "manual");
-    addCheck("GitHub secret scanning", "manual", "Could not verify secret scanning without gh.", "manual");
-    addCheck("GitHub push protection", "manual", "Could not verify push protection without gh.", "manual");
+    addCheck("GitHub CLI availability", "manual", "gh is not available; trying GitHub REST API fallback when GH_TOKEN or GITHUB_TOKEN is set.", "remote");
+    await checkRestRemote("gh unavailable");
     return;
   }
 
@@ -150,13 +149,11 @@ function checkGhRemote() {
   addCheck(
     "GitHub CLI auth",
     auth.status === 0 ? "pass" : "manual",
-    auth.status === 0 ? "authenticated" : "Run gh auth login to verify remote UI settings.",
+    auth.status === 0 ? "authenticated" : "Run gh auth login or set GH_TOKEN/GITHUB_TOKEN to verify remote UI settings.",
     "remote"
   );
   if (auth.status !== 0) {
-    addCheck("GitHub branch protection", "manual", "Could not verify remote branch protection without authenticated gh.", "manual");
-    addCheck("GitHub secret scanning", "manual", "Could not verify secret scanning without authenticated gh.", "manual");
-    addCheck("GitHub push protection", "manual", "Could not verify push protection without authenticated gh.", "manual");
+    await checkRestRemote("gh unauthenticated");
     return;
   }
 
@@ -177,6 +174,42 @@ function checkGhRemote() {
     return;
   }
 
+  checkBranchProtection(protection);
+}
+
+async function checkRestRemote(reason) {
+  const token = githubToken();
+  if (!token) {
+    addCheck("GitHub REST API auth", "manual", "Set GH_TOKEN or GITHUB_TOKEN to verify remote GitHub UI settings without gh.", "manual");
+    addCheck("GitHub branch protection", "manual", `Could not verify remote branch protection: ${reason}.`, "manual");
+    addCheck("GitHub secret scanning", "manual", `Could not verify secret scanning: ${reason}.`, "manual");
+    addCheck("GitHub push protection", "manual", `Could not verify push protection: ${reason}.`, "manual");
+    return;
+  }
+
+  addCheck("GitHub REST API fallback", "pass", `Using ${redactApiBase(apiBaseUrl)} because ${reason}.`, "remote");
+  addCheck("GitHub REST API auth", "pass", "GH_TOKEN or GITHUB_TOKEN is present; value was not printed.", "remote");
+
+  const repoResult = await fetchGitHubJson(`/repos/${fullName}`, token);
+  if (!repoResult.ok) {
+    addCheck("GitHub repository metadata", "warn", cleanApiFailure(repoResult), "remote");
+  } else {
+    const repoInfo = repoResult.data;
+    addCheck("GitHub repository visibility", repoInfo.private === false ? "pass" : "warn", repoInfo.private === false ? "public" : "not public", "remote");
+    addCheck("GitHub default branch", repoInfo.default_branch === branch ? "pass" : "warn", repoInfo.default_branch ?? "missing", "remote");
+    checkSecurityAndAnalysis(repoInfo.security_and_analysis);
+  }
+
+  const protectionResult = await fetchGitHubJson(`/repos/${fullName}/branches/${branch}/protection`, token);
+  if (!protectionResult.ok) {
+    addCheck("GitHub branch protection", "warn", cleanApiFailure(protectionResult), "remote");
+    return;
+  }
+
+  checkBranchProtection(protectionResult.data);
+}
+
+function checkBranchProtection(protection) {
   const requiredChecks = [
     ...(protection.required_status_checks?.contexts ?? []),
     ...((protection.required_status_checks?.checks ?? []).map((check) => check.context).filter(Boolean))
@@ -186,6 +219,48 @@ function checkGhRemote() {
   addCheck("pull request required", protection.required_pull_request_reviews ? "pass" : "warn", protection.required_pull_request_reviews ? "enabled" : "missing", "remote");
   addCheck("force pushes restricted", protection.allow_force_pushes?.enabled === false ? "pass" : "warn", protection.allow_force_pushes?.enabled === false ? "disabled" : "enabled or unknown", "remote");
   addCheck("branch deletion restricted", protection.allow_deletions?.enabled === false ? "pass" : "warn", protection.allow_deletions?.enabled === false ? "disabled" : "enabled or unknown", "remote");
+}
+
+function githubToken() {
+  return process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
+}
+
+async function fetchGitHubJson(apiPath, token) {
+  const url = new URL(apiPath, apiBaseUrl);
+  const headers = {
+    "Accept": "application/vnd.github+json",
+    "User-Agent": "ai-link-github-safety",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(url, { headers });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: safeApiMessage(data),
+        data
+      };
+    }
+    return {
+      ok: true,
+      status: response.status,
+      data
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      message: error instanceof Error ? error.message : String(error),
+      data: undefined
+    };
+  }
 }
 
 function checkSecurityAndAnalysis(securityAndAnalysis) {
@@ -212,6 +287,28 @@ function cleanFailure(result) {
   return (result.stderr || result.stdout || "unavailable").trim().replace(/\r?\n/g, " ");
 }
 
+function cleanApiFailure(result) {
+  const status = result.status ? `HTTP ${result.status}` : "unavailable";
+  const message = result.message ? `: ${result.message}` : "";
+  return `${status}${message}`;
+}
+
+function safeApiMessage(data) {
+  if (data && typeof data.message === "string") {
+    return data.message.replace(/\r?\n/g, " ").slice(0, 300);
+  }
+  return "";
+}
+
+function redactApiBase(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.origin;
+  } catch {
+    return "configured API base";
+  }
+}
+
 const packageJson = readJson("package.json");
 if (!packageJson) {
   addCheck("package.json", "fail", "missing or invalid", "package");
@@ -220,7 +317,7 @@ if (!packageJson) {
 }
 
 checkLocalBaseline(packageJson);
-checkGhRemote();
+await checkGhRemote();
 
 const counts = { pass: 0, warn: 0, fail: 0, manual: 0 };
 for (const check of checks) {

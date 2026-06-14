@@ -33,6 +33,8 @@ const commands = [
   ["npm", ["run", "release:plan:json"], clonePath],
   ["npm", ["run", "release:decisions"], clonePath],
   ["npm", ["run", "release:decisions:json"], clonePath],
+  ["npm", ["run", "release:decisions:next"], clonePath],
+  ["npm", ["run", "release:decisions:next:json"], clonePath],
   ["npm", ["run", "release:decisions:update"], clonePath],
   ["npm", ["run", "release:manual-gates"], clonePath],
   ["npm", ["run", "release:manual-gates:json"], clonePath],

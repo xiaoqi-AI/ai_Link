@@ -120,7 +120,7 @@ const phases = [
     ],
     evidence: [
       "GitHub UI shows the protection settings.",
-      "npm run github:safety:json reports remote protection as pass when gh is authenticated.",
+      "npm run github:safety:json reports remote protection as pass when gh, GH_TOKEN, or GITHUB_TOKEN can verify it.",
       "docs/releases/v0.1.0-decisions.json records branch protection and secret scanning decisions."
     ],
     stopBefore: [
@@ -143,6 +143,7 @@ const phases = [
     commands: [
       "npm run release:decisions",
       "npm run release:decisions:json",
+      "npm run release:decisions:next",
       "npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence \"Release owner selected repository-local after package smoke checks.\"",
       "npm run release:decisions:strict"
     ],
@@ -198,6 +199,7 @@ const phases = [
     commands: [
       "npm run release:plan",
       "npm run release:manual-gates",
+      "npm run release:decisions:next",
       "npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence \"Release owner selected repository-local after package smoke checks.\"",
       "npm publish --dry-run --access public"
     ],

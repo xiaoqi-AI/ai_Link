@@ -68,6 +68,9 @@ jobs:
       - name: Release decisions
         run: npm run release:decisions
 
+      - name: Release decision next commands
+        run: npm run release:decisions:next
+
       - name: Release decision update helper
         run: npm run release:decisions:update
 

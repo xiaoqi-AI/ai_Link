@@ -88,6 +88,7 @@ for (const file of [
   "tools/show-setup-handoff.js",
   "tools/new-github-hardening-worksheet.js",
   "tools/check-release-decisions.js",
+  "tools/show-release-decision-next.js",
   "tools/update-release-decision.js",
   "tools/check-release-plan.js",
   "tools/show-release-manual-gates.js",
@@ -149,6 +150,8 @@ for (const scriptName of [
   "release:decisions",
   "release:decisions:json",
   "release:decisions:strict",
+  "release:decisions:next",
+  "release:decisions:next:json",
   "release:decisions:update",
   "release:manual-gates",
   "release:manual-gates:json",
@@ -175,6 +178,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run github:hardening",
   "npm run release:plan",
   "npm run release:decisions",
+  "npm run release:decisions:next",
   "npm run release:decisions:update",
   "npm run release:manual-gates",
   "npm run release:evidence",
@@ -217,6 +221,7 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "nextActions",
   "githubHardening",
   "releaseDecisions",
+  "releaseDecisionNext",
   "releaseDecisionUpdatePreview",
   "releaseManualGates",
   "Does not read API keys"
@@ -231,6 +236,14 @@ checkContains("tools/new-github-hardening-worksheet.js", "GitHub hardening works
   "runtime/tmp"
 ]);
 
+checkContains("tools/check-github-repo-safety.js", "GitHub safety REST fallback", [
+  "GitHub REST API fallback",
+  "GH_TOKEN",
+  "GITHUB_TOKEN",
+  "AI_LINK_GITHUB_SAFETY_API_BASE_URL",
+  "value was not printed"
+]);
+
 checkContains("tools/check-release-decisions.js", "release decisions report", [
   "v0.1.0-decisions.json",
   "release:decisions:strict",
@@ -243,6 +256,13 @@ checkContains("tools/update-release-decision.js", "release decision update helpe
   "approved decisions need public-safe evidence",
   "Does not read API keys",
   "--yes"
+]);
+
+checkContains("tools/show-release-decision-next.js", "release decision next commands", [
+  "v0.1.0-decisions.json",
+  "release:decisions:update",
+  "repository-local",
+  "Does not read API keys"
 ]);
 
 checkContains("tools/show-next-actions.js", "next actions report", [

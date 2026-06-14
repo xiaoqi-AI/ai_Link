@@ -1,6 +1,6 @@
 # GitHub Branch Protection 建议
 
-状态：待在 GitHub UI 配置。当前可用 `npm run github:safety` 做本地基线检查；如果本机安装并登录了 `gh`，脚本还会只读核验远端 branch protection、secret scanning 和 push protection。
+状态：待在 GitHub UI 配置。当前可用 `npm run github:safety` 做本地基线检查；如果本机安装并登录了 `gh`，或当前会话设置了 `GH_TOKEN` / `GITHUB_TOKEN`，脚本还会只读核验远端 branch protection、secret scanning 和 push protection，且不会输出 token。
 
 配置前可运行 `npm run github:hardening` 生成 `runtime/tmp/github-hardening-worksheet.md`。该工作单列出 GitHub UI 入口、branch protection/ruleset 建议、required `Verify`、secret scanning、push protection 和配置后的验收证据，不会修改 GitHub 远端设置。
 
@@ -44,3 +44,5 @@ powershell -ExecutionPolicy Bypass -File tools/verify-knowledge-mirror.ps1
 ```
 
 GitHub UI 中确认最近一次 `main` push 的 `CI / Verify` 为绿色。
+
+没有 `gh` 的机器可以只在当前会话临时设置 `GH_TOKEN` 或 `GITHUB_TOKEN` 后运行 `npm run github:safety:json`。该令牌只用于 GitHub REST API 只读核验，不要写入项目文件、文档、issue、PR 或聊天记录。

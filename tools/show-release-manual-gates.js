@@ -31,7 +31,7 @@ const gates = [
       "npm run release:decisions:json",
       "npm run release:readiness:json"
     ],
-    safety: "No secret values are needed. Remote verification uses authenticated gh only when available."
+    safety: "No secret values are needed. Remote verification uses authenticated gh or GH_TOKEN/GITHUB_TOKEN when available, and never prints token values."
   },
   {
     id: "github-secret-scanning",

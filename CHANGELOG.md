@@ -18,6 +18,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.
 - Public v0.1 release decision record for tracking pending, approved, waived, and blocked release gates.
+- Public-safe release decision next-command report for generating preview/write commands for each pending decision.
 - Public-safe release decision update helper that previews by default and writes only with `--yes`.
 - Release manual gates report for GitHub protection, secret scanning, npm publish decision, and provider-live cost approval.
 - Release evidence bundle for sanitized v0.1 readiness handoff under `runtime/tmp/`.
@@ -33,6 +34,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - `setup:handoff` is read-only; it does not read secrets, modify GitHub settings, publish packages, write Bitwarden secrets, or dispatch live providers.
 - `github:safety` is read-only; it does not modify GitHub settings.
 - `release:decisions` reads only the public decision record and does not approve gates by itself.
+- `release:decisions:next` reads only the public decision record and prints preview/write commands without modifying files.
 - `release:decisions:update` rejects secret-like input and writes only to the public decision record after explicit `--yes`.
 - `release:evidence` writes only to `runtime/tmp/` by default and does not read secret values.
 - `release:plan`, `release:decisions`, `release:manual-gates`, `release:evidence`, and `release:readiness` do not create tags, publish npm packages, modify GitHub settings, or trigger live provider calls.

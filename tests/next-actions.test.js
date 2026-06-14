@@ -58,6 +58,7 @@ describe("next actions report", () => {
     assert.match(result.stdout, /# AI Link Next Actions/);
     assert.match(result.stdout, /Configure Bitwarden Secrets Manager/);
     assert.match(result.stdout, /Record v0\.1 release decisions/);
+    assert.match(result.stdout, /release:decisions:next/);
     assert.match(result.stdout, /npm run bws:acceptance:strict/);
     assert.match(result.stdout, /does not read or print secret values/i);
   });

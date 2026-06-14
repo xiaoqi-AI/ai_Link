@@ -104,7 +104,7 @@ const steps = [
     evidence: [
       "GitHub UI shows secret scanning enabled.",
       "GitHub UI shows push protection enabled.",
-      "npm run github:safety:json reports secret scanning and push protection when authenticated gh can read metadata.",
+      "npm run github:safety:json reports secret scanning and push protection when authenticated gh or GH_TOKEN/GITHUB_TOKEN can read metadata.",
       "npm run security:scan passes locally."
     ]
   },
@@ -134,7 +134,7 @@ const steps = [
     target: repository.fullName,
     ui: "Local terminal after GitHub UI changes",
     actions: [
-      "Run npm run github:safety:json with authenticated gh when available.",
+      "Run npm run github:safety:json with authenticated gh, GH_TOKEN, or GITHUB_TOKEN when available.",
       "Run npm run release:readiness:json.",
       "Confirm the latest main push has a green CI / Verify run.",
       "Keep provider-live and npm publish gates manual until their owners explicitly approve them."

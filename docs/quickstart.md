@@ -81,6 +81,7 @@ Use this path when you want a command that works without provider credentials.
 - Configure real provider keys through Bitwarden Secrets Manager before using live providers.
 - Run `npm run package:install-smoke` before publishing or distributing a package build.
 - Run `npm run release:decisions` to review the v0.1 public-safe decision record.
+- Run `npm run release:decisions:next` to generate preview/write commands for each pending decision.
 - Run `npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence "Release owner selected repository-local after package smoke checks."` to preview a safe decision update; add `--yes` only after review.
 - Run `npm run release:manual-gates` to review the manual release decisions before public release work.
 - Run `npm run release:evidence` to generate a sanitized release evidence bundle.

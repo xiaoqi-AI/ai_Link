@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -85,6 +87,81 @@ describe("GitHub repository safety report", () => {
       assert.equal(report.checks.some((check) => check.name === "branch protection guide contents" && check.status === "fail"), true);
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("verifies remote GitHub settings through the REST API when gh is unavailable", async () => {
+    const requests = [];
+    const server = createServer((request, response) => {
+      requests.push({
+        url: request.url,
+        authorization: request.headers.authorization
+      });
+
+      response.setHeader("content-type", "application/json");
+      if (request.url === "/repos/xiaoqi-AI/ai_Link") {
+        response.end(JSON.stringify({
+          private: false,
+          default_branch: "main",
+          security_and_analysis: {
+            secret_scanning: { status: "enabled" },
+            secret_scanning_push_protection: { status: "enabled" }
+          }
+        }));
+        return;
+      }
+
+      if (request.url === "/repos/xiaoqi-AI/ai_Link/branches/main/protection") {
+        response.end(JSON.stringify({
+          required_status_checks: {
+            contexts: ["Verify"],
+            checks: []
+          },
+          required_pull_request_reviews: {},
+          allow_force_pushes: { enabled: false },
+          allow_deletions: { enabled: false }
+        }));
+        return;
+      }
+
+      response.statusCode = 404;
+      response.end(JSON.stringify({ message: "not found" }));
+    });
+
+    try {
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const address = server.address();
+      const apiBaseUrl = `http://127.0.0.1:${address.port}`;
+
+      const result = await runSafety(process.cwd(), ["--json"], {
+        AI_LINK_GITHUB_SAFETY_DISABLE_REMOTE: "",
+        AI_LINK_GITHUB_SAFETY_GH_COMMAND: "definitely-missing-gh",
+        AI_LINK_GITHUB_SAFETY_API_BASE_URL: apiBaseUrl,
+        GH_TOKEN: "test-gh-token"
+      });
+      const report = JSON.parse(result.stdout);
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(requests.length, 2);
+      assert.equal(requests.every((request) => request.authorization === "Bearer test-gh-token"), true);
+      assert.equal(report.summary.ok, true);
+      assert.equal(report.checks.some((check) => check.name === "GitHub REST API fallback" && check.status === "pass"), true);
+      assert.equal(report.checks.some((check) => check.name === "GitHub REST API auth" && check.status === "pass"), true);
+      assert.equal(report.checks.some((check) => check.name === "GitHub branch protection" && check.status === "pass"), true);
+      assert.equal(report.checks.some((check) => check.name === "required status check Verify" && check.status === "pass"), true);
+      assert.equal(report.checks.some((check) => check.name === "GitHub secret scanning" && check.status === "pass"), true);
+      assert.equal(report.checks.some((check) => check.name === "GitHub push protection" && check.status === "pass"), true);
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
     }
   });
 });

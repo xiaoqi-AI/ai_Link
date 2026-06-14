@@ -151,6 +151,7 @@ try {
   runJsonStep("githubHardening", "GitHub hardening worksheet", [process.execPath, "tools/new-github-hardening-worksheet.js", "--json"]);
   runJsonStep("releasePlan", "Release plan", [process.execPath, "tools/check-release-plan.js", "--json"]);
   runJsonStep("releaseDecisions", "Release decisions", [process.execPath, "tools/check-release-decisions.js", "--json"]);
+  runJsonStep("releaseDecisionNext", "Release decision next commands", [process.execPath, "tools/show-release-decision-next.js", "--json"]);
   runJsonStep("releaseDecisionUpdatePreview", "Release decision update preview", [process.execPath, "tools/update-release-decision.js", "--json", "--id", "npm-publish-decision", "--status", "approved", "--selected-channel", "repository-local", "--evidence", "Release owner selected repository-local after package smoke checks."]);
   runJsonStep("releaseManualGates", "Release manual gates", [process.execPath, "tools/show-release-manual-gates.js", "--json"]);
   runJsonStep("releaseReadiness", "Release readiness", [process.execPath, "tools/check-release-readiness.js", "--json"]);

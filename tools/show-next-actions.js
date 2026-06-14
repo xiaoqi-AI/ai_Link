@@ -43,7 +43,7 @@ const actions = [
       "main has branch protection or a repository ruleset.",
       "Verify is a required status check.",
       "Secret scanning and push protection are enabled.",
-      "npm run github:safety:json reports remote protection as pass when gh is authenticated."
+      "npm run github:safety:json reports remote protection as pass when gh, GH_TOKEN, or GITHUB_TOKEN can verify it."
     ],
     secretBoundary: "Do not paste sample secrets into GitHub issues, PRs, docs, screenshots, or test commits."
   },
@@ -56,6 +56,7 @@ const actions = [
     commands: [
       "npm run release:decisions",
       "npm run release:decisions:json",
+      "npm run release:decisions:next",
       "npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence \"Release owner selected repository-local after package smoke checks.\"",
       "npm run release:decisions:strict"
     ],
@@ -132,6 +133,7 @@ const actions = [
     commands: [
       "npm run release:plan",
       "npm run release:manual-gates",
+      "npm run release:decisions:next",
       "npm publish --dry-run --access public"
     ],
     evidence: [
