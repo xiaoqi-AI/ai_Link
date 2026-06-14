@@ -55,11 +55,11 @@ npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 G
 推荐先预览，再写入本机 local 配置：
 
 ```powershell
-npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地" --write .ai-link/local.yaml
-npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地" --write .ai-link/local.yaml --yes
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地" --write .ai-link/local.yaml --diff --json
+npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 Grok，文章初稿用 Kimi，扣子负责工作流，Codex 负责落地" --write .ai-link/local.yaml --diff --json --yes
 ```
 
-没有 `--yes` 时只预览，不写文件。写公开 `.ai-link/project.yaml` 需要额外加 `--allow-public-config`。
+没有 `--yes` 时只预览，不写文件；`--diff --json` 会给出机器可读的新增/更新摘要。写公开 `.ai-link/project.yaml` 需要额外加 `--allow-public-config`。
 
 ## Codex Skill 示例
 

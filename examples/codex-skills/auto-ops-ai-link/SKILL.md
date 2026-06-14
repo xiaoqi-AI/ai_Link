@@ -55,13 +55,13 @@ Review the output before writing it to `.ai-link/project.yaml` or `.ai-link/loca
 Preview a merge into local config:
 
 ```powershell
-npm run ai-link -- skill draft --skill auto_ops --description "research with Grok, write with Kimi, Codex does implementation and checks" --write .ai-link/local.yaml
+npm run ai-link -- skill draft --skill auto_ops --description "research with Grok, write with Kimi, Codex does implementation and checks" --write .ai-link/local.yaml --diff --json
 ```
 
 Write only after review:
 
 ```powershell
-npm run ai-link -- skill draft --skill auto_ops --description "research with Grok, write with Kimi, Codex does implementation and checks" --write .ai-link/local.yaml --yes
+npm run ai-link -- skill draft --skill auto_ops --description "research with Grok, write with Kimi, Codex does implementation and checks" --write .ai-link/local.yaml --diff --json --yes
 ```
 Use `skill draft-route` only when you want route entries without a workflow.
 

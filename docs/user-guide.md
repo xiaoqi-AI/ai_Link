@@ -42,6 +42,7 @@
 
 ```powershell
 npm install
+npm run onboard:print
 npm run ai-link -- doctor
 npm run ai-link -- config validate
 npm run ai-link -- providers list
@@ -58,6 +59,8 @@ npm run ai-link -- skill draft --skill auto_ops --description "调研阶段用 G
 npm run ai-link -- run auto_ops.agent_flow --dry-run --input "验证 Coze agent 工作流"
 npm run ai-link -- run auto_ops.research --dry-run --input "调研一个公开选题"
 ```
+
+`onboard:print` 会输出一页不含密钥的公开用户入场引导，覆盖当前项目配置、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。
 
 如果没有外部模型 API key，可以先使用 `mock`：
 
@@ -112,6 +115,8 @@ npm run bws:acceptance
 npm run bws:session
 npm run bws:check
 ```
+
+普通公开用户建议先用 `npm run onboard:print` 完成本地 dry-run 入场；准备配置真实 provider key 时，再进入 BWS 密钥托管路径。
 
 `npm run bws:plan` 会根据公开 manifest 输出需要创建的 Bitwarden 项目、machine account、secret key、GitHub Environment Secret 和 GitHub variables，不输出真实 secret value。`npm run bws:onboard` 会生成一页不含真实密钥的入场引导到 `runtime/tmp/bws-onboarding.md`，把当前状态、目标结构和下一步动作合在一起。`npm run bws:profile` 会生成只包含非敏感 Bitwarden project ID 的本地 PowerShell 片段到 `runtime/tmp/bws-local-profile.ps1`，后续可用 `. .\runtime\tmp\bws-local-profile.ps1` 载入当前会话；它不会保存 `BWS_ACCESS_TOKEN`。`npm run bws:activate` 会分两段隐藏输入本地 Codex machine account token 和 GitHub Actions machine account token，分别验收 `ai-link-local-dev` 与 `ai-link-ci`，并生成 GitHub provider-live variable 填写清单；它不会保存任何 token。`npm run bws:worksheet` 会生成不含真实密钥的本地工作单到 `runtime/tmp/bws-setup-worksheet.md`，方便逐项勾选 Bitwarden / GitHub UI 配置。`npm run bws:rotation` 会生成不含真实 token 的 90 天轮换计划、验收步骤和应急轮换清单。`npm run bws:github-vars` 会从 Bitwarden CI 项目读取 secret ID，生成 GitHub `provider-live` Environment variable 填写清单，不输出 secret value。`npm run bws:github-vars:apply-plan` 会预览 GitHub Environment Variables 自动写入计划；真正写变量时使用 `npm run bws:github-vars:apply`，它只写 Bitwarden secret ID，不处理 `BW_ACCESS_TOKEN` secret value。`npm run bws:acceptance` 会生成不含真实密钥的验收报告到 `runtime/tmp/bws-acceptance-report.md`，把本地 BWS、GitHub wiring、审批门、安全扫描和 Git 状态放在一张表里。`npm run bws:session` 会在缺少 `BWS_ACCESS_TOKEN` 时隐藏输入 token，只在当前子命令里临时使用，并默认执行严格检查。`npm run bws:check` 会串联本地 BWS、GitHub provider-live workflow、公开配置安全扫描和治理文件检查。没有真实 token 时会给出 warning；等 Bitwarden 项目和 machine account token 都配置好后，再用严格模式确认：
 

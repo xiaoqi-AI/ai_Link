@@ -11,6 +11,7 @@ const clonePath = path.join(tempRoot, "repo");
 const commands = [
   ["git", ["clone", "--no-local", root, clonePath], root],
   ["npm", ["ci"], clonePath],
+  ["npm", ["run", "onboard:print"], clonePath],
   ["npm", ["run", "check"], clonePath],
   ["npm", ["run", "skills:check"], clonePath],
   ["npm", ["test"], clonePath],
