@@ -64,6 +64,8 @@ const REQUIRED_SCRIPTS = [
   "providers:live:safe-report:strict",
   "workflow:dry",
   "onboard:check",
+  "release:readiness",
+  "release:readiness:json",
   "skills:check",
   "security:scan",
   "verify:fresh"
@@ -145,6 +147,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
         "npm run ai-link -- config validate",
         "npm run providers:dry",
         "npm run providers:dry:json",
+        "npm run release:readiness:json",
         "npm run workflow:dry",
         "npm run ai-link -- skill draft --skill auto_ops --description \"research with Grok, article draft with Kimi\" --write .ai-link/local.yaml --diff --json",
         "npm run ai-link -- run auto_ops.research --dry-run --input \"fresh onboarding check\"",
@@ -163,6 +166,7 @@ export function buildOnboardingReport(options: BuildOnboardingReportOptions = {}
       closeoutChecks: [
         "npm run check",
         "npm test",
+        "npm run release:readiness",
         "npm run security:scan",
         "npm run verify:fresh"
       ]

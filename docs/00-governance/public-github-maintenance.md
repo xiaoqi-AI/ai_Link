@@ -13,6 +13,7 @@
 - `.github/ISSUE_TEMPLATE/` 是否能引导用户提交有效反馈。
 - `CONTRIBUTING.md` 是否能说明协作预期。
 - `SECURITY.md` 是否说明安全问题不要直接公开细节。
+- `npm run release:readiness` 是否通过，且人工确认项是否有明确 owner 或后续动作。
 - 是否有敏感信息、账号信息、二维码、登录态、私密截图或个人数据误入 Git。
 - 本地 `main` 是否已推送并与 `origin/main` 对齐。
 - 是否有来自内部仓的内容需要先脱敏、改写和补充用户指引。
@@ -24,7 +25,7 @@
 - 主分支保护：建议禁止删除和强推；成熟后可要求 PR、状态检查或 review。
 - Issues：开启，用模板收集问题和需求。
 - Discussions：如果以后有外部用户交流需求，再开启。
-- License：等待用户明确选择后再添加。
+- License：Apache-2.0。
 
 ## 提交习惯
 

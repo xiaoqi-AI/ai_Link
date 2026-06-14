@@ -42,5 +42,8 @@ jobs:
       - name: Security scan
         run: npm run security:scan
 
+      - name: Release readiness
+        run: npm run release:readiness
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

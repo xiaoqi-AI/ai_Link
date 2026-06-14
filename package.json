@@ -22,6 +22,8 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test \"dist/**/*.test.js\" && npm run auth-hub:test",
     "verify:fresh": "node tools/verify-fresh-clone.js",
+    "release:readiness": "node tools/check-release-readiness.js",
+    "release:readiness:json": "node tools/check-release-readiness.js --json",
     "onboard": "npm run ai-link -- onboard",
     "onboard:print": "npm run ai-link -- onboard --print",
     "onboard:json": "npm run ai-link -- onboard --json",
