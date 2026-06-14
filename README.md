@@ -18,6 +18,7 @@
 
 - 使用指引：`docs/user-guide.md`
 - 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
+- 授权中枢后续规划草案：`docs/10-product/auth-hub-next-steps-draft.md`
 - 配置说明：`docs/20-architecture/configuration.md`
 - Bitwarden 密钥托管模式：`docs/20-architecture/bitwarden-secret-management.md`
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
