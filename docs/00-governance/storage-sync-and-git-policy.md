@@ -39,6 +39,7 @@
 
 - `.env*`
 - token、key、证书、二维码、登录态
+- `BWS_ACCESS_TOKEN`、`BW_ACCESS_TOKEN` 和任何 Bitwarden machine account access token
 - 未脱敏截图或私密资料
 - 个人财务或交易信息
 - `runtime/private/`
@@ -64,5 +65,6 @@
 1. 克隆 GitHub 仓库。
 2. 阅读 `README.md`、`AGENTS.md`、`docs/user-guide.md` 和 `docs/00-governance/`。
 3. 检查 `D:\llm-wiki` 是否存在。
-4. 运行治理检查和必要安装脚本。
-5. 再开始功能开发。
+4. 如需真实模型或自动化凭据，先进入 BWS 密钥托管模式；只在当前本机会话里设置 `BWS_ACCESS_TOKEN`。
+5. 运行治理检查和必要安装脚本。
+6. 再开始功能开发。

@@ -21,9 +21,11 @@
 
 ## 技术与部署
 
-- 是否已有指定技术栈？
+- AI Link CLI 已采用 TypeScript / Node.js；统一授权中枢公开骨架已采用 Node.js / Express。
+- 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？
+- 是否为 Render 服务启用付费持久盘，或长期坚持浏览器登录态只放本地执行器？
 - 是否需要移动端、小程序或浏览器插件？
-- 是否需要部署到云服务或仅本地使用？
+- 真实微信、朱雀AI、抖音、小红书、知乎、头条连接器的优先级和私有实现位置仍需确认。
 
 ## 知识库
 

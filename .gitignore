@@ -14,6 +14,7 @@ coverage/
 # Local environment and secrets
 .env
 .env.*
+!.env.example
 .ai-link/local.yaml
 .ai-link/secrets.yaml
 .ai-link/*.local.yaml
@@ -38,6 +39,31 @@ render.yaml
 src/**/*.js
 tests/
 tools/security-scan.js
+
+# Public authorization hub MVP files
+!render.yaml
+!src/app.js
+!src/config.js
+!src/server.js
+!src/connectors/
+!src/connectors/*.js
+!src/domain/
+!src/domain/*.js
+!src/executor/
+!src/executor/*.js
+!src/notifications/
+!src/notifications/*.js
+!src/routes/
+!src/routes/*.js
+!src/security/
+!src/security/*.js
+!src/storage/
+!src/storage/*.js
+!src/ui/
+!src/ui/*.js
+!tests/
+!tests/task-flow.test.js
+!tools/security-scan.js
 
 # Logs and caches
 *.log
