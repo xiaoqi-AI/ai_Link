@@ -68,4 +68,15 @@ describe("BWS acceptance report", () => {
     assert.equal(result.stdout.includes("test-bws-acceptance-token"), false);
     assert.equal(report.checks.some((check) => check.name === "BWS_ACCESS_TOKEN" && check.detail === "present in current session; value not printed"), true);
   });
+
+  it("can resolve an explicit BWS CLI path for PowerShell acceptance checks", { skip: !powershell }, async () => {
+    const result = await runAcceptanceJson({
+      AI_LINK_BWS_CLI_PATH: process.execPath
+    });
+    const report = JSON.parse(result.stdout);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(report.checks.some((check) => check.name === "bws CLI" && check.status === "pass"), true);
+    assert.equal(result.stdout.includes(process.execPath), false);
+  });
 });

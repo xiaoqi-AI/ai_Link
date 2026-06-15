@@ -2,17 +2,18 @@
 
 ## Summary
 
-Aligned the Node-based `bws:next` report with the PowerShell BWS acceptance checks so it can detect an installed Bitwarden Secrets Manager CLI even when `bws` is not on PATH.
+Aligned the Node-based `bws:next` report and PowerShell BWS helpers so they can detect an installed Bitwarden Secrets Manager CLI even when `bws` is not on PATH.
 
 ## Change
 
 - `tools/show-bws-next.js` and BWS PowerShell helpers now check:
-  - `bws` on PATH
   - `AI_LINK_BWS_CLI_PATH`
+  - `bws` on PATH
   - the Bitwarden Secrets Manager Windows default install path under `%LOCALAPPDATA%`
 - `tests/bws-next.test.js` now covers explicit CLI path resolution outside PATH.
+- `tests/bws-acceptance.test.js` now covers explicit CLI path resolution for the PowerShell acceptance report.
 - BWS checks report the CLI version without printing the local executable path.
-- README and user guide now mention the supported CLI detection paths.
+- README, user guide, and the Bitwarden architecture doc now mention the supported CLI detection paths.
 
 ## Current Local Evidence
 

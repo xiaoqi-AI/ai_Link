@@ -139,7 +139,13 @@ bws run --project-id <ai-link-local-dev-project-id> -- npm run ai-link -- run au
 
 真实外部模型调用可能产生费用；默认先用 `doctor` 和 `--dry-run` 验证。
 
-如果 `bws` 刚安装后当前 Codex 终端还识别不到 PATH，`tools/with-bitwarden-secrets.ps1` 和 `tools/check-bitwarden-secrets.ps1` 会自动尝试读取默认安装位置：
+如果 `bws` 刚安装后当前 Codex 终端还识别不到 PATH，可以先在当前会话指定 CLI 路径：
+
+```powershell
+$env:AI_LINK_BWS_CLI_PATH="$env:LOCALAPPDATA\Programs\BitwardenSecretsManager\bin\bws.exe"
+```
+
+BWS 辅助工具会优先识别 `AI_LINK_BWS_CLI_PATH`，然后识别 PATH 和默认安装位置：
 
 ```text
 %LOCALAPPDATA%\Programs\BitwardenSecretsManager\bin\bws.exe
