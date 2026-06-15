@@ -10,14 +10,26 @@ $ErrorActionPreference = "Stop"
 $errors = @()
 
 function Resolve-BwsPath {
+  if (-not [string]::IsNullOrWhiteSpace($env:AI_LINK_BWS_CLI_PATH)) {
+    $configuredPath = $env:AI_LINK_BWS_CLI_PATH
+    if (-not [System.IO.Path]::IsPathRooted($configuredPath)) {
+      $configuredPath = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $configuredPath))
+    }
+    if (Test-Path -LiteralPath $configuredPath) {
+      return $configuredPath
+    }
+  }
+
   $command = Get-Command bws -ErrorAction SilentlyContinue
   if ($command) {
     return $command.Source
   }
 
-  $defaultPath = Join-Path $env:LOCALAPPDATA "Programs\BitwardenSecretsManager\bin\bws.exe"
-  if (Test-Path -LiteralPath $defaultPath) {
-    return $defaultPath
+  if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    $defaultPath = Join-Path $env:LOCALAPPDATA "Programs\BitwardenSecretsManager\bin\bws.exe"
+    if (Test-Path -LiteralPath $defaultPath) {
+      return $defaultPath
+    }
   }
 
   return $null
@@ -85,7 +97,7 @@ function Extract-SecretKeys($value) {
 $bwsPath = Resolve-BwsPath
 if ($bwsPath) {
   $version = & $bwsPath --version
-  Report "bws" $true "$version ($bwsPath)"
+  Report "bws" $true "$version"
 } else {
   Report "bws" $false "install Bitwarden Secrets Manager CLI"
   $errors += "bws"

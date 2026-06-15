@@ -26,7 +26,7 @@ if (!manifest) {
   addCheck("BWS manifest", "ready", sourcePath);
 }
 
-const bwsVersion = commandVersion("bws", ["--version"]);
+const bwsVersion = resolveBwsVersion();
 addCheck(
   "bws CLI",
   bwsVersion ? "ready" : "manual",
@@ -225,6 +225,38 @@ function readJson(relativePath) {
   } catch {
     return undefined;
   }
+}
+
+function resolveBwsVersion() {
+  return configuredBwsVersion()
+    || commandVersion("bws", ["--version"])
+    || windowsDefaultBwsVersion();
+}
+
+function configuredBwsVersion() {
+  const configuredPath = process.env.AI_LINK_BWS_CLI_PATH;
+  if (!configuredPath) {
+    return "";
+  }
+
+  const resolvedPath = path.resolve(cwd, configuredPath);
+  if (!existsSync(resolvedPath)) {
+    return "";
+  }
+  return commandVersion(resolvedPath, ["--version"]);
+}
+
+function windowsDefaultBwsVersion() {
+  const localAppData = process.env.LOCALAPPDATA;
+  if (!localAppData) {
+    return "";
+  }
+
+  const defaultPath = path.join(localAppData, "Programs", "BitwardenSecretsManager", "bin", "bws.exe");
+  if (!existsSync(defaultPath)) {
+    return "";
+  }
+  return commandVersion(defaultPath, ["--version"]);
 }
 
 function commandVersion(command, commandArgs) {

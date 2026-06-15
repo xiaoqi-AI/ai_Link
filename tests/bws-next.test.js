@@ -75,6 +75,17 @@ describe("BWS next steps report", () => {
     assert.equal(report.checks.some((check) => check.name === "GH_TOKEN or GITHUB_TOKEN" && check.detail === "present; value not printed"), true);
   });
 
+  it("can resolve an explicit BWS CLI path outside PATH", async () => {
+    const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_CLI_PATH: process.execPath,
+      PATH: ""
+    });
+    const report = JSON.parse(result.stdout);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(report.checks.some((check) => check.name === "bws CLI" && check.status === "ready"), true);
+  });
+
   it("renders a public markdown handoff", async () => {
     const result = await runBwsNext(process.cwd(), []);
 
