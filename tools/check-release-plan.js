@@ -109,8 +109,10 @@ for (const file of [
   "tools/new-github-hardening-worksheet.js",
   "tools/show-github-hardening-next.js",
   "tools/show-setup-handoff.js",
+  "tools/show-maintainer-action-pack.js",
   "tools/show-bws-next.js",
   "tools/with-bitwarden-secrets.ps1",
+  "tools/new-bws-acceptance-report.ps1",
   "tools/check-release-decisions.js",
   "tools/show-release-decision-next.js",
   "tools/update-release-decision.js",
@@ -168,8 +170,10 @@ checkContains("docs/00-governance/release-process.md", "release process gate", [
   "npm run release:decisions:next",
   "npm run bws:next",
   "npm run bws:run",
+  "npm run bws:acceptance:json",
   "npm run release:decisions:update",
   "npm run setup:handoff",
+  "npm run maintainer:pack",
   "npm run verify:fresh",
   "npm run release:manual-gates",
   "npm run release:evidence",
@@ -215,6 +219,15 @@ checkContains("tools/show-github-hardening-next.js", "GitHub hardening next step
   "Does not read API keys"
 ]);
 
+checkContains("tools/show-maintainer-action-pack.js", "maintainer action pack", [
+  "AI Link Maintainer Action Pack",
+  "github-ui-hardening",
+  "bitwarden-local-foundation",
+  "bws:acceptance:json",
+  "release-decision-closeout",
+  "Does not read API keys"
+]);
+
 checkContains("tools/with-bitwarden-secrets.ps1", "BWS run wrapper", [
   "BWS run wrapper",
   "npm run bws:run",
@@ -223,11 +236,19 @@ checkContains("tools/with-bitwarden-secrets.ps1", "BWS run wrapper", [
   "present; value not printed"
 ]);
 
+checkContains("tools/new-bws-acceptance-report.ps1", "BWS acceptance JSON report", [
+  "BWS acceptance report",
+  "npm run bws:acceptance:json",
+  "ConvertTo-Json",
+  "Secret values are never printed"
+]);
+
 checkContains("tools/new-release-evidence.js", "release evidence handoff", [
   "release-evidence.json",
   "packageContents",
   "nextActions",
   "setupHandoff",
+  "maintainerPack",
   "githubSafety",
   "githubHardening",
   "githubHardeningNext",
@@ -256,10 +277,17 @@ for (const scriptName of [
   "release:readiness:json",
   "setup:handoff",
   "setup:handoff:json",
+  "maintainer:pack",
+  "maintainer:pack:json",
   "bws:next",
   "bws:next:json",
   "bws:run",
   "bws:run:help",
+  "bws:acceptance",
+  "bws:acceptance:print",
+  "bws:acceptance:json",
+  "bws:acceptance:strict",
+  "bws:acceptance:strict:json",
   "package:check",
   "package:install-smoke",
   "package:install-smoke:json",
@@ -319,8 +347,10 @@ const report = {
     githubHardening: "tools/new-github-hardening-worksheet.js",
     githubHardeningNext: "tools/show-github-hardening-next.js",
     setupHandoff: "tools/show-setup-handoff.js",
+    maintainerPack: "tools/show-maintainer-action-pack.js",
     bwsNext: "tools/show-bws-next.js",
     bwsRun: "tools/with-bitwarden-secrets.ps1",
+    bwsAcceptance: "tools/new-bws-acceptance-report.ps1",
     decisions: "tools/check-release-decisions.js",
     decisionsNext: "tools/show-release-decision-next.js",
     decisionsUpdate: "tools/update-release-decision.js",

@@ -17,6 +17,7 @@
 - `npm run package:check` 是否通过，确认 npm dry-run 包内容不含测试产物、运行态、自动化目录或敏感本地文件。
 - `npm run package:install-smoke` 是否通过，确认 tarball 安装后的 CLI 能启动。
 - `npm run next:actions` 是否已复核，确认下一步外部动作、owner 和验收证据仍然准确。
+- `npm run maintainer:pack` 是否已复核，确认 GitHub UI、Bitwarden、provider-live、release decisions 和发布渠道操作包仍然准确。
 - `npm run bws:next` 是否已复核，确认 Bitwarden 当前状态、下一条安全命令和不打印 token 的边界仍然准确。
 - `npm run bws:run:help` 是否能打开，确认真实调用 wrapper 仍然只使用会话内 bootstrap token，不保存或打印 token。
 - `npm run github:safety` 是否通过；如果输出 manual，是否已在 GitHub UI、已登录 `gh`、或仅当前会话设置的 `GH_TOKEN` / `GITHUB_TOKEN` 环境中确认对应安全项。

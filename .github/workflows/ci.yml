@@ -54,6 +54,9 @@ jobs:
       - name: Setup handoff
         run: npm run setup:handoff
 
+      - name: Maintainer action pack
+        run: npm run maintainer:pack
+
       - name: BWS next steps
         run: npm run bws:next
 

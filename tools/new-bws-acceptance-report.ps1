@@ -5,6 +5,7 @@ param(
   [switch]$Strict,
   [switch]$Force,
   [switch]$Print,
+  [switch]$Json,
   [switch]$Help
 )
 
@@ -25,6 +26,7 @@ Default:
 Examples:
   npm run bws:acceptance
   npm run bws:acceptance:print
+  npm run bws:acceptance:json
   npm run bws:acceptance:strict
 
 Safety:
@@ -183,11 +185,11 @@ if ($Help) {
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
-if (-not $Print -and -not (Test-RuntimeTmpTarget $OutputPath)) {
+if (-not $Print -and -not $Json -and -not (Test-RuntimeTmpTarget $OutputPath)) {
   Fail "Refusing to write BWS acceptance report outside runtime/tmp."
 }
 
-if (-not $Print -and (Test-Path -LiteralPath $OutputPath) -and -not $Force) {
+if (-not $Print -and -not $Json -and (Test-Path -LiteralPath $OutputPath) -and -not $Force) {
   Fail "Output file already exists: $OutputPath. Pass -Force to overwrite."
 }
 
@@ -331,6 +333,31 @@ $failed = @($checks | Where-Object { $_.status -eq "fail" })
 $warnings = @($checks | Where-Object { $_.status -eq "warn" })
 $pending = @($checks | Where-Object { $_.status -eq "pending" })
 $skipped = @($checks | Where-Object { $_.status -eq "skip" })
+$passed = @($checks | Where-Object { $_.status -eq "pass" })
+
+$safety = @(
+  "Secret values are never printed.",
+  "Bootstrap tokens are reported only as present or missing.",
+  "Provider live verification is skipped unless explicitly requested."
+)
+
+$recommendations = New-Object System.Collections.Generic.List[string]
+if ($failed.Count -gt 0) {
+  $recommendations.Add("Fix failed checks before using BWS-backed live automation.") | Out-Null
+}
+if ($pending.Count -gt 0) {
+  $recommendations.Add("Complete pending Bitwarden/GitHub setup, then rerun npm run bws:acceptance:strict.") | Out-Null
+}
+if ($warnings.Count -gt 0) {
+  $recommendations.Add("Review warnings before committing, pushing, or handing off to another machine.") | Out-Null
+}
+if ($failed.Count -eq 0 -and $pending.Count -eq 0 -and $warnings.Count -eq 0) {
+  $recommendations.Add("BWS mode is ready for normal dry-run and approved live workflows.") | Out-Null
+  $recommendations.Add("Use npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`" to wrap approved AI Link commands through bws run.") | Out-Null
+}
+if (-not $RunProviderLive) {
+  $recommendations.Add("Keep provider live verification disabled until model cost boundaries are confirmed.") | Out-Null
+}
 
 $lines = New-Object System.Collections.Generic.List[string]
 function Add-Line {
@@ -343,9 +370,9 @@ Add-Line ""
 Add-Line ("Generated: " + (Get-Date).ToString("yyyy-MM-dd HH:mm:ss zzz"))
 Add-Line ""
 Add-Line "Safety:"
-Add-Line "- Secret values are never printed."
-Add-Line "- Bootstrap tokens are reported only as present or missing."
-Add-Line "- Provider live verification is skipped unless explicitly requested."
+foreach ($item in $safety) {
+  Add-Line "- $item"
+}
 Add-Line ""
 Add-Line "Summary:"
 Add-Line "- Failed: $($failed.Count)"
@@ -362,26 +389,39 @@ foreach ($check in $checks) {
 
 Add-Line ""
 Add-Line "Recommended next actions:"
-if ($failed.Count -gt 0) {
-  Add-Line "- Fix failed checks before using BWS-backed live automation."
-}
-if ($pending.Count -gt 0) {
-  Add-Line "- Complete pending Bitwarden/GitHub setup, then rerun ``npm run bws:acceptance:strict``."
-}
-if ($warnings.Count -gt 0) {
-  Add-Line "- Review warnings before committing, pushing, or handing off to another machine."
-}
-if ($failed.Count -eq 0 -and $pending.Count -eq 0 -and $warnings.Count -eq 0) {
-  Add-Line "- BWS mode is ready for normal dry-run and approved live workflows."
-  Add-Line "- Use ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` to wrap approved AI Link commands through ``bws run``."
-}
-if (-not $RunProviderLive) {
-  Add-Line "- Keep provider live verification disabled until model cost boundaries are confirmed."
+foreach ($item in $recommendations) {
+  Add-Line "- $item"
 }
 
 $content = ($lines -join [Environment]::NewLine) + [Environment]::NewLine
 
-if ($Print) {
+$summary = [ordered]@{
+  ok = $failed.Count -eq 0
+  strictOk = $failed.Count -eq 0 -and $warnings.Count -eq 0 -and $pending.Count -eq 0
+  strictMode = [bool]$Strict
+  runProviderLive = [bool]$RunProviderLive
+  counts = [ordered]@{
+    pass = $passed.Count
+    warn = $warnings.Count
+    fail = $failed.Count
+    pending = $pending.Count
+    skip = $skipped.Count
+  }
+}
+
+$report = [ordered]@{
+  generatedAt = (Get-Date).ToUniversalTime().ToString("o")
+  repository = $Repository
+  summary = $summary
+  safety = $safety
+  output = if ($Json -or $Print) { $null } else { [ordered]@{ path = $OutputPath } }
+  checks = $checks
+  recommendedNextActions = @($recommendations)
+}
+
+if ($Json) {
+  $report | ConvertTo-Json -Depth 8
+} elseif ($Print) {
   Write-Output $content
 } else {
   $resolvedOutputPath = Resolve-RepoPath $OutputPath

@@ -120,6 +120,7 @@ Add-Line 'npm run bws:run -- -CommandLine "npm run ai-link -- doctor"'
 Add-Line 'npm run bws:github-vars'
 Add-Line 'npm run bws:github-vars:apply-plan'
 Add-Line 'npm run bws:acceptance'
+Add-Line 'npm run bws:acceptance:json'
 Add-Line '```'
 Add-Line ""
 Add-Line "If current-session BWS and GitHub tokens are available, apply non-secret GitHub variables with:"
@@ -139,6 +140,7 @@ Add-Line ""
 Add-Line '```powershell'
 Add-Line 'npm run providers:github:check'
 Add-Line 'npm run providers:github:remote-check'
+Add-Line 'npm run bws:acceptance:json'
 Add-Line 'npm run bws:acceptance:strict'
 Add-Line '```'
 

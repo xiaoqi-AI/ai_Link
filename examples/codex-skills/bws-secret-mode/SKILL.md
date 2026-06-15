@@ -66,6 +66,7 @@ After Bitwarden and GitHub are configured, verify names before dispatching:
 
 ```powershell
 npm run providers:github:remote-check
+npm run bws:acceptance:json
 npm run bws:acceptance:strict
 ```
 
@@ -84,6 +85,7 @@ Before handing off, run the non-secret checks that match the change:
 
 ```powershell
 npm run bws:acceptance:print
+npm run bws:acceptance:json
 npm run security:scan
 git status --short --branch
 ```

@@ -110,6 +110,7 @@ addPhase({
   why: "Strict verification should run only after the real local project id and read-only machine account token are available.",
   commands: [
     "npm run bws:check:strict",
+    "npm run bws:acceptance:json",
     "npm run bws:acceptance:strict",
     "npm run bws:doctor",
     "npm run bws:run -- -CommandLine \"npm run ai-link -- doctor\""
@@ -131,6 +132,7 @@ addPhase({
   commands: [
     "npm run bws:github-vars:apply-plan",
     "npm run bws:github-vars:apply",
+    "npm run bws:acceptance:json",
     "npm run providers:github:remote-check"
   ],
   evidence: [

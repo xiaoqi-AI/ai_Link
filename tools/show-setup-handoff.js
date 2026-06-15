@@ -58,6 +58,7 @@ const phases = [
       "npm run bws:worksheet",
       "npm run bws:activate",
       "npm run bws:run:help",
+      "npm run bws:acceptance:json",
       "npm run bws:acceptance:strict"
     ],
     evidence: [
@@ -65,6 +66,7 @@ const phases = [
       "npm run bws:next shows the current session state and the next safe command.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
       "npm run bws:run wraps approved AI Link commands through bws run without storing token values.",
+      "npm run bws:acceptance:json gives Codex and maintainers a machine-readable non-secret acceptance state.",
       "npm run bws:acceptance:strict passes after real setup."
     ],
     stopBefore: [

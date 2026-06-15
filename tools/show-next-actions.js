@@ -81,6 +81,7 @@ const actions = [
       "npm run bws:worksheet",
       "npm run bws:activate",
       "npm run bws:run:help",
+      "npm run bws:acceptance:json",
       "npm run bws:acceptance:strict"
     ],
     evidence: [
@@ -88,6 +89,7 @@ const actions = [
       "npm run bws:next shows the current session state and the next safe command.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
       "npm run bws:run can wrap real AI Link commands after strict readiness passes.",
+      "npm run bws:acceptance:json reports pending, pass, and warn counts without printing secret values.",
       "npm run bws:acceptance:strict passes.",
       "No secret value appears in Git, docs, issues, PRs, logs, or chat."
     ],

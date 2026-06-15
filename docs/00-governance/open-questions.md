@@ -30,6 +30,7 @@
 - MVP 已补充 `package:check` / `package:check:json`，用于在不发布 npm 的前提下模拟打包并检查公开包内容。
 - MVP 已补充 `package:install-smoke` / `package:install-smoke:json`，用于在不发布 npm 的前提下安装本地 tarball 并验证安装后的 CLI。
 - MVP 已补充 `next:actions` / `next:actions:json`，用于汇总本地基线、GitHub 加固、Bitwarden 配置、provider-live 和 v0.1 发布决策的下一步行动。
+- MVP 已补充 `maintainer:pack` / `maintainer:pack:json`，用于把 GitHub UI、Bitwarden、provider-live、release decisions 和发布渠道动作折叠成维护者操作包。
 - MVP 已补充 `github:safety` / `github:safety:json`，用于检查公开仓本地治理基线并在可用时只读核验 GitHub 远端安全设置。
 - MVP 已补充 `github:hardening` / `github:hardening:json`，用于把 branch protection、required `Verify`、secret scanning 和 push protection 的人工配置证据单独输出。
 - MVP 已补充 `github:hardening:next` / `github:hardening:next:json`，用于输出 GitHub UI 链接、只读验证命令和公开安全的 release decision 更新预览。

@@ -145,6 +145,7 @@ try {
   runJsonStep("onboarding", "Public onboarding", [process.execPath, "--import", "tsx", "src/cli.ts", "onboard", "--json", "--strict"]);
   runJsonStep("nextActions", "Next actions", [process.execPath, "tools/show-next-actions.js", "--json"]);
   runJsonStep("setupHandoff", "Setup handoff", [process.execPath, "tools/show-setup-handoff.js", "--json"]);
+  runJsonStep("maintainerPack", "Maintainer action pack", [process.execPath, "tools/show-maintainer-action-pack.js", "--json"]);
   runJsonStep("bwsNext", "BWS next steps", [process.execPath, "tools/show-bws-next.js", "--json"]);
   runJsonStep("packageContents", "Package contents", [process.execPath, "tools/check-package-contents.js", "--json"], { heavy: true });
   runJsonStep("packageInstallSmoke", "Package install smoke", [process.execPath, "tools/check-package-install.js", "--json"], { heavy: true });

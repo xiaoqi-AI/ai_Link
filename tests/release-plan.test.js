@@ -43,8 +43,10 @@ describe("release plan report", () => {
     assert.equal(report.release.githubHardening, "tools/new-github-hardening-worksheet.js");
     assert.equal(report.release.githubHardeningNext, "tools/show-github-hardening-next.js");
     assert.equal(report.release.setupHandoff, "tools/show-setup-handoff.js");
+    assert.equal(report.release.maintainerPack, "tools/show-maintainer-action-pack.js");
     assert.equal(report.release.bwsNext, "tools/show-bws-next.js");
     assert.equal(report.release.bwsRun, "tools/with-bitwarden-secrets.ps1");
+    assert.equal(report.release.bwsAcceptance, "tools/new-bws-acceptance-report.ps1");
     assert.equal(report.release.decisions, "tools/check-release-decisions.js");
     assert.equal(report.release.decisionsNext, "tools/show-release-decision-next.js");
     assert.equal(report.release.evidence, "tools/new-release-evidence.js");
@@ -54,9 +56,11 @@ describe("release plan report", () => {
     assert.equal(report.checks.some((check) => check.name === "public quickstart release path" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release manual gates handoff" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script setup:handoff" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "maintainer action pack" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "GitHub hardening next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "BWS next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "BWS run wrapper" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "BWS acceptance JSON report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release decision next commands" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release evidence handoff" && check.status === "pass"), true);
     assert.equal(report.summary.manualOpen > 0, true);

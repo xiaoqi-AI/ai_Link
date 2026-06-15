@@ -86,8 +86,10 @@ for (const file of [
   "tools/check-package-install.js",
   "tools/check-github-repo-safety.js",
   "tools/show-setup-handoff.js",
+  "tools/show-maintainer-action-pack.js",
   "tools/show-bws-next.js",
   "tools/with-bitwarden-secrets.ps1",
+  "tools/new-bws-acceptance-report.ps1",
   "tools/new-github-hardening-worksheet.js",
   "tools/show-github-hardening-next.js",
   "tools/check-release-decisions.js",
@@ -144,10 +146,17 @@ for (const scriptName of [
   "next:actions:json",
   "setup:handoff",
   "setup:handoff:json",
+  "maintainer:pack",
+  "maintainer:pack:json",
   "bws:next",
   "bws:next:json",
   "bws:run",
   "bws:run:help",
+  "bws:acceptance",
+  "bws:acceptance:print",
+  "bws:acceptance:json",
+  "bws:acceptance:strict",
+  "bws:acceptance:strict:json",
   "github:safety",
   "github:safety:json",
   "github:hardening",
@@ -183,6 +192,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run package:install-smoke",
   "npm run next:actions",
   "npm run setup:handoff",
+  "npm run maintainer:pack",
   "npm run bws:next",
   "npm run github:safety",
   "npm run github:hardening",
@@ -230,6 +240,7 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "runtime/tmp",
   "packageInstallSmoke",
   "nextActions",
+  "maintainerPack",
   "githubHardening",
   "githubHardeningNext",
   "releaseDecisions",
@@ -246,6 +257,15 @@ checkContains("tools/new-github-hardening-worksheet.js", "GitHub hardening works
   "internal-secret-scanning",
   "Does not read API keys",
   "runtime/tmp"
+]);
+
+checkContains("tools/show-maintainer-action-pack.js", "maintainer action pack", [
+  "AI Link Maintainer Action Pack",
+  "github-ui-hardening",
+  "bitwarden-local-foundation",
+  "bws:acceptance:json",
+  "release-decision-closeout",
+  "Does not read API keys"
 ]);
 
 checkContains("tools/show-github-hardening-next.js", "GitHub hardening next steps report", [
@@ -323,6 +343,14 @@ checkContains("tools/with-bitwarden-secrets.ps1", "BWS run wrapper", [
   "BWS_ACCESS_TOKEN",
   "Secret values are never printed",
   "present; value not printed"
+]);
+
+checkContains("tools/new-bws-acceptance-report.ps1", "BWS acceptance JSON report", [
+  "BWS acceptance report",
+  "npm run bws:acceptance:json",
+  "ConvertTo-Json",
+  "Secret values are never printed",
+  "present in current session; value not printed"
 ]);
 
 checkContains(".github/workflows/provider-live.yml", "provider live safe workflow", [

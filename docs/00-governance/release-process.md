@@ -13,8 +13,10 @@ npm run package:check
 npm run package:install-smoke
 npm run next:actions
 npm run setup:handoff
+npm run maintainer:pack
 npm run bws:next
 npm run bws:run:help
+npm run bws:acceptance:json
 npm run github:safety
 npm run github:hardening
 npm run github:hardening:next
@@ -36,8 +38,10 @@ npm run package:check:json
 npm run package:install-smoke:json
 npm run next:actions:json
 npm run setup:handoff:json
+npm run maintainer:pack:json
 npm run bws:next:json
 npm run bws:run:help
+npm run bws:acceptance:json
 npm run github:safety:json
 npm run github:hardening:json
 npm run github:hardening:next:json
@@ -65,9 +69,13 @@ Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to pri
 
 Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the ordered handoff across Bitwarden setup, GitHub provider-live wiring, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
 
+Use `npm run maintainer:pack` or `npm run maintainer:pack:json` when a maintainer needs one consolidated action pack across GitHub UI hardening, Bitwarden local foundation, provider-live GitHub wiring, release decision closeout, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
+
 Use `npm run bws:next` or `npm run bws:next:json` when you need the current Bitwarden setup state and the next safe command. The command is read-only, checks only whether bootstrap variables are present, and never prints token or project-id values.
 
 Use `npm run bws:run:help` before wrapping an approved AI Link command with Bitwarden Secrets Manager. `npm run bws:run -- -CommandLine "..."` requires `BWS_ACCESS_TOKEN` in the current session and does not save or print token values.
+
+Use `npm run bws:acceptance:json` when Codex, CI, or a maintainer handoff needs machine-readable BWS readiness. It reports pass/warn/pending/skip counts and never prints token or secret values.
 
 Use `npm run github:hardening` to generate the GitHub UI worksheet for branch protection, required `Verify`, secret scanning, push protection, and post-configuration evidence. The default worksheet is written under `runtime/tmp/` and is safe for public logs.
 

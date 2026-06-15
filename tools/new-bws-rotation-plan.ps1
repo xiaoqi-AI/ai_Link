@@ -186,6 +186,7 @@ Add-Line ""
 
 Add-Line "## Evidence checklist"
 Add-Line ""
+Add-Line "- [ ] ``npm run bws:acceptance:json`` renders the current non-secret acceptance state for handoff."
 Add-Line "- [ ] ``npm run bws:acceptance:strict`` passes after Bitwarden and GitHub setup are complete."
 Add-Line "- [ ] ``npm run bws:run -- -CommandLine `"npm run ai-link -- doctor`"`` or ``npm run bws:doctor`` confirms local AI Link can read provider keys through ``bws run``."
 Add-Line "- [ ] ``npm run providers:github:check`` passes."
