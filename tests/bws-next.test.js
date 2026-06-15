@@ -36,7 +36,9 @@ async function runBwsNext(cwd, args = ["--json"], env = {}) {
 
 describe("BWS next steps report", () => {
   it("prints a public-safe machine-readable setup state", async () => {
-    const result = await runBwsNext(process.cwd());
+    const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_CLI_PATH: process.execPath
+    });
     const report = JSON.parse(result.stdout);
     const phaseIds = report.phases.map((phase) => phase.id).sort();
 
@@ -64,6 +66,7 @@ describe("BWS next steps report", () => {
 
   it("does not print session token values", async () => {
     const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_CLI_PATH: process.execPath,
       AI_LINK_BWS_PROJECT_ID: "test-local-project-id",
       AI_LINK_BWS_CI_PROJECT_ID: "test-ci-project-id",
       BWS_ACCESS_TOKEN: "test-bws-secret-token",
@@ -95,6 +98,7 @@ describe("BWS next steps report", () => {
 
   it("recommends a session-only token after project ids are available", async () => {
     const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_CLI_PATH: process.execPath,
       AI_LINK_BWS_PROJECT_ID: "test-local-project-id",
       AI_LINK_BWS_CI_PROJECT_ID: "test-ci-project-id"
     });
@@ -109,6 +113,7 @@ describe("BWS next steps report", () => {
 
   it("recommends strict local acceptance before GitHub wiring when the GitHub token is missing", async () => {
     const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_CLI_PATH: process.execPath,
       AI_LINK_BWS_PROJECT_ID: "test-local-project-id",
       AI_LINK_BWS_CI_PROJECT_ID: "test-ci-project-id",
       BWS_ACCESS_TOKEN: "test-bws-secret-token",
