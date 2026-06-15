@@ -78,6 +78,8 @@ Use this path when you want a command that works without provider credentials.
 - Run `npm run next:actions` when you want the current top-level handoff map.
 - Run `npm run setup:handoff` when you want the ordered Bitwarden, GitHub, provider-live, and release setup checklist.
 - Run `npm run maintainer:pack` when a maintainer wants one safe action pack for GitHub UI, Bitwarden, provider-live, release decisions, and release channel work.
+- Run `npm run external:preflight` immediately before real Bitwarden or GitHub UI setup to confirm the public repo is clean, synced, and safe to use as evidence.
+- Run `npm run roadmap:next` when you want the public-safe v0.1 / v0.2 / later-SDK planning map.
 - Run `npm run bws:next` when you want the current Bitwarden setup state and the next safe command.
 - Run `npm run bws:run:help` when you want the wrapper for running approved AI Link commands through `bws run`.
 - Run `npm run github:hardening` when a maintainer is ready to review GitHub branch protection and secret scanning setup.

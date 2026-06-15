@@ -41,6 +41,8 @@
 - MVP 已补充 `release:manual-gates` / `release:manual-gates:json`，用于把 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批拆成 owner、动作和完成证据。
 - MVP 已补充 `release:evidence` / `release:evidence:json`，用于生成脱敏发布证据包并限制默认输出到 `runtime/tmp/`。
 - MVP 已补充 `release:readiness` / `release:readiness:json`，用于区分仓库内发布基线和 GitHub UI / npm 发布决策等人工确认项。
+- MVP 已补充 `external:preflight` / `external:preflight:json`，用于在触碰 Bitwarden、GitHub UI 或 release decisions 前确认公开仓干净、同步且关键报告可用。
+- MVP 已补充 `roadmap:next` / `roadmap:next:json`，用于把 v0.1 本地基线、外部人工门槛、v0.2 真实 provider 验收、skill 创作、agent/connector 扩展和后续 SDK 拆成公开安全路线图。
 - MVP 已补充 `docs/quickstart.md`，用于公开用户无密钥、无真实模型调用的 5 分钟试用路径。
 - Provider dry-run 验收已补充；真实调用验收仍需用户本机通过 Bitwarden Secrets Manager 注入 provider key，或 GitHub Actions 通过 `BW_ACCESS_TOKEN` 临时读取 Bitwarden secret。
 - 统一授权中枢是否继续部署到 `voice.xiao-qi-ai.com` 的 Render Web Service，并启用 Cloudflare Access？

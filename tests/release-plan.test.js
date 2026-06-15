@@ -44,6 +44,8 @@ describe("release plan report", () => {
     assert.equal(report.release.githubHardeningNext, "tools/show-github-hardening-next.js");
     assert.equal(report.release.setupHandoff, "tools/show-setup-handoff.js");
     assert.equal(report.release.maintainerPack, "tools/show-maintainer-action-pack.js");
+    assert.equal(report.release.externalPreflight, "tools/show-external-setup-preflight.js");
+    assert.equal(report.release.roadmapNext, "tools/show-roadmap-next.js");
     assert.equal(report.release.bwsNext, "tools/show-bws-next.js");
     assert.equal(report.release.bwsRun, "tools/with-bitwarden-secrets.ps1");
     assert.equal(report.release.bwsAcceptance, "tools/new-bws-acceptance-report.ps1");
@@ -57,6 +59,8 @@ describe("release plan report", () => {
     assert.equal(report.checks.some((check) => check.name === "release manual gates handoff" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script setup:handoff" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "maintainer action pack" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "external setup preflight" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "roadmap next report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "GitHub hardening next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "BWS next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "BWS run wrapper" && check.status === "pass"), true);

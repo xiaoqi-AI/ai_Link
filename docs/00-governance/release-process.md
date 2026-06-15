@@ -14,6 +14,8 @@ npm run package:install-smoke
 npm run next:actions
 npm run setup:handoff
 npm run maintainer:pack
+npm run external:preflight
+npm run roadmap:next
 npm run bws:next
 npm run bws:run:help
 npm run bws:acceptance:json
@@ -39,6 +41,8 @@ npm run package:install-smoke:json
 npm run next:actions:json
 npm run setup:handoff:json
 npm run maintainer:pack:json
+npm run external:preflight:json
+npm run roadmap:next:json
 npm run bws:next:json
 npm run bws:run:help
 npm run bws:acceptance:json
@@ -70,6 +74,10 @@ Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to pri
 Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the ordered handoff across Bitwarden setup, GitHub provider-live wiring, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
 
 Use `npm run maintainer:pack` or `npm run maintainer:pack:json` when a maintainer needs one consolidated action pack across GitHub UI hardening, Bitwarden local foundation, provider-live GitHub wiring, release decision closeout, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
+
+Use `npm run external:preflight` or `npm run external:preflight:json` immediately before touching Bitwarden or GitHub UI. It is a read-only go/no-go gate that blocks external setup from a dirty or unsynced public repository, reports source-report availability, and never reads or prints secret values.
+
+Use `npm run roadmap:next` or `npm run roadmap:next:json` when you need the public-safe next-step and later-stage roadmap across v0.1 local baseline, external maintainer gates, v0.2 provider acceptance, skill authoring, connector expansion, and later SDK planning.
 
 Use `npm run bws:next` or `npm run bws:next:json` when you need the current Bitwarden setup state and the next safe command. The command is read-only, checks only whether bootstrap variables are present, and never prints token or project-id values.
 

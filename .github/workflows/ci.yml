@@ -57,6 +57,12 @@ jobs:
       - name: Maintainer action pack
         run: npm run maintainer:pack
 
+      - name: External setup preflight
+        run: npm run external:preflight
+
+      - name: Roadmap next
+        run: npm run roadmap:next
+
       - name: BWS next steps
         run: npm run bws:next
 

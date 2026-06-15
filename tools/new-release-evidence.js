@@ -146,6 +146,8 @@ try {
   runJsonStep("nextActions", "Next actions", [process.execPath, "tools/show-next-actions.js", "--json"]);
   runJsonStep("setupHandoff", "Setup handoff", [process.execPath, "tools/show-setup-handoff.js", "--json"]);
   runJsonStep("maintainerPack", "Maintainer action pack", [process.execPath, "tools/show-maintainer-action-pack.js", "--json"]);
+  runJsonStep("externalPreflight", "External setup preflight", [process.execPath, "tools/show-external-setup-preflight.js", "--json"]);
+  runJsonStep("roadmapNext", "Roadmap next", [process.execPath, "tools/show-roadmap-next.js", "--json"]);
   runJsonStep("bwsNext", "BWS next steps", [process.execPath, "tools/show-bws-next.js", "--json"]);
   runJsonStep("packageContents", "Package contents", [process.execPath, "tools/check-package-contents.js", "--json"], { heavy: true });
   runJsonStep("packageInstallSmoke", "Package install smoke", [process.execPath, "tools/check-package-install.js", "--json"], { heavy: true });
@@ -259,7 +261,7 @@ function renderMarkdown(evidenceReport) {
   lines.push("");
   lines.push("## Manual Gates");
   lines.push("");
-  lines.push("Run `npm run setup:handoff` and `npm run release:manual-gates` for the ordered owner/action/evidence checklist before creating a tag, publishing npm, or dispatching live providers.");
+  lines.push("Run `npm run roadmap:next`, `npm run setup:handoff`, and `npm run release:manual-gates` for the roadmap, owner/action/evidence checklist, and manual gates before creating a tag, publishing npm, or dispatching live providers.");
   lines.push("");
   return `${lines.join("\n")}\n`;
 }

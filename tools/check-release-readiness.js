@@ -87,6 +87,8 @@ for (const file of [
   "tools/check-github-repo-safety.js",
   "tools/show-setup-handoff.js",
   "tools/show-maintainer-action-pack.js",
+  "tools/show-external-setup-preflight.js",
+  "tools/show-roadmap-next.js",
   "tools/show-bws-next.js",
   "tools/with-bitwarden-secrets.ps1",
   "tools/new-bws-acceptance-report.ps1",
@@ -148,6 +150,10 @@ for (const scriptName of [
   "setup:handoff:json",
   "maintainer:pack",
   "maintainer:pack:json",
+  "external:preflight",
+  "external:preflight:json",
+  "roadmap:next",
+  "roadmap:next:json",
   "bws:next",
   "bws:next:json",
   "bws:run",
@@ -193,6 +199,8 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run next:actions",
   "npm run setup:handoff",
   "npm run maintainer:pack",
+  "npm run external:preflight",
+  "npm run roadmap:next",
   "npm run bws:next",
   "npm run github:safety",
   "npm run github:hardening",
@@ -241,6 +249,8 @@ checkContains("tools/new-release-evidence.js", "release evidence report", [
   "packageInstallSmoke",
   "nextActions",
   "maintainerPack",
+  "externalPreflight",
+  "roadmapNext",
   "githubHardening",
   "githubHardeningNext",
   "releaseDecisions",
@@ -265,6 +275,24 @@ checkContains("tools/show-maintainer-action-pack.js", "maintainer action pack", 
   "bitwarden-local-foundation",
   "bws:acceptance:json",
   "release-decision-closeout",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-external-setup-preflight.js", "external setup preflight", [
+  "AI Link External Setup Preflight",
+  "canStartExternalSetup",
+  "working tree is not clean",
+  "github-ui-hardening",
+  "bitwarden-foundation",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-roadmap-next.js", "roadmap next report", [
+  "AI Link Roadmap Next",
+  "v0-1-local-public-baseline",
+  "v0-2-real-provider-acceptance",
+  "v0-3-agent-connectors",
+  "roadmap:next:json",
   "Does not read API keys"
 ]);
 
