@@ -55,6 +55,9 @@ describe("BWS next steps report", () => {
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
     assert.equal(report.recommendedNext.id, "create-bitwarden-resources");
     assert.equal(report.recommendedNext.command, "npm run bws:worksheet");
+    assert.equal(report.recommendedNext.evidence.some((line) => line.includes("AI_LINK_BWS_PROJECT_ID is not set.")), true);
+    assert.equal(report.recommendedNext.evidence.some((line) => line.includes("AI_LINK_BWS_CI_PROJECT_ID is not set.")), true);
+    assert.equal(report.recommendedNext.evidence.some((line) => line.includes("are set in the current session")), false);
     assert.equal(report.phases.every((phase) => phase.commands.length > 0 && phase.evidence.length > 0), true);
     assert.equal(report.phases.some((phase) => phase.commands.some((command) => command.includes("npm run bws:run"))), true);
   });

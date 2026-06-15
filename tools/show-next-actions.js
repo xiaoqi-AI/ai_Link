@@ -86,7 +86,7 @@ const actions = [
     ],
     evidence: [
       "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set to non-sensitive project ids.",
-      "npm run bws:next shows the current session state and the next safe command.",
+      "npm run bws:next shows the current session state and recommendedNext action.",
       "BWS_ACCESS_TOKEN exists only in the current local session.",
       "npm run bws:run can wrap real AI Link commands after strict readiness passes.",
       "npm run bws:acceptance:json reports pending, pass, and warn counts without printing secret values.",

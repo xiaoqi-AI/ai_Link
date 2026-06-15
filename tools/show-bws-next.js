@@ -315,6 +315,10 @@ function buildRecommendedNext() {
   }
 
   if (!localProjectPresent || !ciProjectPresent) {
+    const missingProjectIds = [
+      localProjectPresent ? "" : "AI_LINK_BWS_PROJECT_ID is not set.",
+      ciProjectPresent ? "" : "AI_LINK_BWS_CI_PROJECT_ID is not set."
+    ].filter(Boolean);
     return {
       id: "create-bitwarden-resources",
       title: "Create Bitwarden projects and set project ids",
@@ -323,9 +327,10 @@ function buildRecommendedNext() {
       command: "npm run bws:worksheet",
       why: "The public manifest is ready, but the current session is still missing one or more non-sensitive Bitwarden project ids.",
       evidence: [
-        "Bitwarden organization ai-link-lab exists.",
-        "Projects ai-link-local-dev and ai-link-ci exist.",
-        "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set in the current session; values are not printed."
+        "The BWS manifest is present and public-safe.",
+        "The bws CLI is available.",
+        ...missingProjectIds,
+        "Run the worksheet after creating the Bitwarden projects, then set the project ids in the current session; values are not printed."
       ],
       stopBefore: [
         "Do not write BWS_ACCESS_TOKEN or secret values into .env, docs, issues, PRs, screenshots, or the knowledge mirror."
