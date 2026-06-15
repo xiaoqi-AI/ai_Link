@@ -187,6 +187,7 @@ const report = {
     "Does not modify Bitwarden, GitHub settings, release records, tags, npm packages, or provider-live workflows."
   ],
   checks,
+  recommendedNext: buildRecommendedNext(),
   phases
 };
 
@@ -274,6 +275,123 @@ function firstLine(value) {
   return String(value ?? "").trim().split(/\r?\n/)[0] || "available";
 }
 
+function buildRecommendedNext() {
+  if (!manifest) {
+    return {
+      id: "restore-bws-manifest",
+      title: "Restore BWS manifest",
+      status: "fail",
+      owner: "Maintainer or Codex",
+      command: "git status --short",
+      why: `${sourcePath} is missing or invalid, so the expected public-safe BWS structure cannot be verified.`,
+      evidence: [
+        `${sourcePath} exists and parses as JSON.`,
+        "npm run bws:next reports the manifest check as ready."
+      ],
+      stopBefore: [
+        "Do not create external Bitwarden resources until the manifest is available."
+      ],
+      secretBoundary: "The manifest may contain names and ids only; it must never contain secret values."
+    };
+  }
+
+  if (!bwsVersion) {
+    return {
+      id: "install-bws-cli",
+      title: "Install or expose the BWS CLI",
+      status: "manual",
+      owner: "Local Codex operator",
+      command: "npm run bws:next",
+      why: "AI Link can describe the target structure now, but bws run cannot inject secrets until the Bitwarden Secrets Manager CLI is available.",
+      evidence: [
+        "bws --version succeeds, or AI_LINK_BWS_CLI_PATH points to bws.exe.",
+        "npm run bws:next reports the bws CLI check as ready."
+      ],
+      stopBefore: [
+        "Do not paste BWS_ACCESS_TOKEN into project files while fixing the CLI path."
+      ],
+      secretBoundary: "CLI paths and version strings are public-safe; token values are not."
+    };
+  }
+
+  if (!localProjectPresent || !ciProjectPresent) {
+    return {
+      id: "create-bitwarden-resources",
+      title: "Create Bitwarden projects and set project ids",
+      status: "manual",
+      owner: "Secret owner",
+      command: "npm run bws:worksheet",
+      why: "The public manifest is ready, but the current session is still missing one or more non-sensitive Bitwarden project ids.",
+      evidence: [
+        "Bitwarden organization ai-link-lab exists.",
+        "Projects ai-link-local-dev and ai-link-ci exist.",
+        "AI_LINK_BWS_PROJECT_ID and AI_LINK_BWS_CI_PROJECT_ID are set in the current session; values are not printed."
+      ],
+      stopBefore: [
+        "Do not write BWS_ACCESS_TOKEN or secret values into .env, docs, issues, PRs, screenshots, or the knowledge mirror."
+      ],
+      secretBoundary: "Project ids are treated as non-sensitive bootstrap metadata; secret values stay in Bitwarden."
+    };
+  }
+
+  if (!bwsTokenPresent) {
+    return {
+      id: "load-local-bws-session",
+      title: "Load a session-only BWS token",
+      status: "manual",
+      owner: "Local Codex operator",
+      command: "npm run bws:session",
+      why: "Both project ids are available, but bws run still needs a session-only machine account token before it can inject environment variables.",
+      evidence: [
+        "BWS_ACCESS_TOKEN is present only in the current shell or hidden prompt flow; value is not printed.",
+        "npm run bws:next reports BWS_ACCESS_TOKEN as present without showing its value."
+      ],
+      stopBefore: [
+        "Do not save BWS_ACCESS_TOKEN in the repository, shell profile, knowledge mirror, screenshots, or chat."
+      ],
+      secretBoundary: "The bootstrap token is allowed only in the current process environment or GitHub Environment Secret."
+    };
+  }
+
+  if (!githubTokenPresent) {
+    return {
+      id: "verify-local-bws",
+      title: "Run strict local BWS acceptance",
+      status: "gated",
+      owner: "Local Codex operator",
+      command: "npm run bws:acceptance:strict",
+      why: "The local BWS prerequisites are present. Verify the real Bitwarden setup before wiring GitHub or running provider-live checks.",
+      evidence: [
+        "npm run bws:acceptance:strict passes.",
+        "npm run bws:doctor can run through bws run after strict readiness passes.",
+        "No secret value appears in output."
+      ],
+      stopBefore: [
+        "Do not dispatch provider-live or record release decisions until strict BWS readiness passes."
+      ],
+      secretBoundary: "Strict checks may read secret metadata through BWS but must not print secret values."
+    };
+  }
+
+  return {
+    id: "wire-github-provider-live",
+    title: "Wire GitHub provider-live through Bitwarden",
+    status: "gated",
+    owner: "Repository maintainer and secret owner",
+    command: "npm run bws:github-vars:apply-plan",
+    why: "Local BWS prerequisites and GitHub API credentials are present. Preview provider-live Environment variable wiring before applying it.",
+    evidence: [
+      "npm run bws:github-vars:apply-plan shows only Bitwarden secret-id variables.",
+      "GitHub provider-live Environment stores BW_ACCESS_TOKEN as the bootstrap secret.",
+      "npm run providers:github:remote-check passes after GitHub Environment wiring."
+    ],
+    stopBefore: [
+      "Do not run provider-live dispatch before cost approval."
+    ],
+    secretBoundary: "GitHub stores BW_ACCESS_TOKEN as a secret and Bitwarden secret ids as variables; provider key values stay in Bitwarden."
+  };
+}
+
 function renderMarkdown(nextReport) {
   const lines = [];
   lines.push("# AI Link BWS Next Steps");
@@ -302,6 +420,24 @@ function renderMarkdown(nextReport) {
     lines.push(`| ${escapeCell(check.name)} | ${escapeCell(check.status)} | ${escapeCell(check.detail)} |`);
   }
   lines.push("");
+  if (nextReport.recommendedNext) {
+    lines.push("## Recommended Next");
+    lines.push("");
+    lines.push(`Action: ${nextReport.recommendedNext.title}`);
+    lines.push("");
+    lines.push(`Owner: ${nextReport.recommendedNext.owner}`);
+    lines.push("");
+    lines.push(`Why: ${nextReport.recommendedNext.why}`);
+    lines.push("");
+    pushList(lines, "Evidence", nextReport.recommendedNext.evidence);
+    lines.push("Command:");
+    lines.push("");
+    pushCommandBlock(lines, [nextReport.recommendedNext.command]);
+    lines.push("");
+    pushList(lines, "Stop before", nextReport.recommendedNext.stopBefore);
+    lines.push(`Secret boundary: ${nextReport.recommendedNext.secretBoundary}`);
+    lines.push("");
+  }
   lines.push("## Phases");
   lines.push("");
   lines.push("| Phase | Status | Owner |");

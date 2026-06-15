@@ -79,7 +79,7 @@ Use `npm run external:preflight` or `npm run external:preflight:json` immediatel
 
 Use `npm run roadmap:next` or `npm run roadmap:next:json` when you need the public-safe next-step and later-stage roadmap across v0.1 local baseline, external maintainer gates, v0.2 provider acceptance, skill authoring, connector expansion, and later SDK planning.
 
-Use `npm run bws:next` or `npm run bws:next:json` when you need the current Bitwarden setup state and the next safe command. The command is read-only, checks only whether bootstrap variables are present, and never prints token or project-id values.
+Use `npm run bws:next` or `npm run bws:next:json` when you need the current Bitwarden setup state and a single `recommendedNext` action. The command is read-only, checks only whether bootstrap variables are present, and never prints token or project-id values.
 
 Use `npm run bws:run:help` before wrapping an approved AI Link command with Bitwarden Secrets Manager. `npm run bws:run -- -CommandLine "..."` requires `BWS_ACCESS_TOKEN` in the current session and does not save or print token values.
 

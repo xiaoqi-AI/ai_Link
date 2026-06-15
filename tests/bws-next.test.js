@@ -53,6 +53,8 @@ describe("BWS next steps report", () => {
       "wire-github-provider-live"
     ]);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
+    assert.equal(report.recommendedNext.id, "create-bitwarden-resources");
+    assert.equal(report.recommendedNext.command, "npm run bws:worksheet");
     assert.equal(report.phases.every((phase) => phase.commands.length > 0 && phase.evidence.length > 0), true);
     assert.equal(report.phases.some((phase) => phase.commands.some((command) => command.includes("npm run bws:run"))), true);
   });
@@ -73,6 +75,8 @@ describe("BWS next steps report", () => {
     assert.equal(result.stdout.includes("test-ci-project-id"), false);
     assert.equal(report.checks.some((check) => check.name === "BWS_ACCESS_TOKEN" && check.detail === "present; value not printed"), true);
     assert.equal(report.checks.some((check) => check.name === "GH_TOKEN or GITHUB_TOKEN" && check.detail === "present; value not printed"), true);
+    assert.equal(report.recommendedNext.id, "wire-github-provider-live");
+    assert.equal(report.recommendedNext.command, "npm run bws:github-vars:apply-plan");
   });
 
   it("can resolve an explicit BWS CLI path outside PATH", async () => {
@@ -86,11 +90,42 @@ describe("BWS next steps report", () => {
     assert.equal(report.checks.some((check) => check.name === "bws CLI" && check.status === "ready"), true);
   });
 
+  it("recommends a session-only token after project ids are available", async () => {
+    const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_PROJECT_ID: "test-local-project-id",
+      AI_LINK_BWS_CI_PROJECT_ID: "test-ci-project-id"
+    });
+    const report = JSON.parse(result.stdout);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(report.recommendedNext.id, "load-local-bws-session");
+    assert.equal(report.recommendedNext.command, "npm run bws:session");
+    assert.equal(result.stdout.includes("test-local-project-id"), false);
+    assert.equal(result.stdout.includes("test-ci-project-id"), false);
+  });
+
+  it("recommends strict local acceptance before GitHub wiring when the GitHub token is missing", async () => {
+    const result = await runBwsNext(process.cwd(), ["--json"], {
+      AI_LINK_BWS_PROJECT_ID: "test-local-project-id",
+      AI_LINK_BWS_CI_PROJECT_ID: "test-ci-project-id",
+      BWS_ACCESS_TOKEN: "test-bws-secret-token",
+      GH_TOKEN: "",
+      GITHUB_TOKEN: ""
+    });
+    const report = JSON.parse(result.stdout);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(report.recommendedNext.id, "verify-local-bws");
+    assert.equal(report.recommendedNext.command, "npm run bws:acceptance:strict");
+    assert.equal(result.stdout.includes("test-bws-secret-token"), false);
+  });
+
   it("renders a public markdown handoff", async () => {
     const result = await runBwsNext(process.cwd(), []);
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /AI Link BWS Next Steps/);
+    assert.match(result.stdout, /Recommended Next/);
     assert.match(result.stdout, /Create Bitwarden resources/);
     assert.match(result.stdout, /provider-live Environment/);
     assert.match(result.stdout, /does not read or print secret values/i);
@@ -107,6 +142,7 @@ describe("BWS next steps report", () => {
       assert.equal(result.status, 2);
       assert.equal(report.summary.ok, false);
       assert.equal(report.checks.some((check) => check.name === "BWS manifest" && check.status === "fail"), true);
+      assert.equal(report.recommendedNext.id, "restore-bws-manifest");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
