@@ -34,11 +34,15 @@
 - 贡献说明：`CONTRIBUTING.md`
 - 安全反馈：`SECURITY.md`
 - 治理说明：`docs/00-governance/workspace-governance.md`
+- 迭代边界与约束：`docs/00-governance/iteration-boundaries.md`
 - GitHub 维护规则：`docs/00-governance/public-github-maintenance.md`
 - 用户指引维护规则：`docs/00-governance/user-guidance-policy.md`
 - 待确认问题：`docs/00-governance/open-questions.md`
 
 ## 常用维护命令
+
+Windows PowerShell 如果提示无法加载 `npm.ps1`，把下面命令里的 `npm`
+换成 `npm.cmd` 即可，例如 `npm.cmd run bws:next`。
 
 ```powershell
 npm run check

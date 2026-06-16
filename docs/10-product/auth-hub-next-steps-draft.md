@@ -13,6 +13,18 @@
 - Render 部署骨架保留，生产部署前必须经过 Cloudflare Access 和应用内登录双门禁。
 - 真实平台登录态、Cookie、二维码、截图和原始平台内容仍只允许放在本机私有目录或私有仓治理材料中。
 
+## 迭代边界
+
+授权中枢后续推进受 `docs/00-governance/iteration-boundaries.md` 约束：
+
+- 可自动推进：mock 流程、连接器契约、状态页、脱敏审计、本地检查和公开文档。
+- 需人工确认：Render / Cloudflare 配置、生产环境变量、GitHub Release、npm 发布、真实 provider 调用和费用边界。
+- 必须人工协助：微信/朱雀AI等平台登录、扫码、验证码、续登、正式发布确认和真实内容审核。
+- 只能进私有边界：Cookie、浏览器 Profile、二维码、登录截图、未脱敏原文、真实账号配置和私有 connector 实现。
+- 暂不承诺：真实平台自动发布、云端保存高价值账号登录态、绕过验证码或风控、未经审批的批量调用。
+
+默认推进顺序是先本地 dry-run / mock，再远端空跑；先只读和草稿，再发布能力；先安全扫描和 fresh clone，再 tag / deploy。
+
 ## 阶段 1：生产门禁与远端空跑
 
 目标：让 `voice.xiao-qi-ai.com` 可以承载真实任务控制台，但仍只跑 mock 或脱敏任务。

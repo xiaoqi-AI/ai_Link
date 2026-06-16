@@ -35,6 +35,7 @@
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
 - Auto Ops 示例：`examples/auto-ops/`
 - BWS Codex Skill 示例：`examples/codex-skills/bws-secret-mode/SKILL.md`
+- 迭代边界与约束：`docs/00-governance/iteration-boundaries.md`
 - 项目账本：`docs/project-ledger/`
 - 文档模板：`docs/90-templates/`
 - 本地检查和知识库同步脚本：`tools/`
@@ -52,6 +53,8 @@ npm run workflow:dry
 npm run ai-link -- skill draft --skill auto_ops --description "research with Grok, article draft with Kimi" --write .ai-link/local.yaml --diff --json
 npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段文章草稿"
 ```
+
+Windows PowerShell 如果提示无法加载 `npm.ps1`，把命令里的 `npm` 换成 `npm.cmd` 即可，例如 `npm.cmd run onboard:print` 或 `npm.cmd run bws:next`。
 
 `onboard:print` 会输出一页不含密钥的公开用户入场引导，覆盖当前项目配置、第一条 dry-run 路径、自然语言 skill 草稿预览、BWS 密钥托管入口和收尾检查。需要机器可读状态时，用 `npm run onboard:json` 或 `npm run ai-link -- onboard --json`；需要 CI/其他 agent 用退出码判定时，用 `npm run onboard:check` 或 `npm run ai-link -- onboard --json --strict`；需要保存到本地运行态时，用 `npm run onboard` 写入 `runtime/tmp/ai-link-onboarding.md`；该文件默认不进入 Git。`package:check` 会先重新构建运行时产物，再用 `npm pack --dry-run` 模拟打包并确认包内不含源码测试、运行态、自动化目录或敏感本地文件；机器可读版本用 `package:check:json`，它不会发布到 npm。`package:install-smoke` 会把本地 tarball 安装到临时空项目里，再运行安装后的 `ai-link --version` 和 `config validate`；机器可读版本用 `package:install-smoke:json`，它同样不会发布到 npm。`next:actions` 会输出当前最高优先级的下一步行动图，把本地基线、GitHub 加固、Bitwarden 配置、provider-live Environment、成本审批和 v0.1 发布决策放到一张表里；机器可读版本用 `next:actions:json`，不会读取密钥或修改远端设置。`external:preflight` 会在真正进入 Bitwarden 或 GitHub UI 前做一次只读 go/no-go 检查，确认公开仓是否干净、是否同步、来源报告是否可用；机器可读版本用 `external:preflight:json`，不会读取密钥或修改外部系统。`roadmap:next` 会输出公开安全路线图，把 v0.1 本地基线、外部人工门槛、v0.2 真实 provider 验收、skill 创作、agent/connector 扩展和后续 SDK 拆成阶段；机器可读版本用 `roadmap:next:json`。`github:safety` 会检查公开仓本地治理基线；如果本机安装并登录了 `gh`，或当前会话设置了 `GH_TOKEN` / `GITHUB_TOKEN`，还会只读核验远端 branch protection、secret scanning 和 push protection 状态；机器可读版本用 `github:safety:json`，不会修改 GitHub 设置，也不会输出 token。`release:plan` 会检查 `CHANGELOG.md`、GitHub Release 草稿、发布流程文档、tag 计划和 npm 发布决策项；机器可读版本用 `release:plan:json`，不会创建 tag 或发布 npm。`release:decisions:update` 会把人工确认后的 v0.1 决策写入公开安全记录，默认只预览，只有加 `--yes` 才会写入，并且会拒绝疑似密钥内容。`release:manual-gates` 会输出 v0.1 人工门槛计划，把 GitHub 保护、secret scanning / push protection、npm 发布决策和 provider-live 成本审批拆成 owner、动作、完成证据和安全边界；机器可读版本用 `release:manual-gates:json`，不会修改 GitHub、创建 tag、发布 npm 或触发真实 provider。`release:evidence` 会汇总 onboarding、包检查、下一步行动、GitHub 安全、发布计划、人工门槛和发布就绪摘要，并把 JSON 写入 `runtime/tmp/release-evidence.json`；机器可读版本用 `release:evidence:json`，默认不写文件。`release:readiness` 会输出 v0.1 公开发布基线报告，把仓库内已满足项和 GitHub UI / npm 发布决策这类人工确认项分开；机器可读版本用 `release:readiness:json`。`providers:dry:json` 会输出 provider 验收摘要，包含 `summary.ok`、`summary.counts` 和逐个 provider 状态，适合 Codex skill、CI 或其他 agent 判定 dry-run 是否可用。
 
@@ -145,6 +148,7 @@ Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KE
 - 不要假设所有 provider 的高级能力都已经完整实现。
 - 不要假设扣子工作流已具备开箱即用的真实平台能力；当前支持 dry-run 和本机命令适配，真实执行取决于用户 `.ai-link/local.yaml` 或用户全局私有配置。
 - 不要假设统一授权中枢已经支持真实微信、朱雀AI、抖音、小红书、知乎或头条账号自动化；公开 MVP 目前只启用 mock 连接器和真实连接器边界。
+- 不要把发布、真实 provider 调用、真实平台登录或正式内容发布当作自动步骤；这些都属于人工确认边界，详见 `docs/00-governance/iteration-boundaries.md`。
 - 不要把私密数据、账号、token、二维码、登录态或未脱敏截图提交到 issue、PR 或仓库文件。
 - 不要把 `BWS_ACCESS_TOKEN` 写入项目文件；它只允许存在于当前本机会话环境中。
 - 不要把私有内部仓中的草稿、判断或实验结果视为公开承诺；公开仓内容才是对外口径。
