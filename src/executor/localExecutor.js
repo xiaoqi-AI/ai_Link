@@ -36,6 +36,14 @@ async function requestJson(url, { token, method = "GET", body } = {}) {
     headers["CF-Access-Client-Id"] = cfAccessClientId;
     headers["CF-Access-Client-Secret"] = cfAccessClientSecret;
   }
+  const cfAccessJwt = readEnv("AI_LINK_CF_ACCESS_TEST_JWT", "");
+  const cfAccessEmail = readEnv("AI_LINK_CF_ACCESS_TEST_EMAIL", "");
+  if (cfAccessJwt) {
+    headers["cf-access-jwt-assertion"] = cfAccessJwt;
+  }
+  if (cfAccessEmail) {
+    headers["cf-access-authenticated-user-email"] = cfAccessEmail;
+  }
 
   const response = await fetch(url, {
     method,

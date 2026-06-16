@@ -119,6 +119,8 @@ npm run auth-hub:executor:start
 $env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
+$env:AI_LINK_APP_PASSWORD="<app-password-from-secret-store>"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
 $env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
 npm run auth-hub:remote:smoke
@@ -129,3 +131,17 @@ npm run auth-hub:remote:smoke
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -SkipExecutor
 ```
+
+完整远端 mock 空跑会验证：
+
+- `/healthz` 可访问。
+- 未开启 `-ExpectAccessGate` 时，应用登录页可访问；开启 `-ExpectAccessGate` 时，未带 Access 头的 `/login` 应被 Cloudflare Access 拦截或重定向。
+- 提供 `AI_LINK_APP_PASSWORD` 时，应用内登录能进入 dashboard。
+- 管理 token 可以创建 `full_chain` mock 任务。
+- 控制台/API 可读取连接器公开状态，响应中不应出现 Cookie、浏览器 Profile、`runtime/private/` 等私有状态。
+- 受限 Codex token 可以读取脱敏任务，但不能领取执行器任务，也不能批准发布。
+- 本地执行器能领取任务、回写 `approval_required`、等待人工审批。
+- 管理 token 批准后，本地执行器再次领取并完成 mock 发布步骤。
+- 任务详情和审计日志只包含脱敏摘要。
+
+这些检查仍然只覆盖 mock 链路；真实微信、朱雀AI、抖音、小红书、知乎、头条账号登录和正式发布不属于本轮验收。

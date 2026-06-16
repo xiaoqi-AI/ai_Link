@@ -126,6 +126,35 @@ npm run auth-hub:deploy:check
 npm run auth-hub:remote:smoke
 ```
 
+`auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。它不会接入真实微信、朱雀AI或其他平台账号。
+
+生产验收时建议在当前终端临时注入真实值，值本身不要写入文件或聊天记录：
+
+```powershell
+$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
+$env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
+$env:AI_LINK_APP_PASSWORD="<app-password-from-secret-store>"
+$env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
+$env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
+npm run auth-hub:remote:smoke
+```
+
+如果要同时确认未授权浏览器会被 Cloudflare Access 拦截，直接调用脚本并加 `-ExpectAccessGate`。该检查会故意不带 Access 头访问 `/login`，期望收到跳转、401 或 403：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -ExpectAccessGate
+```
+
+若外部账号、DNS、Render、Postgres、Cloudflare Access 或 secret 尚未配置完成，远端 smoke 只能作为待验收项；此时可继续用本地控制台加同一脚本验证 mock 链路：
+
+```powershell
+npm run auth-hub:local:start
+powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -BaseUrl "http://127.0.0.1:10001" -AdminToken "dev-admin-token" -ExecutorToken "dev-executor-token" -CodexToken "dev-codex-token" -AppPassword "dev-password"
+npm run auth-hub:local:stop
+```
+
 ## 测试
 
 ```powershell

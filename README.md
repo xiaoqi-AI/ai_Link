@@ -187,6 +187,8 @@ npm run auth-hub:executor:start
 
 第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。`auth-hub:audit-smoke` 会启动或复用本地授权中枢，创建测试任务，运行 AI Link dry-run workflow 生成本地 run record，再用 `runs submit-audit` 回传审计并验证 `GET /api/audit?eventType=ai_link.audit`。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同状态；真实平台连接器应放在私有配置或私有仓中实现。
 
+部署到 `voice.xiao-qi-ai.com` 后，`auth-hub:remote:smoke` 会用 `full_chain` mock 任务验收远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、本地执行器领取和回写、发布前审批、审批后完成、受限 Codex token 权限边界、脱敏任务详情和审计日志。该脚本只验证 mock 链路，不读取真实平台账号、不保存浏览器 Profile、不上传截图或 Cookie。
+
 停止本地服务：
 
 ```powershell

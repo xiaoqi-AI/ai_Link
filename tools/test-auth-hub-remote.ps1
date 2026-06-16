@@ -2,12 +2,16 @@ param(
   [string]$BaseUrl = "",
   [string]$AdminToken = "",
   [string]$ExecutorToken = "",
+  [string]$CodexToken = "",
+  [string]$AppPassword = "",
   [string]$CfAccessClientId = "",
   [string]$CfAccessClientSecret = "",
   [string]$CfAccessJwt = "",
   [string]$CfAccessEmail = "",
   [switch]$SkipExecutor,
-  [switch]$ExpectAccessGate
+  [switch]$ExpectAccessGate,
+  [ValidateSet("full_chain", "read_detect")]
+  [string]$Workflow = "full_chain"
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,6 +34,14 @@ if (-not $ExecutorToken) {
   $ExecutorToken = $env:AI_LINK_EXECUTOR_TOKEN
 }
 
+if (-not $CodexToken) {
+  $CodexToken = $env:AI_LINK_CODEX_TOKEN
+}
+
+if (-not $AppPassword) {
+  $AppPassword = $env:AI_LINK_APP_PASSWORD
+}
+
 if (-not $CfAccessClientId) {
   $CfAccessClientId = $env:CF_ACCESS_CLIENT_ID
 }
@@ -47,7 +59,13 @@ if (-not $CfAccessEmail) {
 }
 
 function New-CommonHeaders {
+  param([switch]$WithoutAccess)
+
   $headers = @{}
+  if ($WithoutAccess) {
+    return $headers
+  }
+
   if ($CfAccessClientId -and $CfAccessClientSecret) {
     $headers["CF-Access-Client-Id"] = $CfAccessClientId
     $headers["CF-Access-Client-Secret"] = $CfAccessClientSecret
@@ -70,6 +88,51 @@ function New-AuthHeaders {
   return $headers
 }
 
+function Invoke-HttpStatus {
+  param(
+    [string]$Uri,
+    [string]$Method = "Get",
+    [hashtable]$Headers = @{},
+    [object]$Body = $null,
+    [string]$ContentType = "application/json",
+    [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession = $null
+  )
+
+  $parameters = @{
+    Uri = $Uri
+    Method = $Method
+    Headers = $Headers
+    TimeoutSec = 30
+    UseBasicParsing = $true
+    MaximumRedirection = 0
+    ErrorAction = "Stop"
+  }
+  if ($WebSession) {
+    $parameters["WebSession"] = $WebSession
+  }
+  if ($null -ne $Body) {
+    $parameters["ContentType"] = $ContentType
+    $parameters["Body"] = $Body
+  }
+
+  try {
+    $response = Invoke-WebRequest @parameters
+    return [ordered]@{
+      statusCode = [int]$response.StatusCode
+      content = [string]$response.Content
+    }
+  } catch {
+    $response = $_.Exception.Response
+    if ($response) {
+      return [ordered]@{
+        statusCode = [int]$response.StatusCode
+        content = ""
+      }
+    }
+    throw
+  }
+}
+
 function Invoke-Json {
   param(
     [string]$Uri,
@@ -88,6 +151,9 @@ function Invoke-Json {
 $result = [ordered]@{
   ok = $false
   baseUrl = $BaseUrl
+  workflow = $Workflow
+  taskId = $null
+  finalStatus = $null
   checks = @()
 }
 
@@ -112,29 +178,61 @@ try {
 }
 
 try {
-  $login = Invoke-WebRequest -Uri "$BaseUrl/login" -Headers (New-CommonHeaders) -UseBasicParsing -MaximumRedirection 0 -TimeoutSec 30 -ErrorAction Stop
+  $loginHeaders = if ($ExpectAccessGate) { New-CommonHeaders -WithoutAccess } else { New-CommonHeaders }
+  $login = Invoke-HttpStatus -Uri "$BaseUrl/login" -Headers $loginHeaders
   if ($ExpectAccessGate) {
-    Add-Check "access gate" "warn" "Login page is directly reachable; verify Cloudflare Access policy manually."
-  } elseif ($login.StatusCode -eq 200) {
+    if ($login.statusCode -in @(302, 401, 403)) {
+      Add-Check "access gate" "pass" "Unauthenticated login request was blocked or redirected before app login."
+    } else {
+      Add-Check "access gate" "fail" "Unauthenticated login request returned HTTP $($login.statusCode); verify Cloudflare Access policy."
+    }
+  } elseif ($login.statusCode -eq 200) {
     Add-Check "login page" "pass" "Application login page is reachable."
   } else {
-    Add-Check "login page" "warn" "Login response did not match expected content."
+    Add-Check "login page" "warn" "Login response returned HTTP $($login.statusCode)."
   }
 } catch {
-  $response = $_.Exception.Response
-  if ($ExpectAccessGate -and $response -and ([int]$response.StatusCode -in @(302, 401, 403))) {
-    Add-Check "access gate" "pass" "Unauthenticated login request was blocked or redirected."
-  } else {
-    Add-Check "login page" "warn" $_.Exception.Message
+  Add-Check "login page" "warn" $_.Exception.Message
+}
+
+if ($AppPassword) {
+  try {
+    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $form = "password=$([uri]::EscapeDataString($AppPassword))&next=%2Fdashboard"
+    $loginResult = Invoke-WebRequest `
+      -Uri "$BaseUrl/login" `
+      -Method "Post" `
+      -Headers (New-CommonHeaders) `
+      -Body $form `
+      -ContentType "application/x-www-form-urlencoded" `
+      -WebSession $session `
+      -UseBasicParsing `
+      -TimeoutSec 30
+
+    if ($loginResult.StatusCode -eq 200) {
+      $dashboard = Invoke-WebRequest -Uri "$BaseUrl/dashboard" -Headers (New-CommonHeaders) -WebSession $session -UseBasicParsing -TimeoutSec 30
+      if ($dashboard.StatusCode -eq 200 -and $dashboard.Content -match "AI Link") {
+        Add-Check "app login" "pass" "Application login reaches dashboard with session cookie."
+      } else {
+        Add-Check "app login" "fail" "Dashboard did not return the expected console page."
+      }
+    } else {
+      Add-Check "app login" "fail" "Login returned HTTP $($loginResult.StatusCode)."
+    }
+  } catch {
+    Add-Check "app login" "fail" $_.Exception.Message
   }
+} else {
+  Add-Check "app login" "warn" "App password not provided; dashboard session check skipped."
 }
 
 if ($AdminToken) {
   $adminHeaders = New-AuthHeaders $AdminToken
+  $codexHeaders = New-AuthHeaders $CodexToken
   try {
     $createBody = @(
       "{"
-      '"workflow":"read_detect",'
+      '"workflow":"' + $Workflow + '",'
       '"input":{'
       '"title":"remote smoke task",'
       '"text":"public smoke-test text for remote auth hub verification"'
@@ -142,7 +240,50 @@ if ($AdminToken) {
       "}"
     ) -join ""
     $task = Invoke-Json -Uri "$BaseUrl/api/tasks" -Method "Post" -Headers $adminHeaders -Body $createBody
+    $result.taskId = $task.task.id
     Add-Check "api task create" "pass" "Created task $($task.task.id)."
+
+    try {
+      $connectors = Invoke-Json -Uri "$BaseUrl/api/connectors" -Headers $adminHeaders
+      $connectorJson = ($connectors | ConvertTo-Json -Depth 8).ToLowerInvariant()
+      if ($connectors.connectors -and -not ($connectorJson -match "cookie|browserprofile|runtime/private")) {
+        Add-Check "connectors status" "pass" "Connector contract status is readable without private state."
+      } else {
+        Add-Check "connectors status" "fail" "Connector response is missing or contains private-state markers."
+      }
+    } catch {
+      Add-Check "connectors status" "fail" $_.Exception.Message
+    }
+
+    if ($CodexToken) {
+      try {
+        $codexRead = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $codexHeaders
+        if ($codexRead.task.id -eq $task.task.id) {
+          Add-Check "codex task read" "pass" "Restricted Codex token can read the redacted task result."
+        } else {
+          Add-Check "codex task read" "fail" "Restricted Codex token did not read the expected task."
+        }
+      } catch {
+        Add-Check "codex task read" "fail" $_.Exception.Message
+      }
+
+      try {
+        $deniedLease = Invoke-HttpStatus `
+          -Uri "$BaseUrl/api/executor/lease" `
+          -Method "Post" `
+          -Headers $codexHeaders `
+          -Body '{"executorId":"codex-boundary-check"}'
+        if ($deniedLease.statusCode -eq 403) {
+          Add-Check "codex executor denied" "pass" "Restricted Codex token cannot lease executor work."
+        } else {
+          Add-Check "codex executor denied" "fail" "Expected HTTP 403, got HTTP $($deniedLease.statusCode)."
+        }
+      } catch {
+        Add-Check "codex executor denied" "fail" $_.Exception.Message
+      }
+    } else {
+      Add-Check "codex token boundary" "warn" "Codex token not provided; restricted-token boundary checks skipped."
+    }
 
     if (-not $SkipExecutor) {
       if (-not $ExecutorToken) {
@@ -154,14 +295,99 @@ if ($AdminToken) {
           $env:CF_ACCESS_CLIENT_ID = $CfAccessClientId
           $env:CF_ACCESS_CLIENT_SECRET = $CfAccessClientSecret
         }
-        $run = npm run auth-hub:executor:once
-        $taskDetail = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $adminHeaders
-        if ($taskDetail.task.status -eq "completed") {
-          Add-Check "executor roundtrip" "pass" "Executor completed remote task."
+        if ($CfAccessJwt) {
+          $env:AI_LINK_CF_ACCESS_TEST_JWT = $CfAccessJwt
+        }
+        if ($CfAccessEmail) {
+          $env:AI_LINK_CF_ACCESS_TEST_EMAIL = $CfAccessEmail
+        }
+
+        $firstRun = npm run auth-hub:executor:once
+        $afterFirstRun = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $adminHeaders
+
+        if ($Workflow -eq "read_detect") {
+          if ($afterFirstRun.task.status -eq "completed") {
+            Add-Check "executor roundtrip" "pass" "Executor completed read_detect remote task."
+          } else {
+            Add-Check "executor roundtrip" "fail" "Task status is $($afterFirstRun.task.status), expected completed. Executor output: $($firstRun -join ' ')"
+          }
         } else {
-          Add-Check "executor roundtrip" "fail" "Task status is $($taskDetail.task.status), expected completed. Executor output: $($run -join ' ')"
+          $approval = $afterFirstRun.approvals | Where-Object { $_.status -eq "pending" } | Select-Object -First 1
+          if ($afterFirstRun.task.status -eq "approval_required" -and $approval) {
+            Add-Check "approval requested" "pass" "Executor requested publish approval before completion."
+          } else {
+            Add-Check "approval requested" "fail" "Task status is $($afterFirstRun.task.status), expected approval_required."
+          }
+
+          if ($CodexToken -and $approval) {
+            $denyApproveBody = @(
+              "{"
+              '"approvalId":"' + $approval.id + '",'
+              '"approved":true,'
+              '"note":"codex boundary check"'
+              "}"
+            ) -join ""
+            $deniedApprove = Invoke-HttpStatus `
+              -Uri "$BaseUrl/api/tasks/$($task.task.id)/approve" `
+              -Method "Post" `
+              -Headers $codexHeaders `
+              -Body $denyApproveBody
+            if ($deniedApprove.statusCode -eq 403) {
+              Add-Check "codex approval denied" "pass" "Restricted Codex token cannot approve publish."
+            } else {
+              Add-Check "codex approval denied" "fail" "Expected HTTP 403, got HTTP $($deniedApprove.statusCode)."
+            }
+          }
+
+          if ($approval) {
+            $approveBody = @(
+              "{"
+              '"approvalId":"' + $approval.id + '",'
+              '"approved":true,'
+              '"note":"remote smoke test approval"'
+              "}"
+            ) -join ""
+            $approved = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)/approve" -Method "Post" -Headers $adminHeaders -Body $approveBody
+            if ($approved.task.status -eq "queued" -and $approved.task.currentStep -eq "publish") {
+              Add-Check "admin approval" "pass" "Admin token approved the mock publish continuation."
+            } else {
+              Add-Check "admin approval" "fail" "Approval did not requeue publish step."
+            }
+
+            $secondRun = npm run auth-hub:executor:once
+            $taskDetail = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $adminHeaders
+            if ($taskDetail.task.status -eq "completed") {
+              Add-Check "executor roundtrip" "pass" "Executor completed remote task after approval."
+            } else {
+              Add-Check "executor roundtrip" "fail" "Task status is $($taskDetail.task.status), expected completed. Executor output: $($secondRun -join ' ')"
+            }
+          }
         }
       }
+    } else {
+      Add-Check "executor roundtrip" "warn" "Executor run skipped by request."
+    }
+
+    $taskDetail = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $adminHeaders
+    $result.finalStatus = $taskDetail.task.status
+    $detailJson = ($taskDetail | ConvertTo-Json -Depth 10)
+    $containsMarker = $false
+    foreach ($marker in @("cookie", "browserprofile", "runtime/private", "qr", "screenshot", "rawhtml")) {
+      if ($detailJson.ToLowerInvariant().Contains($marker)) {
+        $containsMarker = $true
+      }
+    }
+    if (-not $containsMarker) {
+      Add-Check "redacted task detail" "pass" "Task detail contains no private-state markers."
+    } else {
+      Add-Check "redacted task detail" "fail" "Task detail contains private-state markers."
+    }
+
+    $audit = Invoke-Json -Uri "$BaseUrl/api/audit?taskId=$($task.task.id)&limit=50" -Headers $adminHeaders
+    if ($audit.auditEvents.Count -gt 0) {
+      Add-Check "audit log" "pass" "Task audit events are readable."
+    } else {
+      Add-Check "audit log" "fail" "No audit events returned for the smoke task."
     }
   } catch {
     Add-Check "api task create" "fail" $_.Exception.Message

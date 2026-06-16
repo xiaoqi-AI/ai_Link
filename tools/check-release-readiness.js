@@ -102,6 +102,8 @@ for (const file of [
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js",
   "tools/show-next-actions.js",
+  "tools/test-auth-hub-remote.ps1",
+  "src/executor/localExecutor.js",
   "docs/quickstart.md",
   "docs/user-guide.md",
   "docs/10-product/project-requirements-plan-boundary.md",
@@ -188,7 +190,8 @@ for (const scriptName of [
   "release:evidence",
   "release:evidence:json",
   "release:readiness",
-  "release:readiness:json"
+  "release:readiness:json",
+  "auth-hub:remote:smoke"
 ]) {
   checkScript(packageJson, scriptName);
 }
@@ -270,6 +273,49 @@ checkContains("docs/quickstart.md", "public quickstart commands", [
   "npm run workflow:dry",
   "npm run ai-link -- skill draft",
   "npm run ai-link -- run auto_ops.article_draft --provider mock"
+]);
+
+checkContains("tools/test-auth-hub-remote.ps1", "Auth Hub remote smoke script", [
+  "BaseUrl is required",
+  "AI_LINK_CODEX_TOKEN",
+  "AI_LINK_APP_PASSWORD",
+  "AI_LINK_CF_ACCESS_TEST_JWT",
+  "ExpectAccessGate",
+  "full_chain",
+  "read_detect",
+  "codex executor denied",
+  "codex approval denied",
+  "redacted task detail",
+  "audit log"
+]);
+
+checkContains("src/executor/localExecutor.js", "Auth Hub executor Access test headers", [
+  "CF_ACCESS_CLIENT_ID",
+  "CF_ACCESS_CLIENT_SECRET",
+  "AI_LINK_CF_ACCESS_TEST_JWT",
+  "AI_LINK_CF_ACCESS_TEST_EMAIL",
+  "cf-access-jwt-assertion",
+  "cf-access-authenticated-user-email"
+]);
+
+checkContains("docs/20-architecture/auth-hub.md", "Auth Hub remote mock dry-run docs", [
+  "auth-hub:remote:smoke",
+  "full_chain",
+  "受限 Codex token",
+  "脱敏任务详情",
+  "不会接入真实微信",
+  "test-auth-hub-remote.ps1",
+  "ExpectAccessGate"
+]);
+
+checkContains("docs/20-architecture/auth-hub-deployment-checklist.md", "Auth Hub remote deployment smoke checklist", [
+  "AI_LINK_CODEX_TOKEN",
+  "AI_LINK_APP_PASSWORD",
+  "auth-hub:remote:smoke",
+  "完整远端 mock 空跑",
+  "受限 Codex token",
+  "任务详情和审计日志只包含脱敏摘要",
+  "真实微信、朱雀AI、抖音、小红书、知乎、头条账号登录和正式发布不属于本轮验收"
 ]);
 
 checkContains("tools/show-release-manual-gates.js", "release manual gates report", [
