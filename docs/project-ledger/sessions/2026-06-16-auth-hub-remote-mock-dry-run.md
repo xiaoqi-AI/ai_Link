@@ -10,6 +10,7 @@
 - 让本地执行器可携带 Cloudflare Access 测试 JWT / 邮箱头，便于直连受 Access origin guard 保护的测试环境。
 - 更新 `README.md`、`docs/user-guide.md`、`docs/20-architecture/auth-hub.md` 和 `docs/20-architecture/auth-hub-deployment-checklist.md`，明确远端 mock 空跑命令、验证覆盖面和安全边界。
 - 将远端 mock 空跑加入 `next:actions` 与维护者操作包，后续交接会把 Render / Cloudflare / secret / smoke 验收作为独立人工门禁。
+- 新增 `npm run auth-hub:remote:next` / `auth-hub:remote:next:json`，用于在不打印 secret 值的前提下检查远端 `/healthz`、`render.yaml` 和当前进程环境变量存在性，并输出下一步人工动作。
 
 ## 当前验证
 
@@ -17,6 +18,7 @@
 - 初次检查时，当前机器访问 `https://voice.xiao-qi-ai.com/healthz` 超时；后续复查返回 HTTP 404，说明域名已可达但尚未命中 AI Link Auth Hub 的 `/healthz` 服务。
 - 当前进程没有 `AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN`、`AI_LINK_CODEX_TOKEN`、`AI_LINK_APP_PASSWORD`、Render API token 或 Cloudflare API token，不能由 Codex 单独完成生产部署和线上 smoke。
 - `tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://voice.xiao-qi-ai.com"` 当前失败项集中在生产环境变量和 Cloudflare Access origin guard 未配置；`render.yaml`、Render env 引用和 `/healthz` healthCheckPath 检查通过。
+- `npm run auth-hub:remote:next:json` 当前报告 `remoteReady=false`、`smokeReady=false`，推荐先配置 Render custom domain / Cloudflare DNS，直到 `/healthz` 返回 AI Link Auth Hub payload。
 
 ## 人工协助项
 

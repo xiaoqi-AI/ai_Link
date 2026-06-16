@@ -123,6 +123,7 @@ $env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
 $env:AI_LINK_APP_PASSWORD="<app-password-from-secret-store>"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
 $env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
+npm run auth-hub:remote:next
 npm run auth-hub:remote:smoke
 ```
 

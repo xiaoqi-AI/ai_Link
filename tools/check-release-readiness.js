@@ -102,6 +102,7 @@ for (const file of [
   "tools/show-release-manual-gates.js",
   "tools/new-release-evidence.js",
   "tools/show-next-actions.js",
+  "tools/show-auth-hub-remote-next.js",
   "tools/test-auth-hub-remote.ps1",
   "src/executor/localExecutor.js",
   "docs/quickstart.md",
@@ -191,6 +192,8 @@ for (const scriptName of [
   "release:evidence:json",
   "release:readiness",
   "release:readiness:json",
+  "auth-hub:remote:next",
+  "auth-hub:remote:next:json",
   "auth-hub:remote:smoke"
 ]) {
   checkScript(packageJson, scriptName);
@@ -289,6 +292,17 @@ checkContains("tools/test-auth-hub-remote.ps1", "Auth Hub remote smoke script", 
   "audit log"
 ]);
 
+checkContains("tools/show-auth-hub-remote-next.js", "Auth Hub remote next report", [
+  "AI Link Auth Hub Remote Next",
+  "auth-hub:remote:next",
+  "auth-hub:remote:smoke",
+  "voice.xiao-qi-ai.com",
+  "AI_LINK_ADMIN_TOKEN",
+  "CF_ACCESS_CLIENT_SECRET",
+  "This report only records whether environment variables are present, never their values",
+  "A local fallback smoke is useful evidence for code health, but it does not prove voice.xiao-qi-ai.com is deployed"
+]);
+
 checkContains("src/executor/localExecutor.js", "Auth Hub executor Access test headers", [
   "CF_ACCESS_CLIENT_ID",
   "CF_ACCESS_CLIENT_SECRET",
@@ -299,6 +313,7 @@ checkContains("src/executor/localExecutor.js", "Auth Hub executor Access test he
 ]);
 
 checkContains("docs/20-architecture/auth-hub.md", "Auth Hub remote mock dry-run docs", [
+  "auth-hub:remote:next",
   "auth-hub:remote:smoke",
   "full_chain",
   "受限 Codex token",
@@ -311,6 +326,7 @@ checkContains("docs/20-architecture/auth-hub.md", "Auth Hub remote mock dry-run 
 checkContains("docs/20-architecture/auth-hub-deployment-checklist.md", "Auth Hub remote deployment smoke checklist", [
   "AI_LINK_CODEX_TOKEN",
   "AI_LINK_APP_PASSWORD",
+  "auth-hub:remote:next",
   "auth-hub:remote:smoke",
   "完整远端 mock 空跑",
   "受限 Codex token",

@@ -120,6 +120,8 @@
     "auth-hub:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-flow.ps1",
     "auth-hub:audit-smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-audit-handoff.ps1",
     "auth-hub:deploy:check": "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1",
+    "auth-hub:remote:next": "node tools/show-auth-hub-remote-next.js",
+    "auth-hub:remote:next:json": "node tools/show-auth-hub-remote-next.js --json",
     "auth-hub:remote:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1",
     "auth-hub:secrets:new": "powershell -ExecutionPolicy Bypass -File tools/new-auth-hub-secrets.ps1",
     "auth-hub:test": "node --test tests/*.test.js",

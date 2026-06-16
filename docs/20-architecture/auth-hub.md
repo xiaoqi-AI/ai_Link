@@ -123,10 +123,12 @@ npm run auth-hub:deploy:check
 远端部署后验收：
 
 ```powershell
+npm run auth-hub:remote:next
 npm run auth-hub:remote:smoke
 ```
 
 `auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。它不会接入真实微信、朱雀AI或其他平台账号。
+`auth-hub:remote:next` 是更轻量的 go/no-go 检查，只读取 `/healthz`、公开 `render.yaml` 和当前进程环境变量是否存在，不打印任何 secret 值；它会告诉维护者下一步应先修域名/Render、补 secret，还是可以进入 `auth-hub:remote:smoke`。
 
 生产验收时建议在当前终端临时注入真实值，值本身不要写入文件或聊天记录：
 

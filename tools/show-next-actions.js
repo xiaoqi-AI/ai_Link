@@ -57,6 +57,7 @@ const actions = [
     owner: "Infrastructure maintainer and secret owner",
     intent: "Deploy the private console behind Cloudflare Access and verify the full mock task loop without real platform accounts.",
     commands: [
+      "npm run auth-hub:remote:next",
       "npm run auth-hub:deploy:check",
       "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://voice.xiao-qi-ai.com\"",
       "npm run auth-hub:secrets:new",
@@ -65,6 +66,7 @@ const actions = [
     ],
     evidence: [
       "Render Web Service and Postgres are configured from render.yaml.",
+      "npm run auth-hub:remote:next reports remoteReady=yes and smokeReady=yes before final smoke.",
       "https://voice.xiao-qi-ai.com/healthz returns the AI Link Auth Hub health payload.",
       "Unauthenticated browser access is blocked or redirected by Cloudflare Access.",
       "Application login reaches the dashboard after Cloudflare Access.",

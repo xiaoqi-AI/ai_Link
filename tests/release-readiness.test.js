@@ -73,6 +73,9 @@ describe("release readiness report", () => {
     assert.equal(report.checks.some((check) => check.name === "project requirements plan boundary" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "AI Link skill authoring template" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "AI Link skill author example" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "script auth-hub:remote:next" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "script auth-hub:remote:next:json" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "Auth Hub remote next report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script auth-hub:remote:smoke" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "Auth Hub remote smoke script" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "Auth Hub executor Access test headers" && check.status === "pass"), true);
