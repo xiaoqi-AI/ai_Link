@@ -31,6 +31,16 @@
 - 如果开发中发现实际路径和预期不符，优先暂停扩张、说明偏差、给出选项，再由用户确认是否扩围。
 - 默认防止过渡开发：不因为“顺手”新增 SDK、真实 connector、长期脚本、大型抽象或平台能力；除非它直接服务本轮需求或用户明确批准。
 - 若出现 token 消耗异常、反复失败、目标不清、真实费用、账号权限、发布动作或敏感数据风险，先收敛并报告，不继续用代码掩盖需求不确定性。
+- 通用的迭代边界经验沉淀到 Codex 上下文；AI Link 特有的经验、命令、门禁和风险沉淀到本仓库上下文、治理文档和 `docs/project-ledger/`，只做追加更新，不覆盖既有约定。
+
+## AI Link 项目经验补充
+
+- 当前优先级是保持 v0.1 本地 MVP、mock / dry-run、公开文档、release readiness 和知识库镜像稳定；GitHub UI、Bitwarden、provider-live、npm 发布和真实 connector 都是独立门禁，不应被普通迭代顺带推进。
+- 下一步不明确时，先用 `npm run iteration:boundary:json`、`npm run next:actions:json`、`npm run roadmap:next:json`、`npm run release:decisions:json`、`npm run bws:next:json` 对齐现状，再选择一个主方向推进。
+- 新增 provider、agent、skill 或 connector 前，先确认公开契约、配置来源、密钥边界、dry-run / mock 验收、policy gate 和文档入口；真实调用和真实账号配置等待人工确认。
+- 项目输出默认分层：公开仓保存可公开代码、mock、脱敏文档和治理证据；私有仓、本机 `runtime/private/` 或 secret manager 保存真实登录态、密钥、截图、原始响应和未脱敏资料。
+- 目标模型或外部 Agent 给出的扩展建议，先进入待确认问题、项目计划或下一轮边界卡；除非用户明确批准，不直接升级成 SDK、生产授权系统、真实平台 connector 或长期自动化。
+- 每次重要迭代结束时，项目经验优先写入 `docs/project-ledger/`，影响后续协作规则时再补 `AGENTS.md` 或 `docs/00-governance/`，并同步知识库镜像。
 
 ## Git 与知识库
 
