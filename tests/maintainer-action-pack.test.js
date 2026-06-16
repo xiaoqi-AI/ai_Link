@@ -43,6 +43,7 @@ describe("maintainer action pack", () => {
     assert.equal(report.summary.manualOpen > 0, true);
     assert.equal(report.repository.head.length > 0, true);
     assert.deepEqual(ids, [
+      "auth-hub-remote-mock-dry-run",
       "baseline-before-external-work",
       "bitwarden-local-foundation",
       "github-ui-hardening",
@@ -53,6 +54,7 @@ describe("maintainer action pack", () => {
     ]);
     assert.equal(report.sources.githubHardeningNext.available, true);
     assert.equal(report.sources.releaseDecisionNext.available, true);
+    assert.equal(report.sections.some((section) => section.id === "auth-hub-remote-mock-dry-run" && section.commands?.some((command) => command.includes("auth-hub:remote:smoke"))), true);
     assert.equal(report.sections.some((section) => section.links?.some((link) => link.includes("/settings/rules"))), true);
     assert.equal(report.sections.some((section) => section.commands?.some((command) => command.includes("bws:acceptance:json"))), true);
     assert.equal(report.sections.some((section) => section.afterReviewCommands?.some((command) => command.includes("release:decisions:update"))), true);
@@ -65,7 +67,9 @@ describe("maintainer action pack", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /AI Link Maintainer Action Pack/);
     assert.match(result.stdout, /GitHub UI hardening/);
+    assert.match(result.stdout, /Auth Hub remote mock dry-run/);
     assert.match(result.stdout, /Bitwarden local foundation/);
+    assert.match(result.stdout, /auth-hub:remote:smoke/);
     assert.match(result.stdout, /bws:acceptance:json/);
     assert.match(result.stdout, /Missing source reports: 0/);
     assert.match(result.stdout, /Provider-live cost gate/);

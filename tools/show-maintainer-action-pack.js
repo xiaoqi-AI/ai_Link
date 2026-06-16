@@ -86,6 +86,27 @@ const sections = [
     secretBoundary: "GitHub UI evidence should mention setting names and command output only, never tokens, screenshots, QR codes, or login state."
   },
   {
+    id: "auth-hub-remote-mock-dry-run",
+    title: "Auth Hub remote mock dry-run",
+    status: "manual",
+    owner: nextAction("configure-auth-hub-remote-mock-dry-run")?.owner ?? "Infrastructure maintainer and secret owner",
+    purpose: nextAction("configure-auth-hub-remote-mock-dry-run")?.intent ?? "Deploy and verify the remote Auth Hub mock task loop.",
+    commands: nextAction("configure-auth-hub-remote-mock-dry-run")?.commands ?? [
+      "npm run auth-hub:deploy:check",
+      "npm run auth-hub:remote:smoke"
+    ],
+    evidence: nextAction("configure-auth-hub-remote-mock-dry-run")?.evidence ?? [
+      "Remote healthz returns ok.",
+      "Remote full_chain mock task completes after approval."
+    ],
+    stopBefore: [
+      "Do not treat a local mock smoke as proof that voice.xiao-qi-ai.com is deployed.",
+      "Do not store production tokens, Cloudflare credentials, DATABASE_URL, Cookie, browser Profile, QR code, screenshot, or platform content in Git, docs, issue/PR text, knowledge mirror, or chat.",
+      "Do not connect real WeChat, Zhuque AI, Douyin, Xiaohongshu, Zhihu, or Toutiao accounts in this iteration."
+    ],
+    secretBoundary: nextAction("configure-auth-hub-remote-mock-dry-run")?.secretBoundary ?? "Production credentials stay in Render secrets, secret manager, or local private runtime only."
+  },
+  {
     id: "bitwarden-local-foundation",
     title: "Bitwarden local foundation",
     status: "manual",

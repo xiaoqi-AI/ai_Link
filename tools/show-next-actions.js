@@ -51,6 +51,30 @@ const actions = [
     secretBoundary: "Do not paste sample secrets into GitHub issues, PRs, docs, screenshots, or test commits."
   },
   {
+    id: "configure-auth-hub-remote-mock-dry-run",
+    title: "Configure Auth Hub remote mock dry-run",
+    status: "manual",
+    owner: "Infrastructure maintainer and secret owner",
+    intent: "Deploy the private console behind Cloudflare Access and verify the full mock task loop without real platform accounts.",
+    commands: [
+      "npm run auth-hub:deploy:check",
+      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://voice.xiao-qi-ai.com\"",
+      "npm run auth-hub:secrets:new",
+      "npm run auth-hub:remote:smoke",
+      "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -ExpectAccessGate"
+    ],
+    evidence: [
+      "Render Web Service and Postgres are configured from render.yaml.",
+      "https://voice.xiao-qi-ai.com/healthz returns the AI Link Auth Hub health payload.",
+      "Unauthenticated browser access is blocked or redirected by Cloudflare Access.",
+      "Application login reaches the dashboard after Cloudflare Access.",
+      "npm run auth-hub:remote:smoke completes a full_chain mock task with approval and final completed status.",
+      "Restricted Codex token can create/read redacted tasks but cannot lease executor work or approve publish.",
+      "Task detail, connector status, and audit logs contain no Cookie, browser Profile, QR code, screenshot, token, or runtime/private content."
+    ],
+    secretBoundary: "Production tokens, app password, Cloudflare Service Auth credentials, DATABASE_URL, SMTP settings, browser Profile, Cookie, QR code, screenshots, and platform content stay in Render secrets, secret manager, or local runtime/private only."
+  },
+  {
     id: "record-v0-1-release-decisions",
     title: "Record v0.1 release decisions",
     status: "manual",

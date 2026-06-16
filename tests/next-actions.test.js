@@ -35,11 +35,12 @@ describe("next actions report", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
-    assert.equal(report.summary.nextOpen, 6);
+    assert.equal(report.summary.nextOpen, 7);
     assert.equal(report.repository.branch.length > 0, true);
     assert.equal(report.repository.head.length > 0, true);
     assert.deepEqual(ids, [
       "approve-provider-live-cost",
+      "configure-auth-hub-remote-mock-dry-run",
       "configure-bitwarden-secrets-manager",
       "configure-github-hardening",
       "configure-provider-live-environment",
@@ -57,6 +58,8 @@ describe("next actions report", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /# AI Link Next Actions/);
     assert.match(result.stdout, /Configure Bitwarden Secrets Manager/);
+    assert.match(result.stdout, /Configure Auth Hub remote mock dry-run/);
+    assert.match(result.stdout, /auth-hub:remote:smoke/);
     assert.match(result.stdout, /Record v0\.1 release decisions/);
     assert.match(result.stdout, /release:decisions:next/);
     assert.match(result.stdout, /npm run bws:acceptance:strict/);

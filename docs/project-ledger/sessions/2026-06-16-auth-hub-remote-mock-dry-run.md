@@ -9,11 +9,14 @@
 - 增强 `tools/test-auth-hub-remote.ps1`，默认用 `full_chain` mock 任务覆盖任务创建、执行器领取、审批前停止、管理 token 审批、审批后二次执行、任务完成、连接器状态、Codex token 权限边界、脱敏任务详情和审计日志。
 - 让本地执行器可携带 Cloudflare Access 测试 JWT / 邮箱头，便于直连受 Access origin guard 保护的测试环境。
 - 更新 `README.md`、`docs/user-guide.md`、`docs/20-architecture/auth-hub.md` 和 `docs/20-architecture/auth-hub-deployment-checklist.md`，明确远端 mock 空跑命令、验证覆盖面和安全边界。
+- 将远端 mock 空跑加入 `next:actions` 与维护者操作包，后续交接会把 Render / Cloudflare / secret / smoke 验收作为独立人工门禁。
 
 ## 当前验证
 
 - 本地 Auth Hub 启动在 `http://127.0.0.1:10001` 后，使用增强版远端 smoke 脚本通过完整 mock 闭环。
-- 当前机器访问 `https://voice.xiao-qi-ai.com/healthz` 超时，尚不能证明生产域名已部署可用。
+- 初次检查时，当前机器访问 `https://voice.xiao-qi-ai.com/healthz` 超时；后续复查返回 HTTP 404，说明域名已可达但尚未命中 AI Link Auth Hub 的 `/healthz` 服务。
+- 当前进程没有 `AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN`、`AI_LINK_CODEX_TOKEN`、`AI_LINK_APP_PASSWORD`、Render API token 或 Cloudflare API token，不能由 Codex 单独完成生产部署和线上 smoke。
+- `tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://voice.xiao-qi-ai.com"` 当前失败项集中在生产环境变量和 Cloudflare Access origin guard 未配置；`render.yaml`、Render env 引用和 `/healthz` healthCheckPath 检查通过。
 
 ## 人工协助项
 
