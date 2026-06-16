@@ -9,6 +9,9 @@ It does not require provider API keys and does not call real external models.
 - Git.
 - A terminal in the repository root.
 
+Windows PowerShell note: if `npm` fails with an `npm.ps1` execution-policy
+error, use `npm.cmd` instead. Example: `npm.cmd run bws:next`.
+
 ## 1. Install
 
 ```powershell

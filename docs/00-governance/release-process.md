@@ -2,6 +2,8 @@
 
 AI Link v0.1 release work is intentionally split into local checks, manual GitHub UI checks, and explicit publish actions. Local checks never publish to npm, create tags, or call live providers.
 
+Windows PowerShell note: if `npm` is blocked by the `npm.ps1` execution policy, use `npm.cmd` for the same command, for example `npm.cmd run release:readiness`.
+
 ## Local Release Gate
 
 Run this sequence before creating a release tag or publishing any package:
