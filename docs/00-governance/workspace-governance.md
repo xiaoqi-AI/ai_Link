@@ -24,7 +24,7 @@
 - `README.md`：给人和 Codex 的入口。
 - `AGENTS.md`：协作规则、安全边界和默认流程。
 - `docs/00-governance/`：治理、同步、收尾和开放问题。
-- `docs/00-governance/iteration-boundaries.md`：迭代边界、人工确认门槛、私有数据边界和发布约束。
+- `docs/00-governance/iteration-boundaries.md`：迭代边界、人工确认门槛、私有数据边界和发布约束；可用 `npm run iteration:boundary` 输出边界卡模板和机器可读检查。
 - `docs/project-ledger/`：重要会话、决策、状态快照。
 - `docs/90-templates/`：后续可复用模板。
 - `tools/`：检查、镜像和收尾脚本。
@@ -33,7 +33,7 @@
 
 1. 读取入口文档和当前 Git 状态。
 2. 判断本次任务范围。
-3. 按 `iteration-boundaries.md` 明确目标、非目标、验收、风险和预算。
+3. 按 `iteration-boundaries.md` 明确目标、非目标、验收、风险和预算；复杂任务先运行 `npm run iteration:boundary` 生成边界卡和停止条件。
 4. 判断是可自动推进、需人工确认、只能进私有边界，还是暂不承诺。
 5. 在不覆盖用户改动的前提下执行。
 6. 如果发现预期偏差、范围膨胀、token 消耗异常或目标不清，先暂停并重新确认。

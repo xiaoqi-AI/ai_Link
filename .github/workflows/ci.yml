@@ -63,6 +63,9 @@ jobs:
       - name: Roadmap next
         run: npm run roadmap:next
 
+      - name: Iteration boundary
+        run: npm run iteration:boundary
+
       - name: BWS next steps
         run: npm run bws:next
 

@@ -17,6 +17,7 @@ const actions = [
       "npm run package:check",
       "npm run package:install-smoke",
       "npm run security:scan",
+      "npm run iteration:boundary",
       "npm run setup:handoff",
       "npm run verify:fresh"
     ],

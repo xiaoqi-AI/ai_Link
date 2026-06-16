@@ -45,6 +45,7 @@ describe("release readiness report", () => {
     assert.equal(report.checks.some((check) => check.name === "script maintainer:pack" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script external:preflight" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script roadmap:next" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "script iteration:boundary" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script bws:next" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script bws:run" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "script bws:acceptance:json" && check.status === "pass"), true);
@@ -54,6 +55,7 @@ describe("release readiness report", () => {
     assert.equal(report.checks.some((check) => check.name === "maintainer action pack" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "external setup preflight" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "roadmap next report" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "iteration boundary report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "GitHub hardening next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "BWS next steps report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "BWS run wrapper" && check.status === "pass"), true);

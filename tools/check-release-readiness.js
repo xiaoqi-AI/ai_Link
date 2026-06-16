@@ -89,6 +89,7 @@ for (const file of [
   "tools/show-maintainer-action-pack.js",
   "tools/show-external-setup-preflight.js",
   "tools/show-roadmap-next.js",
+  "tools/show-iteration-boundary.js",
   "tools/show-bws-next.js",
   "tools/with-bitwarden-secrets.ps1",
   "tools/new-bws-acceptance-report.ps1",
@@ -154,6 +155,8 @@ for (const scriptName of [
   "external:preflight:json",
   "roadmap:next",
   "roadmap:next:json",
+  "iteration:boundary",
+  "iteration:boundary:json",
   "bws:next",
   "bws:next:json",
   "bws:run",
@@ -201,6 +204,7 @@ checkContains(".github/workflows/ci.yml", "CI workflow public checks", [
   "npm run maintainer:pack",
   "npm run external:preflight",
   "npm run roadmap:next",
+  "npm run iteration:boundary",
   "npm run bws:next",
   "npm run github:safety",
   "npm run github:hardening",
@@ -293,6 +297,14 @@ checkContains("tools/show-roadmap-next.js", "roadmap next report", [
   "v0-2-real-provider-acceptance",
   "v0-3-agent-connectors",
   "roadmap:next:json",
+  "Does not read API keys"
+]);
+
+checkContains("tools/show-iteration-boundary.js", "iteration boundary report", [
+  "AI Link Iteration Boundary",
+  "Boundary Card Template",
+  "stopConditions",
+  "requiresConfirmation",
   "Does not read API keys"
 ]);
 
