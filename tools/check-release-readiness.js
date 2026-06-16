@@ -104,6 +104,7 @@ for (const file of [
   "tools/show-next-actions.js",
   "docs/quickstart.md",
   "docs/user-guide.md",
+  "docs/10-product/project-requirements-plan-boundary.md",
   "docs/releases/v0.1.0-decisions.json",
   "docs/releases/v0.1.0.md",
   "docs/00-governance/release-process.md",
@@ -227,6 +228,16 @@ checkContains("README.md", "README quickstart link", [
 checkContains("docs/user-guide.md", "user guide quickstart link", [
   "docs/quickstart.md",
   "5 分钟快速试用"
+]);
+
+checkContains("docs/10-product/project-requirements-plan-boundary.md", "project requirements plan boundary", [
+  "AI Link 项目需求、规划与边界",
+  "需求",
+  "规划",
+  "下一步计划",
+  "项目边界",
+  "npm run iteration:boundary",
+  "不把真实凭据"
 ]);
 
 checkContains("docs/quickstart.md", "public quickstart commands", [

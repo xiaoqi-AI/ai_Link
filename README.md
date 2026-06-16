@@ -18,6 +18,7 @@
 
 - 5 分钟快速试用：`docs/quickstart.md`
 - 使用指引：`docs/user-guide.md`
+- 项目需求、规划与边界：`docs/10-product/project-requirements-plan-boundary.md`
 - 细化项目规划：`docs/10-product/project-plan-detailed.md`
 - 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
 - 授权中枢后续规划草案：`docs/10-product/auth-hub-next-steps-draft.md`

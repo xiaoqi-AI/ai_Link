@@ -4,6 +4,8 @@
 
 日期：2026-06-16
 
+配套入口：`docs/10-product/project-requirements-plan-boundary.md` 是当前项目需求、规划、下一步计划和边界的总览合同；本文继续保留更细的阶段化路线。
+
 ## 规划原则
 
 AI Link 的后续推进遵循 `docs/00-governance/iteration-boundaries.md`：
