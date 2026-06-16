@@ -17,6 +17,8 @@ Skill 只声明意图，AI Link 负责路由，Codex 负责执行落地。
 Codex 负责落地、检查和提交。
 ```
 
+新 skill 进入实现前，先用 `docs/90-templates/ai-link-skill-authoring.md` 明确本轮需求、预期开发工作、验证和边界控制。通用作者示例见 `examples/codex-skills/ai-link-skill-author/SKILL.md`，自动运营示例见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`。
+
 AI Link 可以生成候选 skill 配置，包括 route 和 workflow：
 
 ```powershell

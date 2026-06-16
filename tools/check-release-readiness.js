@@ -112,7 +112,9 @@ for (const file of [
   "docs/20-architecture/provider-adapters.md",
   "docs/20-architecture/provider-live-verification.md",
   "docs/20-architecture/codex-skill-integration.md",
+  "docs/90-templates/ai-link-skill-authoring.md",
   "examples/auto-ops/README.md",
+  "examples/codex-skills/ai-link-skill-author/SKILL.md",
   "examples/codex-skills/auto-ops-ai-link/SKILL.md",
   "examples/codex-skills/bws-secret-mode/SKILL.md",
   ".github/PULL_REQUEST_TEMPLATE.md",
@@ -240,6 +242,26 @@ checkContains("docs/10-product/project-requirements-plan-boundary.md", "project 
   "不把真实凭据"
 ]);
 
+checkContains("docs/90-templates/ai-link-skill-authoring.md", "AI Link skill authoring template", [
+  "AI Link Skill 制作边界卡",
+  "需求",
+  "预期开发工作",
+  "验证",
+  "边界控制",
+  "npm run ai-link -- skill draft",
+  ".ai-link/local.yaml",
+  "不把真实 key"
+]);
+
+checkContains("examples/codex-skills/ai-link-skill-author/SKILL.md", "AI Link skill author example", [
+  "name: ai-link-skill-author",
+  "skill draft",
+  ".ai-link/local.yaml",
+  "docs/90-templates/ai-link-skill-authoring.md",
+  "npm run skills:check",
+  "Do not include API keys"
+]);
+
 checkContains("docs/quickstart.md", "public quickstart commands", [
   "npm ci",
   "npm run onboard:print",
@@ -306,6 +328,7 @@ checkContains("tools/show-roadmap-next.js", "roadmap next report", [
   "AI Link Roadmap Next",
   "v0-1-local-public-baseline",
   "v0-2-real-provider-acceptance",
+  "AI Link skill author",
   "v0-3-agent-connectors",
   "roadmap:next:json",
   "Does not read API keys"

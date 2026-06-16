@@ -103,10 +103,12 @@ const phases = [
     goal: "Make new Codex skills easier to compose from natural-language model, agent, policy, and workflow requirements.",
     outcomes: [
       "Users can preview route/workflow diffs before writing local-only config.",
-      "Skill examples show when to use model providers, agent providers, Codex implementation, and approval gates.",
+      "A public skill authoring boundary template shows when to use model providers, agent providers, Codex implementation, and approval gates.",
+      "Skill examples show how Codex calls AI Link while keeping local execution, validation, and Git closeout under Codex control.",
       "Run records and structured outputs give later stages enough context without storing secrets."
     ],
     nextCommands: [
+      "npm run skills:check",
       "npm run ai-link -- skill draft --skill my_skill --description \"research with Grok, article draft with Kimi, Codex handles implementation\" --write .ai-link/local.yaml --diff --json",
       "npm run ai-link -- workflow run auto_ops --dry-run --record --input \"public task\"",
       "npm run ai-link -- runs list --json"
@@ -118,7 +120,7 @@ const phases = [
     ],
     openQuestions: [
       "Should examples/auto-ops remain lightweight or become a full example project?",
-      "Which additional public skill template should be added after auto_ops?"
+      "Which domain-specific public skill template should be added after the generic AI Link skill author and auto_ops examples?"
     ],
     secretBoundary: "Skill drafts should write only to .ai-link/local.yaml or user-private config unless the maintainer intentionally updates public project config."
   },

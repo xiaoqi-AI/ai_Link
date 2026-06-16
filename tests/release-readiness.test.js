@@ -71,6 +71,8 @@ describe("release readiness report", () => {
     assert.equal(report.checks.some((check) => check.name === "script release:evidence" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "release evidence report" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "project requirements plan boundary" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "AI Link skill authoring template" && check.status === "pass"), true);
+    assert.equal(report.checks.some((check) => check.name === "AI Link skill author example" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "provider live safe workflow" && check.status === "pass"), true);
   });
 

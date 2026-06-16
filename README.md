@@ -28,9 +28,11 @@
 - Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
 - 连接器合同：`docs/20-architecture/connector-contracts.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
+- AI Link Skill 制作模板：`docs/90-templates/ai-link-skill-authoring.md`
 - 统一授权中枢：`docs/20-architecture/auth-hub.md`
 - 授权中枢部署检查：`docs/20-architecture/auth-hub-deployment-checklist.md`
 - Auto Ops 示例：`examples/auto-ops/`
+- AI Link Skill 作者示例：`examples/codex-skills/ai-link-skill-author/SKILL.md`
 - BWS Codex Skill 示例：`examples/codex-skills/bws-secret-mode/SKILL.md`
 - 协作规则：`AGENTS.md`
 - 贡献说明：`CONTRIBUTING.md`
@@ -245,7 +247,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - `ai-link run` / `ai-link workflow run` 支持 `--record`，把本地运行记录写入 `runtime/tmp/ai-link-runs/`；`ai-link runs list/show` 可查看本地运行索引和单次记录，`workflow run --resume-from` 可从本地 workflow 记录续跑。
 - route policy 会执行 `allowOutbound` 出站规则、provider type 限制、model pattern gate 和预算 gate；默认真实外部 provider 调用需要 `--approve-policy`、`--approve-stage <stage>` 或 `--approve-all`，`agent_flow` 还会标记为 `external_action` 并在结果/运行记录中保留审计 metadata。
 - 敏感信息出站拦截策略。
-- Codex skill 自然语言生成候选 route + workflow 配置。
+- Codex skill 自然语言生成候选 route + workflow 配置，并提供 `docs/90-templates/ai-link-skill-authoring.md` 和 `examples/codex-skills/ai-link-skill-author/` 作为新 skill 制作入口。
 - `examples/auto-ops/`、`examples/codex-skills/auto-ops-ai-link/` 和 `examples/codex-skills/bws-secret-mode/` 轻量示例。
 - 私有授权中枢公开骨架：任务 API、控制台登录、审批流、审计日志、本地执行器、mock 平台连接器和连接器合同状态 API；执行器可回传 AI Link `audit` 摘要，Codex 也可用 `ai-link runs submit-audit` 把本地 run record 审计追加到任务详情、控制台审计页和 `GET /api/audit`，审计日志支持按 `eventType` 筛选。
 - GitHub Actions CI、fresh clone 验证脚本和本地安全扫描。
