@@ -1,5 +1,5 @@
 param(
-  [string]$WikiRoot = "D:\llm-wiki"
+  [string]$WikiRoot = "D:\codex_workplace\llm-wiki"
 )
 
 $ErrorActionPreference = "Stop"

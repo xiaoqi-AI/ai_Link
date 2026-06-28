@@ -46,7 +46,7 @@
 
 - 多电脑开发时，以 GitHub 远端仓库作为项目真源；Codex 会话历史只是辅助。
 - 公开仓与私有仓都要推送到 GitHub；公开仓面向用户，私有仓面向内部治理。
-- 本地知识库路径固定为 `D:\llm-wiki`，项目镜像路径为 `D:\llm-wiki\wiki\projects\ai_Link`。
+- 本地知识库路径固定为 `D:\codex_workplace\llm-wiki`，项目镜像路径为 `D:\codex_workplace\llm-wiki\wiki\projects\ai_Link`。
 - 每次重要工作结束前，优先运行：
 
 ```powershell

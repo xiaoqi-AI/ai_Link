@@ -43,7 +43,7 @@ if ($missing.Count -gt 0) {
   exit 1
 }
 
-$wikiRoot = "D:\llm-wiki"
+$wikiRoot = "D:\codex_workplace\llm-wiki"
 if (Test-Path -LiteralPath $wikiRoot) {
   Write-Host "Knowledge base root: present"
 } else {

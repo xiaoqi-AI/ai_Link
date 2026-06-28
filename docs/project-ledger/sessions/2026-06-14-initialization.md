@@ -19,11 +19,10 @@
 
 - 本地 Git：待初始化或已由本轮初始化。
 - GitHub：CLI 未登录时不能创建远端仓库或推送。
-- 知识库：目标镜像路径为 `D:\llm-wiki\wiki\projects\ai_Link`。
+- 知识库：目标镜像路径为 `D:\codex_workplace\llm-wiki\wiki\projects\ai_Link`。
 
 ## 待确认
 
 - GitHub 仓库名、归属和 private/public 设置。
 - `ai_Link` 的具体产品方向和第一阶段目标。
 - 是否将 ai_Link 写入知识库全局索引和图谱。
-

@@ -10,7 +10,7 @@
 - 可见性：公开仓库
 - 默认分支：`main`
 - 本地路径：`G:\codex_workpace\ai_Link`
-- 知识库镜像：`D:\llm-wiki\wiki\projects\ai_Link`
+- 知识库镜像：`D:\codex_workplace\llm-wiki\wiki\projects\ai_Link`
 - 内部私有仓：`https://github.com/xiaoqi-AI/ai_Link-internal`
 - 业务范围：待确认，不在初始化文档中提前定案
 

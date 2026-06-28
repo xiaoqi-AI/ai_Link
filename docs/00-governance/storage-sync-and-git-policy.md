@@ -6,7 +6,7 @@
 - GitHub 远端：`https://github.com/xiaoqi-AI/ai_Link`
 - GitHub 可见性：公开仓库
 - 内部私有仓：`https://github.com/xiaoqi-AI/ai_Link-internal`
-- 个人知识库镜像：`D:\llm-wiki\wiki\projects\ai_Link`
+- 个人知识库镜像：`D:\codex_workplace\llm-wiki\wiki\projects\ai_Link`
 
 多电脑协作时，GitHub 远端是项目真源；知识库镜像用于长期上下文和会话交接，不代替 Git。
 
@@ -64,7 +64,7 @@
 
 1. 克隆 GitHub 仓库。
 2. 阅读 `README.md`、`AGENTS.md`、`docs/user-guide.md` 和 `docs/00-governance/`。
-3. 检查 `D:\llm-wiki` 是否存在。
+3. 检查 `D:\codex_workplace\llm-wiki` 是否存在。
 4. 如需真实模型或自动化凭据，先进入 BWS 密钥托管模式；只在当前本机会话里设置 `BWS_ACCESS_TOKEN`，然后运行 `tools/check-bitwarden-secrets.ps1`。
 5. 运行治理检查和必要安装脚本。
 6. 再开始功能开发。
