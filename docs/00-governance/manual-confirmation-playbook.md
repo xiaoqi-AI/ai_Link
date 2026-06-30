@@ -1,262 +1,262 @@
-# Manual Confirmation Playbook
+# 人工门禁推进手册
 
-Status: active handoff for L1/L2 gates.
+状态：L1 / L2 人工确认事项的当前交接手册。
 
-This playbook explains the project background, current progress, manual confirmation items, decision choices, and recommended decisions for the gates that Codex cannot close alone. It is public-safe: do not add API keys, tokens, Bitwarden values, provider responses, screenshots, QR codes, login state, account-private content, or `runtime/private/` paths.
+本手册用于说明 Codex 不能单独关闭的人工门禁：项目背景、当前进度、需要你确认的事项、可选决策、推荐决策，以及确认后应记录的公开安全证据。本文档可以进入公开仓；不要写入 API key、token、Bitwarden 值、provider 原始响应、截图、二维码、登录态、账号私密内容或 `runtime/private/` 路径。
 
-## Background
+## 项目背景
 
-AI Link is a public GitHub project that lets Codex route tasks to configured models, agents, and workflows. The current v0.1 baseline is a local-first MVP with TypeScript / Node.js CLI, public configuration, mock and dry-run providers, workflow dry-runs, release readiness checks, GitHub hardening reports, Bitwarden Secrets Manager planning, and an Auth Hub mock skeleton.
+AI Link 是公开 GitHub 项目，目标是让 Codex 能按任务链路连接合适的模型、Agent 和工作流。当前 v0.1 是本地优先 MVP，已经具备 TypeScript / Node.js CLI、公开配置、mock / dry-run provider、workflow dry-run、release readiness 检查、GitHub hardening 报告、Bitwarden Secrets Manager 规划，以及 Auth Hub mock 骨架。
 
-The project is intentionally split into public and private boundaries:
+项目默认分为公开边界和私有边界：
 
-- Public repository: code, mock behavior, dry-run checks, public docs, sanitized governance evidence.
-- Private/internal boundaries: real secrets, login state, raw provider responses, browser profiles, screenshots, QR codes, platform account data, and undeclassified internal planning.
+- 公开仓：代码、mock 行为、dry-run 检查、公开文档、脱敏治理证据。
+- 私有/内部边界：真实密钥、登录态、provider 原始响应、浏览器 profile、截图、二维码、平台账号数据、未公开内部计划。
 
-The practical goal for the current phase is to keep the v0.1 public baseline green while closing or explicitly deferring external gates before any tag, GitHub Release, npm publish, provider-live dispatch, or real connector work.
+当前阶段的实际目标是：保持 v0.1 公开本地基线稳定，同时在创建 tag、GitHub Release、npm publish、provider-live dispatch 或真实 connector 前，逐项关闭或明确 defer 外部人工门禁。
 
-## Current Progress
+## 当前进度
 
-As of 2026-06-30:
+截至 2026-06-30：
 
-- Public repository: `xiaoqi-AI/ai_Link`.
-- Branch: `main`.
-- Local public repository status was clean before this playbook update.
-- `npm.cmd run github:safety:json` can use authenticated `gh`.
-- Public repo secret scanning: enabled.
-- Public repo push protection: enabled.
-- Public repo `main` branch protection: not yet configured; GitHub API reported branch not protected.
-- Internal companion repo `xiaoqi-AI/ai_Link-internal`: accessible and private.
-- Internal companion repo secret scanning and push protection: not verified by API in this session; confirm in GitHub UI.
-- Bitwarden Secrets Manager CLI: not available in this session.
-- BWS manifest: present and public-safe.
-- v0.1 release decisions: still pending in `docs/releases/v0.1.0-decisions.json`.
+- 公开仓：`xiaoqi-AI/ai_Link`。
+- 默认分支：`main`。
+- 本手册更新前，本地公开仓工作区为干净状态。
+- `npm.cmd run github:safety:json` 已可使用已登录的 `gh` 做远端只读检查。
+- 公开仓 secret scanning：已启用。
+- 公开仓 push protection：已启用。
+- 公开仓 `main` 分支保护：尚未配置；GitHub API 返回 branch not protected。
+- 私有 companion 仓 `xiaoqi-AI/ai_Link-internal`：可访问，且为 private。
+- 私有 companion 仓 secret scanning / push protection：本轮 API 未返回状态，需要你在 GitHub UI 确认。
+- Bitwarden Secrets Manager CLI：当前会话不可用。
+- BWS manifest：已存在，且只包含公开安全结构。
+- v0.1 release decisions：仍在 `docs/releases/v0.1.0-decisions.json` 中 pending。
 
-## Priority Order
+## 推荐推进顺序
 
-1. Configure public `main` branch protection or a repository ruleset.
-2. Confirm secret scanning and push protection for both public and internal repositories.
-3. Decide the v0.1 release channel.
-4. Install or expose the BWS CLI and configure local-dev BWS only if real provider checks are next.
-5. Defer provider-live dispatch until BWS setup and cost approval are explicit.
-6. Keep Auth Hub remote mock dry-run and real connectors as separate future gates.
+1. 先配置公开仓 `main` branch protection 或 repository ruleset。
+2. 再确认公开仓和私有仓 secret scanning / push protection。
+3. 决定 v0.1 release channel。
+4. 只有当下一步要做真实 provider 检查时，才安装或暴露 BWS CLI，并先配置 local-dev BWS。
+5. provider-live dispatch 等 BWS 和成本边界明确后再做。
+6. Auth Hub 远端 mock dry-run 和真实 connector 保持为后续独立门禁。
 
-## Gate 1: Public Main Protection
+## 门禁 1：公开仓 main 分支保护
 
-### Background
+### 背景
 
-The public repository already has CI and the `Verify` job. Without branch protection or a ruleset, `main` can still be changed without GitHub enforcing that check.
+公开仓已经有 CI 和 `Verify` job。没有 branch protection 或 ruleset 时，GitHub 仍不会强制 `main` 必须通过 `Verify` 后才能变更。
 
-### Current State
+### 当前状态
 
-Remote read-only check reported secret scanning and push protection as enabled, but branch protection as missing.
+远端只读检查显示：公开仓 secret scanning 和 push protection 已启用，但 `main` 分支保护缺失。
 
-### Manual Action
+### 需要你做的事
 
-In GitHub UI, configure either a repository ruleset or branch protection for `main`:
+在 GitHub UI 中，为 `main` 配置 repository ruleset 或 branch protection：
 
-- Repository: `xiaoqi-AI/ai_Link`
-- Branch target: `main`
-- Require status checks to pass.
-- Required check: `Verify`
-- Restrict force pushes.
-- Restrict branch deletions.
-- Require pull requests before merging when external contributions begin.
-- Optionally require branches to be up to date before merging.
+- 仓库：`xiaoqi-AI/ai_Link`
+- 目标分支：`main`
+- 要求 status checks 通过。
+- required check：`Verify`
+- 禁止 force push。
+- 禁止删除分支。
+- 当项目开始接收外部贡献时，要求 PR 后合并。
+- 如希望 release gate 更严格，可要求分支在合并前保持最新。
 
-Useful GitHub UI links:
+GitHub UI 入口：
 
 - `https://github.com/xiaoqi-AI/ai_Link/settings/rules`
 - `https://github.com/xiaoqi-AI/ai_Link/settings/branches`
 
-### Decision Choices
+### 决策选项
 
-- Approve after the ruleset or branch protection is configured.
-- Waive only for repository-local v0.1 with no tag, GitHub Release, npm publish, or live-provider claim.
-- Keep pending/blocking until protection is configured.
+- 配置 ruleset / branch protection 后批准该门禁。
+- 如果 v0.1 只保持 repository-local，且不创建 tag、不发 GitHub Release、不发 npm、不声明 live-provider 验证，可以临时 waiver。
+- 如果暂时不配置，则保持 pending / blocked。
 
-### Recommendation
+### 决策建议
 
-Approve only after configuring `main` protection with required `Verify`. This is the safest next step because it unlocks later release decisions without adding secrets, costs, or new product scope.
+建议配置 `main` protection，并要求 `Verify`。这是当前最值得优先关闭的门禁：不引入真实密钥、不产生费用、不扩大产品范围，却能为后续 release 决策打好安全基线。
 
-### Public-Safe Evidence
+### 可记录的公开安全证据
 
-Use evidence like:
+可以写：
 
 - `Repository maintainer confirmed main branch protection or ruleset requires Verify.`
 - `npm.cmd run github:safety:json reported GitHub branch protection and required Verify as pass.`
 
-Do not attach screenshots or account-private settings exports.
+不要附截图，也不要导出账号私密设置。
 
-## Gate 2: Secret Scanning And Push Protection
+## 门禁 2：Secret scanning 和 push protection
 
-### Background
+### 背景
 
-AI Link is expected to handle provider keys, Bitwarden bootstrap tokens, GitHub Environment secrets, and later connector credentials. GitHub-side scanning reduces the chance that secrets reach the public repository or internal companion repository.
+AI Link 后续会涉及 provider key、Bitwarden bootstrap token、GitHub Environment secret，以及真实 connector 凭据。GitHub 侧扫描能降低密钥进入公开仓或内部 companion 仓的风险。
 
-### Current State
+### 当前状态
 
-Public repo:
+公开仓：
 
-- Secret scanning: enabled.
-- Push protection: enabled.
+- Secret scanning：已启用。
+- Push protection：已启用。
 
-Internal companion repo:
+私有 companion 仓：
 
-- Repo is accessible and private.
-- Secret scanning and push protection still need GitHub UI confirmation because the API did not return status fields in this session.
+- 仓库可访问，且为 private。
+- 本轮 API 未返回 secret scanning / push protection 状态，需要你在 GitHub UI 中确认。
 
-### Manual Action
+### 需要你做的事
 
-Confirm settings in GitHub UI:
+在 GitHub UI 中确认：
 
-- Public repo: `https://github.com/xiaoqi-AI/ai_Link/settings/security_analysis`
-- Internal repo: `https://github.com/xiaoqi-AI/ai_Link-internal/settings/security_analysis`
+- 公开仓：`https://github.com/xiaoqi-AI/ai_Link/settings/security_analysis`
+- 私有仓：`https://github.com/xiaoqi-AI/ai_Link-internal/settings/security_analysis`
 
-Enable or confirm:
+确认或启用：
 
-- Secret scanning.
-- Push protection.
+- Secret scanning。
+- Push protection。
 
-### Decision Choices
+### 决策选项
 
-- Approve after both public and internal repositories are confirmed.
-- Keep pending if only the public repo is confirmed.
-- Waive only for repository-local v0.1 with a clear note that release, npm publish, and provider-live claims remain blocked.
+- 公开仓和私有仓都确认后批准该门禁。
+- 如果只确认了公开仓，先保持 pending。
+- 如果 v0.1 只保持 repository-local，可以 waiver，但必须说明 tag、npm publish、provider-live claim 仍然 blocked。
 
-### Recommendation
+### 决策建议
 
-Approve only after the internal companion repo is also reviewed in GitHub UI. The public repo is already good; this gate now mainly needs your confirmation for the private side.
+建议在确认私有 companion 仓后再批准。公开仓已经满足要求，这个门禁现在主要差私有仓 UI 侧确认。
 
-### Public-Safe Evidence
+### 可记录的公开安全证据
 
-Use evidence like:
+可以写：
 
 - `Repository maintainer confirmed secret scanning and push protection are enabled for the public repo and reviewed for the internal companion repo.`
 - `Public repo github:safety check reported secret scanning and push protection as enabled.`
 
-Never test scanning by committing real or fake secret-looking values.
+不要用提交真假 secret 的方式测试扫描。
 
-## Gate 3: v0.1 Release Channel
+## 门禁 3：v0.1 发布渠道
 
-### Background
+### 背景
 
-The v0.1 codebase is useful as a local MVP, but a public release or npm publish creates external expectations. npm publish also requires account ownership, package rollback planning, and final package content review.
+v0.1 代码已经能作为本地 MVP 使用，但 GitHub Release 或 npm publish 会形成外部承诺。npm publish 还需要确认 npm 账号、包所有权、回滚策略和最终包内容。
 
-### Current State
+### 当前状态
 
-The release channel is undecided. Release decisions remain pending.
+发布渠道尚未决定，release decisions 仍为 pending。
 
-### Decision Choices
+### 决策选项
 
-- `repository-local`: keep v0.1 as a GitHub repository workflow with no tag, GitHub Release, or npm publish.
-- `github-release`: create a `v0.1.0` GitHub Release but do not publish npm.
-- `npm-public`: publish `@xiaoqi-ai/ai-link` to npm after dry-run and ownership review.
+- `repository-local`：v0.1 只保持 GitHub 仓库本地使用，不创建 tag、不发 GitHub Release、不发 npm。
+- `github-release`：创建 `v0.1.0` GitHub Release，但不发 npm。
+- `npm-public`：在 dry-run 和所有权确认后发布 `@xiaoqi-ai/ai-link` 到 npm。
 
-### Recommendation
+### 决策建议
 
-Choose `repository-local` for now. The v0.1 value is local MVP, governance, mock/dry-run behavior, and release readiness. Keeping it repository-local avoids premature npm support obligations while GitHub hardening, BWS, provider-live, and Auth Hub gates are still open.
+建议当前选择 `repository-local`。v0.1 的价值主要是本地 MVP、治理流程、mock / dry-run 和 release readiness。保持 repository-local 可以避免过早承担 npm 支持成本，同时等待 GitHub hardening、BWS、provider-live 和 Auth Hub 门禁更稳定。
 
-### Public-Safe Evidence
+### 可记录的公开安全证据
 
-Use evidence like:
+可以写：
 
 - `Release owner selected repository-local after package smoke checks and manual gate review.`
 
-## Gate 4: Bitwarden Secrets Manager
+## 门禁 4：Bitwarden Secrets Manager
 
-### Background
+### 背景
 
-BWS is the intended path for real provider credentials and GitHub provider-live wiring. The public repo stores only names, expected project structure, and helper scripts. It must not store real secret values.
+BWS 是后续承载真实 provider 凭据和 GitHub provider-live wiring 的推荐路径。公开仓只保存名称、预期项目结构和辅助脚本，绝不保存真实 secret value。
 
-### Current State
+### 当前状态
 
-- BWS manifest exists.
-- Expected projects:
+- BWS manifest 已存在。
+- 预期项目：
   - `ai-link-local-dev`
   - `ai-link-ci`
-- Expected GitHub Environment:
+- 预期 GitHub Environment：
   - `provider-live`
-- BWS CLI is not available in this session.
-- `AI_LINK_BWS_PROJECT_ID`, `AI_LINK_BWS_CI_PROJECT_ID`, and `BWS_ACCESS_TOKEN` are not set.
+- 当前会话没有可用的 BWS CLI。
+- `AI_LINK_BWS_PROJECT_ID`、`AI_LINK_BWS_CI_PROJECT_ID` 和 `BWS_ACCESS_TOKEN` 未设置。
 
-### Manual Action
+### 需要你做的事
 
-If real provider checks are the next goal:
+如果下一步要做真实 provider 检查：
 
-- Install or expose the BWS CLI.
-- Create or confirm the local-dev BWS project first.
-- Keep `BWS_ACCESS_TOKEN` only in the current shell session or hidden prompt flow.
-- Do not write token values into project files, docs, issues, PRs, or chat.
+- 安装或暴露 BWS CLI。
+- 先创建或确认 local-dev BWS 项目。
+- `BWS_ACCESS_TOKEN` 只放在当前 shell session 或隐藏输入流程里。
+- 不要把 token 值写入项目文件、文档、issue、PR 或聊天。
 
-### Decision Choices
+### 决策选项
 
-- Defer BWS and stay dry-run only.
-- Configure only local-dev BWS.
-- Configure both local-dev and CI provider-live BWS.
+- 暂缓 BWS，继续只做 dry-run。
+- 只配置 local-dev BWS。
+- 同时配置 local-dev 和 CI provider-live BWS。
 
-### Recommendation
+### 决策建议
 
-Configure only local-dev first if you want to test real provider readiness. Defer CI provider-live until after branch protection, release channel, and cost boundaries are clear.
+如果你想验证真实 provider readiness，建议先只配置 local-dev。CI provider-live 等 branch protection、release channel 和成本边界明确后再接。
 
-## Gate 5: Provider-Live Credentials And Cost
+## 门禁 5：Provider-live 凭据与成本
 
-### Background
+### 背景
 
-Provider-live verification can send prompts to external model providers and may spend money. It also creates a public claim if we say live verification passed.
+Provider-live 会向外部模型 provider 发送 prompt，并可能产生费用；一旦我们公开声明 live verification passed，也会形成外部可信度承诺。
 
-### Current State
+### 当前状态
 
-Provider-live is blocked by missing BWS setup and missing explicit cost approval.
+Provider-live 仍被 BWS 未配置和成本边界未确认阻塞。
 
-### Manual Action
+### 需要你做的事
 
-Before any live check:
+任何 live check 前，必须明确：
 
-- Choose the provider set.
-- Approve outbound prompt content.
-- Set a maximum spend.
-- Confirm that only sanitized safe reports are saved.
+- 选择哪些 provider。
+- 允许发送什么 outbound prompt 内容。
+- 最大费用上限是多少。
+- 只保存脱敏 safe report，不保存原始响应。
 
-### Decision Choices
+### 决策选项
 
-- Waive provider-live for repository-local v0.1 and make no live-provider claim.
-- Approve one minimal live provider check after BWS local-dev is ready.
-- Approve GitHub Actions provider-live only after CI BWS setup is ready.
+- 对 repository-local v0.1 waiver provider-live，不做 live-provider claim。
+- BWS local-dev 就绪后，批准一次最小 live provider check。
+- CI BWS 就绪后，再批准 GitHub Actions provider-live。
 
-### Recommendation
+### 决策建议
 
-Waive provider-live for repository-local v0.1. Do not claim live provider verification yet. Later, run one minimal provider-live safe report after BWS local-dev is configured.
+建议 v0.1 repository-local 阶段先 waiver provider-live，不声明 live provider verification。后续等 BWS local-dev 配好，再跑一次最小化 safe report。
 
-## Gate 6: Auth Hub Remote Mock Dry-Run
+## 门禁 6：Auth Hub 远端 mock dry-run
 
-### Background
+### 背景
 
-Auth Hub can eventually provide a remote task console and approval loop. Even a mock remote deployment touches Render, Cloudflare Access, app tokens, database settings, and domain configuration.
+Auth Hub 后续可以提供远端任务控制台和审批回路。即使只是 mock 远端部署，也会触及 Render、Cloudflare Access、app token、数据库设置和域名配置。
 
-### Current State
+### 当前状态
 
-The repo has local and remote helper scripts, but remote deployment remains manual.
+仓库已有本地和远端辅助脚本，但远端部署仍属于人工门禁。
 
-### Decision Choices
+### 决策选项
 
-- Keep Auth Hub local-first.
-- Deploy remote mock dry-run behind Cloudflare Access.
-- Move toward real connectors.
+- 继续保持 Auth Hub local-first。
+- 部署 Cloudflare Access 后面的远端 mock dry-run。
+- 进入真实 connector 方向。
 
-### Recommendation
+### 决策建议
 
-Keep Auth Hub remote as a separate future iteration. Do not combine it with GitHub hardening, BWS setup, or release-channel decisions in the same round.
+建议把 Auth Hub 远端部署留作单独下一轮，不要和 GitHub hardening、BWS setup、release channel 决策混在同一轮推进。
 
-## Decision Recording Commands
+## 决策记录命令
 
-Preview first:
+先预览：
 
 ```powershell
 npm.cmd run release:decisions:next
 ```
 
-After you confirm GitHub UI settings, use the generated write commands with `--yes`. Recommended sequence:
+你完成对应 GitHub UI / 发布渠道 / provider-live 决策确认后，再执行带 `--yes` 的写入命令。推荐顺序：
 
 ```powershell
 npm.cmd run release:decisions:update -- --id "github-branch-protection" --status "approved" --evidence "Repository maintainer confirmed main branch protection or ruleset requires Verify." --yes
@@ -265,7 +265,7 @@ npm.cmd run release:decisions:update -- --id "npm-publish-decision" --status "ap
 npm.cmd run release:decisions:update -- --id "provider-live-credentials" --status "waived" --note "Release owner waived provider-live verification for repository-local v0.1; do not claim live provider verification." --yes
 ```
 
-Then verify:
+写入后验证：
 
 ```powershell
 npm.cmd run release:decisions:json
@@ -273,4 +273,4 @@ npm.cmd run release:readiness:json
 npm.cmd run github:safety:json
 ```
 
-Only run the write commands after the matching manual confirmation exists.
+只有在对应人工确认已经真实完成后，才执行写入命令。
