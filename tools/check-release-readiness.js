@@ -521,11 +521,16 @@ checkContains(".ai-link/bitwarden-secrets.manifest.json", "BWS manifest", [
   "BWS_XAI_API_KEY_SECRET_ID"
 ], "security");
 
+const releaseDecisions = readJson("docs/releases/v0.1.0-decisions.json");
+const branchProtectionDecision = releaseDecisions?.decisions?.find((decision) => decision.id === "github-branch-protection");
+
 addCheck(
   "GitHub branch protection",
-  "manual",
-  "Configure main branch protection or ruleset in GitHub UI when ready.",
-  "manual"
+  branchProtectionDecision?.status === "approved" ? "pass" : "manual",
+  branchProtectionDecision?.status === "approved"
+    ? "Approved in docs/releases/v0.1.0-decisions.json."
+    : "Configure main branch protection or ruleset in GitHub UI when ready.",
+  branchProtectionDecision?.status === "approved" ? "release-decisions" : "manual"
 );
 addCheck(
   "GitHub secret scanning and push protection",

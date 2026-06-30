@@ -23,8 +23,8 @@ const failedSources = sourceReports
   .filter(([, report]) => report && report.summary?.ok === false)
   .map(([name]) => name);
 
-const branch = gitOutput(["branch", "--show-current"]);
-const head = gitOutput(["rev-parse", "--short", "HEAD"]);
+const branch = currentBranch();
+const head = currentHead();
 const upstream = gitOutput(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
 const statusPorcelain = gitOutput(["status", "--porcelain"]);
 const clean = statusPorcelain === "";
@@ -194,8 +194,8 @@ const report = {
     counts
   },
   repository: {
-    branch: branch || undefined,
-    head: head || undefined,
+    branch,
+    head,
     upstream: upstream || undefined,
     clean,
     behind,
@@ -258,6 +258,19 @@ function gitOutput(commandArgs) {
     return "";
   }
   return result.stdout.trim();
+}
+
+function currentBranch() {
+  return gitOutput(["branch", "--show-current"])
+    || process.env.GITHUB_HEAD_REF
+    || process.env.GITHUB_REF_NAME
+    || "detached";
+}
+
+function currentHead() {
+  return gitOutput(["rev-parse", "--short", "HEAD"])
+    || process.env.GITHUB_SHA?.slice(0, 7)
+    || "unknown";
 }
 
 function parseAheadBehind(value) {

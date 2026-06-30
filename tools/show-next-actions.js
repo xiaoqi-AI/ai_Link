@@ -188,8 +188,8 @@ const report = {
     counts: summarize(actions)
   },
   repository: {
-    branch: gitOutput(["branch", "--show-current"]) || undefined,
-    head: gitOutput(["rev-parse", "--short", "HEAD"]) || undefined,
+    branch: currentBranch(),
+    head: currentHead(),
     upstream: gitOutput(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]) || undefined,
     clean: (gitOutput(["status", "--porcelain"]) ?? "").length === 0
   },
@@ -224,6 +224,19 @@ function gitOutput(commandArgs) {
     return "";
   }
   return result.stdout.trim();
+}
+
+function currentBranch() {
+  return gitOutput(["branch", "--show-current"])
+    || process.env.GITHUB_HEAD_REF
+    || process.env.GITHUB_REF_NAME
+    || "detached";
+}
+
+function currentHead() {
+  return gitOutput(["rev-parse", "--short", "HEAD"])
+    || process.env.GITHUB_SHA?.slice(0, 7)
+    || "unknown";
 }
 
 function renderMarkdown(nextReport) {
