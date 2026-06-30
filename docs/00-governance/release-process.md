@@ -73,6 +73,8 @@ Before publishing v0.1, confirm:
 
 Use `npm run release:manual-gates` or `npm run release:manual-gates:json` to print the owner, action list, evidence, and safety boundary for each manual gate. The command is read-only: it does not change GitHub settings, create tags, publish npm packages, read secrets, or dispatch provider-live checks.
 
+Use `docs/00-governance/manual-confirmation-playbook.md` when the release owner needs the project background, current gate progress, decision choices, and recommended decisions for GitHub hardening, v0.1 release channel, BWS, provider-live, Auth Hub, and connector deferral.
+
 Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the ordered handoff across Bitwarden setup, GitHub provider-live wiring, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
 
 Use `npm run maintainer:pack` or `npm run maintainer:pack:json` when a maintainer needs one consolidated action pack across GitHub UI hardening, Bitwarden local foundation, provider-live GitHub wiring, release decision closeout, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.

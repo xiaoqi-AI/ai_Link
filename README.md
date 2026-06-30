@@ -40,6 +40,7 @@
 - 治理说明：`docs/00-governance/workspace-governance.md`
 - 迭代边界与约束：`docs/00-governance/iteration-boundaries.md`
 - GitHub 维护规则：`docs/00-governance/public-github-maintenance.md`
+- 人工门禁推进手册：`docs/00-governance/manual-confirmation-playbook.md`
 - 用户指引维护规则：`docs/00-governance/user-guidance-policy.md`
 - 待确认问题：`docs/00-governance/open-questions.md`
 
