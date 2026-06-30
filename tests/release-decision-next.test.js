@@ -38,7 +38,7 @@ describe("release decision next commands", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
-    assert.equal(report.summary.manualOpen, 4);
+    assert.equal(report.summary.manualOpen, 3);
     assert.deepEqual(ids, [
       "github-branch-protection",
       "github-secret-scanning",
