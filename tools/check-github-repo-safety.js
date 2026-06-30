@@ -170,11 +170,36 @@ async function checkGhRemote() {
   const protectionResult = run(ghCommand, ["api", `repos/${fullName}/branches/${branch}/protection`]);
   const protection = parseJsonOutput(protectionResult);
   if (!protection) {
-    addCheck("GitHub branch protection", "warn", cleanFailure(protectionResult), "remote");
+    const rulesetChecked = checkGhRulesets(ghCommand);
+    if (!rulesetChecked) {
+      addCheck("GitHub branch protection", "warn", cleanFailure(protectionResult), "remote");
+    }
     return;
   }
 
   checkBranchProtection(protection);
+}
+
+function checkGhRulesets(ghCommand) {
+  const listResult = run(ghCommand, ["api", `repos/${fullName}/rulesets`]);
+  const rulesets = parseJsonOutput(listResult);
+  if (!Array.isArray(rulesets)) {
+    return false;
+  }
+
+  const details = [];
+  for (const ruleset of rulesets) {
+    if (!ruleset?.id) {
+      continue;
+    }
+    const detailResult = run(ghCommand, ["api", `repos/${fullName}/rulesets/${ruleset.id}`]);
+    const detail = parseJsonOutput(detailResult);
+    if (detail) {
+      details.push(detail);
+    }
+  }
+
+  return checkBranchRulesets(details);
 }
 
 async function checkRestRemote(reason) {
@@ -202,11 +227,34 @@ async function checkRestRemote(reason) {
 
   const protectionResult = await fetchGitHubJson(`/repos/${fullName}/branches/${branch}/protection`, token);
   if (!protectionResult.ok) {
-    addCheck("GitHub branch protection", "warn", cleanApiFailure(protectionResult), "remote");
+    const rulesetChecked = await checkRestRulesets(token);
+    if (!rulesetChecked) {
+      addCheck("GitHub branch protection", "warn", cleanApiFailure(protectionResult), "remote");
+    }
     return;
   }
 
   checkBranchProtection(protectionResult.data);
+}
+
+async function checkRestRulesets(token) {
+  const listResult = await fetchGitHubJson(`/repos/${fullName}/rulesets`, token);
+  if (!listResult.ok || !Array.isArray(listResult.data)) {
+    return false;
+  }
+
+  const details = [];
+  for (const ruleset of listResult.data) {
+    if (!ruleset?.id) {
+      continue;
+    }
+    const detailResult = await fetchGitHubJson(`/repos/${fullName}/rulesets/${ruleset.id}`, token);
+    if (detailResult.ok) {
+      details.push(detailResult.data);
+    }
+  }
+
+  return checkBranchRulesets(details);
 }
 
 function checkBranchProtection(protection) {
@@ -219,6 +267,44 @@ function checkBranchProtection(protection) {
   addCheck("pull request required", protection.required_pull_request_reviews ? "pass" : "warn", protection.required_pull_request_reviews ? "enabled" : "missing", "remote");
   addCheck("force pushes restricted", protection.allow_force_pushes?.enabled === false ? "pass" : "warn", protection.allow_force_pushes?.enabled === false ? "disabled" : "enabled or unknown", "remote");
   addCheck("branch deletion restricted", protection.allow_deletions?.enabled === false ? "pass" : "warn", protection.allow_deletions?.enabled === false ? "disabled" : "enabled or unknown", "remote");
+}
+
+function checkBranchRulesets(rulesets) {
+  const ruleset = rulesets.find((candidate) => isActiveBranchRulesetForMain(candidate));
+  if (!ruleset) {
+    return false;
+  }
+
+  const rules = Array.isArray(ruleset.rules) ? ruleset.rules : [];
+  const requiredStatusChecks = rules
+    .filter((rule) => rule.type === "required_status_checks")
+    .flatMap((rule) => rule.parameters?.required_status_checks ?? [])
+    .map((check) => check.context)
+    .filter(Boolean);
+  const hasVerify = requiredStatusChecks.includes("Verify");
+  const restrictsDeletions = rules.some((rule) => rule.type === "deletion");
+  const restrictsForcePushes = rules.some((rule) => rule.type === "non_fast_forward");
+  const requiresPullRequest = rules.some((rule) => rule.type === "pull_request");
+
+  addCheck("GitHub branch protection", "pass", `active ruleset ${ruleset.name ?? ruleset.id} targets ${branch}.`, "remote");
+  addCheck("required status check Verify", hasVerify ? "pass" : "warn", requiredStatusChecks.join(", ") || "none", "remote");
+  addCheck("pull request required", requiresPullRequest ? "pass" : "manual", requiresPullRequest ? "enabled" : "deferred until external contributions begin", "remote");
+  addCheck("force pushes restricted", restrictsForcePushes ? "pass" : "warn", restrictsForcePushes ? "disabled by non_fast_forward rule" : "missing", "remote");
+  addCheck("branch deletion restricted", restrictsDeletions ? "pass" : "warn", restrictsDeletions ? "disabled by deletion rule" : "missing", "remote");
+  return true;
+}
+
+function isActiveBranchRulesetForMain(ruleset) {
+  if (!ruleset || ruleset.enforcement !== "active" || ruleset.target !== "branch") {
+    return false;
+  }
+
+  const refName = ruleset.conditions?.ref_name;
+  const includes = Array.isArray(refName?.include) ? refName.include : [];
+  const excludes = Array.isArray(refName?.exclude) ? refName.exclude : [];
+  const included = includes.some((pattern) => pattern === "~DEFAULT_BRANCH" || pattern === branch || pattern === `refs/heads/${branch}`);
+  const excluded = excludes.some((pattern) => pattern === "~DEFAULT_BRANCH" || pattern === branch || pattern === `refs/heads/${branch}`);
+  return included && !excluded;
 }
 
 function githubToken() {
