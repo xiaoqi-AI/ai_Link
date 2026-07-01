@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "release": "v0.1.0",
-  "updatedAt": "2026-06-30",
+  "updatedAt": "2026-07-01",
   "safety": [
     "This public decision record contains only gate status, owner roles, non-sensitive evidence references, and release intent.",
     "Do not add API keys, tokens, Bitwarden values, .env contents, provider responses, screenshots, QR codes, login state, or runtime/private paths.",
@@ -27,7 +27,7 @@
     {
       "id": "github-secret-scanning",
       "title": "GitHub secret scanning and push protection",
-      "status": "pending",
+      "status": "approved",
       "owner": "Repository maintainer",
       "decision": "Confirm secret scanning and push protection for the public repo and internal companion repo.",
       "requiredFor": [
@@ -35,7 +35,9 @@
         "GitHub Release",
         "npm publish"
       ],
-      "evidence": [],
+      "evidence": [
+        "Repository maintainer confirmed public repo secret scanning and push protection are enabled; internal companion repo security settings were reviewed and currently show no Secret Protection, secret scanning, or push protection entry."
+      ],
       "notes": "Do not test by committing sample secrets or pasting secret-looking values into issues, PRs, docs, logs, or chat."
     },
     {
