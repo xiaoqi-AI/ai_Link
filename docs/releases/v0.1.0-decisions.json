@@ -43,9 +43,9 @@
     {
       "id": "npm-publish-decision",
       "title": "v0.1 release channel and npm publish decision",
-      "status": "pending",
+      "status": "approved",
       "owner": "Release owner",
-      "selectedChannel": "undecided",
+      "selectedChannel": "repository-local",
       "allowedChannels": [
         "undecided",
         "repository-local",
@@ -58,7 +58,9 @@
         "GitHub Release",
         "npm publish"
       ],
-      "evidence": [],
+      "evidence": [
+        "Release owner selected repository-local after package checks, install smoke, release plan review, and manual gate review."
+      ],
       "notes": "If selectedChannel is npm-public, review npm ownership, package contents, rollback policy, and npm publish dry-run before approval."
     },
     {
