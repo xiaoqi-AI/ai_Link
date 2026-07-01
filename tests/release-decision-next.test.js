@@ -38,7 +38,7 @@ describe("release decision next commands", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
-    assert.equal(report.summary.manualOpen, 2);
+    assert.equal(report.summary.manualOpen, 1);
     assert.deepEqual(ids, [
       "github-branch-protection",
       "github-secret-scanning",
@@ -46,6 +46,7 @@ describe("release decision next commands", () => {
       "provider-live-credentials"
     ]);
     assert.equal(report.recommendation.includes("repository-local"), true);
+    assert.equal(report.decisions.some((decision) => decision.id === "npm-publish-decision" && decision.status === "approved" && decision.selectedChannel === "repository-local"), true);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
     assert.equal(report.decisions.every((decision) => decision.suggestions.length > 0), true);
     assert.equal(report.decisions.some((decision) => decision.suggestions.some((suggestion) => suggestion.previewCommand.includes("release:decisions:update"))), true);

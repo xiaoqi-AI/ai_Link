@@ -524,6 +524,7 @@ checkContains(".ai-link/bitwarden-secrets.manifest.json", "BWS manifest", [
 const releaseDecisions = readJson("docs/releases/v0.1.0-decisions.json");
 const branchProtectionDecision = releaseDecisions?.decisions?.find((decision) => decision.id === "github-branch-protection");
 const secretScanningDecision = releaseDecisions?.decisions?.find((decision) => decision.id === "github-secret-scanning");
+const npmPublishDecision = releaseDecisions?.decisions?.find((decision) => decision.id === "npm-publish-decision");
 
 addCheck(
   "GitHub branch protection",
@@ -543,9 +544,11 @@ addCheck(
 );
 addCheck(
   "npm publish decision",
-  "manual",
-  "Open question: publish package or keep repository-local workflow for v0.1.",
-  "manual"
+  npmPublishDecision?.status === "approved" ? "pass" : "manual",
+  npmPublishDecision?.status === "approved"
+    ? `Approved in docs/releases/v0.1.0-decisions.json: ${npmPublishDecision.selectedChannel ?? "unknown"}.`
+    : "Open question: publish package or keep repository-local workflow for v0.1.",
+  npmPublishDecision?.status === "approved" ? "release-decisions" : "manual"
 );
 addCheck(
   "provider live credentials",
