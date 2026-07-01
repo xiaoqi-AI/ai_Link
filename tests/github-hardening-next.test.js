@@ -39,7 +39,7 @@ describe("GitHub hardening next steps report", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
-    assert.equal(report.summary.manualOpen > 0, true);
+    assert.equal(report.summary.manualOpen, 0);
     assert.equal(report.repository.fullName, "xiaoqi-AI/ai_Link");
     assert.equal(report.repository.requiredStatusCheck, "Verify");
     assert.deepEqual(phaseIds, [
@@ -49,6 +49,7 @@ describe("GitHub hardening next steps report", () => {
       "review-local-github-baseline"
     ]);
     assert.equal(report.snapshot.localSafety.ok, true);
+    assert.equal(report.snapshot.decisions.some((decision) => decision.id === "github-secret-scanning" && decision.status === "approved"), true);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
     assert.equal(report.safety.some((line) => line.includes("Does not call GitHub APIs by default")), true);
   });

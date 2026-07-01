@@ -39,7 +39,7 @@ describe("release decisions report", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
     assert.equal(report.summary.strictOk, false);
-    assert.equal(report.summary.manualOpen, 3);
+    assert.equal(report.summary.manualOpen, 2);
     assert.deepEqual(ids, [
       "github-branch-protection",
       "github-secret-scanning",
@@ -47,6 +47,7 @@ describe("release decisions report", () => {
       "provider-live-credentials"
     ]);
     assert.equal(report.decisions.some((decision) => decision.id === "github-branch-protection" && decision.status === "approved"), true);
+    assert.equal(report.decisions.some((decision) => decision.id === "github-secret-scanning" && decision.status === "approved"), true);
     assert.equal(report.outcomes.some((outcome) => outcome.id === "npm-publish" && outcome.status === "blocked"), true);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
   });
