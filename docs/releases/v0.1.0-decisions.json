@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "release": "v0.1.0",
-  "updatedAt": "2026-07-01",
+  "updatedAt": "2026-07-08",
   "safety": [
     "This public decision record contains only gate status, owner roles, non-sensitive evidence references, and release intent.",
     "Do not add API keys, tokens, Bitwarden values, .env contents, provider responses, screenshots, QR codes, login state, or runtime/private paths.",
@@ -73,7 +73,9 @@
         "provider-live dispatch",
         "public claim of live provider verification"
       ],
-      "evidence": [],
+      "evidence": [
+        "Local Coze stream_run live verification passed using Hermes-managed private tokens and public-safe deployment registry; safe report generated at runtime/tmp/provider-live-report.json; GitHub provider-live dispatch remains unconfigured and no CI-level live verification claim is made."
+      ],
       "notes": "Evidence should be sanitized command names, artifact paths under runtime/tmp, or GitHub Actions artifact names; never include raw provider responses or secret values."
     }
   ]
