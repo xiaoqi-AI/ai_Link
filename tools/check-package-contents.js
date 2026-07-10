@@ -54,6 +54,8 @@ function checkRequiredFiles(files) {
     "dist/cli.js",
     "dist/index.js",
     "dist/types.d.ts",
+    "dist/connectors/googleSearchConsole.js",
+    "dist/connectors/gscCheck.js",
     "docs/quickstart.md",
     "docs/user-guide.md",
     "docs/20-architecture/configuration.md",
@@ -128,6 +130,7 @@ if (!packageJson) {
   addCheck("package version", /^\d+\.\d+\.\d+/.test(packageJson.version ?? "") ? "pass" : "fail", packageJson.version ?? "missing", "package");
   addCheck("license", packageJson.license === "Apache-2.0" ? "pass" : "fail", packageJson.license ?? "missing", "package");
   addCheck("bin ai-link", packageJson.bin?.["ai-link"] === "dist/cli.js" ? "pass" : "fail", packageJson.bin?.["ai-link"] ?? "missing", "package");
+  addCheck("bin ai-link-gsc", packageJson.bin?.["ai-link-gsc"] === "dist/connectors/gscCheck.js" ? "pass" : "fail", packageJson.bin?.["ai-link-gsc"] ?? "missing", "package");
   addCheck(
     "package files allowlist",
     JSON.stringify(packageJson.files ?? []) === JSON.stringify(["dist", "README.md", "CHANGELOG.md", "LICENSE", "docs", "examples"]) ? "pass" : "fail",

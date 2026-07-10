@@ -486,6 +486,44 @@ describe("AI Link task flow", () => {
     assert.equal(result.error.retryable, true);
   });
 
+  it("runs a GSC monitor task and preserves Google refresh as a completed observation", async () => {
+    const result = await runTask(
+      {
+        workflow: "gsc_monitor",
+        currentStep: "process",
+        input: {
+          siteUrl: "https://voice.example.com/",
+          urls: ["https://voice.example.com/guide"],
+          sitemaps: ["https://voice.example.com/sitemap.xml"]
+        }
+      },
+      {
+        registry: {
+          google_search_console: {
+            monitorSite: async () => ({
+              checkedAt: "2026-07-11T00:00:00.000Z",
+              nextCheckAt: "2026-07-12T00:00:00.000Z",
+              summary: {
+                conclusion: "站点技术抓取条件正常，Google Index 仍在刷新。",
+                requiresManualAction: false,
+                counts: { discovered_not_indexed: 1 }
+              },
+              reportMarkdown: "# GSC 自动检查报告\n\n结论：等待 Google 刷新。\n",
+              urls: [{
+                url: "https://voice.example.com/guide",
+                status: "discovered_not_indexed"
+              }]
+            })
+          }
+        }
+      }
+    );
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.urls[0].status, "discovered_not_indexed");
+    assert.equal(result.artifacts[0].kind, "gsc-status-report");
+  });
+
   it("describes connector capability contracts without private state", () => {
     const description = describeConnectorRegistry(createConnectorRegistry());
     assert.deepEqual(description.issues, []);

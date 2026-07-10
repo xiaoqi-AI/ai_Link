@@ -17,6 +17,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - BWS run wrapper npm entry for running approved AI Link commands through `bws run` without saving token values.
 - BWS acceptance JSON report for machine-readable pass/warn/pending/skip handoff without printing token values.
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
+- Google Search Console connector contract with mock Google API data, live read-only public crawlability checks, normalized URL states, Chinese reports, and an Auth Hub `gsc_monitor` task.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.
@@ -33,6 +34,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 
 - Real external provider calls require explicit approval and configured private credentials.
 - Public repo checks avoid reading `.env`, tokens, login state, provider responses, QR codes, browser state, or `runtime/private`.
+- GSC public checks are same-origin HTTPS only; real OAuth, Search Console writes, and Request indexing remain outside the public MVP.
 - `package:check` uses `npm pack --dry-run` and does not publish.
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.
 - `next:actions` is read-only; it does not read secrets, modify GitHub settings, publish packages, or dispatch live providers.

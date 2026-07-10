@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
@@ -17,6 +17,14 @@ const result = spawnSync(process.execPath, [tscCli, "-p", "tsconfig.build.json"]
 if (result.error) {
   console.error(result.error.message);
   process.exit(1);
+}
+
+if (result.status === 0) {
+  const connectorDist = path.join(distPath, "connectors");
+  mkdirSync(connectorDist, { recursive: true });
+  for (const file of ["googleSearchConsole.js", "gscCheck.js"]) {
+    copyFileSync(path.join(cwd, "src", "connectors", file), path.join(connectorDist, file));
+  }
 }
 
 process.exit(result.status ?? 1);
