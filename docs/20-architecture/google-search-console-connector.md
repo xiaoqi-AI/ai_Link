@@ -287,3 +287,75 @@ URL Inspection API 返回的是 Google 索引中的版本，不能执行 live UR
 - `Discovered - currently not indexed` 在技术条件正常时不会误判为站点故障。
 - sitemap submit 未审批时返回 `manual_action_required`。
 - `gsc_monitor` 生成脱敏报告 artifact。
+
+## 2026-07-11 真实只读联调记录
+
+本轮使用个人 Google 账号完成 Search Console 真实只读验证，授权文件只保存在本机 `runtime/private/google-search-console/`，未进入公开仓。
+
+### 结论
+
+- Google Cloud 侧启用 `Google Search Console API`，OAuth app 保持 `External + Testing`，测试用户为实际授权账号。
+- Desktop OAuth client 使用系统浏览器、PKCE、loopback callback 和 `webmasters.readonly` scope，授权成功后生成 `authorized-user.json`。
+- `voice.xiao-qi-ai.com` 在 GSC 中属于 Domain Property `sc-domain:xiao-qi-ai.com`，不是 URL-prefix property `https://voice.xiao-qi-ai.com/`。
+- 使用 URL-prefix 作为 `siteUrl` 会导致 `gsc_property_not_listed` / `gsc_permission_denied`；使用 `sc-domain:xiao-qi-ai.com` 并设置 `publicBaseUrl` 后，Sites、Sitemaps list 与 URL Inspection 均可读。
+- 两个 sitemap 重新提交后，GSC API 显示 `errors: 0`、`warnings: 0`，旧的 `gsc_sitemap_error` 恢复。
+- 当前站点公开抓取条件正常，剩余状态是 Google Index 刷新等待，不是站点技术故障。
+
+### Domain Property 配置
+
+真实 GSC 属性是 Domain Property 时，配置必须使用 `sc-domain:`，并额外提供公开抓取基准：
+
+```json
+{
+  "siteUrl": "sc-domain:xiao-qi-ai.com",
+  "publicBaseUrl": "https://voice.xiao-qi-ai.com/",
+  "urls": [
+    "https://voice.xiao-qi-ai.com/"
+  ],
+  "sitemaps": [
+    "https://voice.xiao-qi-ai.com/sitemap.xml"
+  ]
+}
+```
+
+仓库示例：
+
+```powershell
+npm.cmd run gsc:check -- `
+  --config examples/google-search-console/voice-site.domain.public.json
+```
+
+本机真实只读验证示例：
+
+```powershell
+$env:HTTPS_PROXY="http://127.0.0.1:4780"
+$env:HTTP_PROXY="http://127.0.0.1:4780"
+
+node --use-env-proxy dist/connectors/gscCheck.js `
+  --config examples/google-search-console/voice-site.domain.public.json `
+  --credentials runtime/private/google-search-console/authorized-user.json `
+  --history runtime/private/google-search-console/domain-history.json `
+  --json `
+  --output runtime/tmp/gsc-live-domain-check.json `
+  --report-output runtime/tmp/gsc-live-domain-report.md
+```
+
+代理地址只是本机实测环境示例，不应写入公开配置、CI 或用户文档中的固定要求。若 Node 直连 Google 超时，但浏览器和 PowerShell 可访问 Google，可临时使用 `node --use-env-proxy` 配合当前终端的 `HTTP_PROXY` / `HTTPS_PROXY`。
+
+### 本轮观测结果
+
+- `googleApi.sites` 返回 `sc-domain:xiao-qi-ai.com`，权限为 `siteOwner`。
+- `sitemap.xml` 和 `sitemap-basic.xml` 均为 `Success`，发现 16 页。
+- 3 个目标 URL 的 HTTP、robots、sitemap、canonical 和 noindex 公开检查均通过。
+- URL Inspection：
+  - `https://voice.xiao-qi-ai.com/`：`Crawled - currently not indexed`
+  - `https://voice.xiao-qi-ai.com/guides`：`URL is unknown to Google`
+  - `https://voice.xiao-qi-ai.com/when-to-start-talking-to-baby-in-the-womb`：`Crawled - currently not indexed`
+
+### 人工门禁经验
+
+- 不需要发布 OAuth app；`External + Testing + 测试用户` 已足够本机验证。
+- 不需要开 Google Cloud billing 或 free trial。
+- PowerShell 不会显示授权账号，这是安全设计；账号一致性应由 Google 授权页、GSC 用户界面和 API property 权限共同证明。
+- 如果浏览器显示 `Authorization state did not match`，通常是旧 OAuth 标签页或多轮重试导致 state 错配；关闭旧 callback 页后重启当前授权流程。
+- GSC 中 sitemap `General HTTP error` 可能是旧状态。若本机和 Googlebot UA 均可读取 sitemap，可在 GSC 重新提交 sitemap，随后用 API 复测确认 `errors: 0`。

@@ -1,0 +1,25 @@
+{
+  "siteUrl": "sc-domain:xiao-qi-ai.com",
+  "publicBaseUrl": "https://voice.xiao-qi-ai.com/",
+  "urls": [
+    "https://voice.xiao-qi-ai.com/",
+    "https://voice.xiao-qi-ai.com/guides",
+    "https://voice.xiao-qi-ai.com/when-to-start-talking-to-baby-in-the-womb"
+  ],
+  "sitemaps": [
+    "https://voice.xiao-qi-ai.com/sitemap.xml",
+    "https://voice.xiao-qi-ai.com/sitemap-basic.xml"
+  ],
+  "legacyUrls": {
+    "https://voice.xiao-qi-ai.com/guides.html": "https://voice.xiao-qi-ai.com/guides",
+    "https://voice.xiao-qi-ai.com/when-to-start-talking-to-baby-in-the-womb.html": "https://voice.xiao-qi-ai.com/when-to-start-talking-to-baby-in-the-womb"
+  },
+  "schedule": "daily",
+  "alertPolicy": {
+    "statuses": [
+      "blocked_by_robots",
+      "sitemap_error",
+      "manual_action_required"
+    ]
+  }
+}
