@@ -6,6 +6,8 @@
     "https://voice.xiao-qi-ai.com/guides",
     "https://voice.xiao-qi-ai.com/when-to-start-talking-to-baby-in-the-womb"
   ],
+  "includeSitemapUrls": true,
+  "maxSitemapUrls": 50,
   "sitemaps": [
     "https://voice.xiao-qi-ai.com/sitemap.xml",
     "https://voice.xiao-qi-ai.com/sitemap-basic.xml"

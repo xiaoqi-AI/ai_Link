@@ -3,6 +3,7 @@ param(
   [string]$At = "09:00",
   [ValidatePattern('^[A-Za-z0-9 _.-]{1,80}$')]
   [string]$TaskName = "AI Link GSC Readonly Monitor",
+  [string]$ProxyUrl = "",
   [switch]$Apply
 )
 
@@ -10,11 +11,11 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $Runner = Join-Path $PSScriptRoot "run-gsc-monitor.ps1"
 $Credentials = Join-Path $RepoRoot "runtime\private\google-search-console\authorized-user.json"
-$History = Join-Path $RepoRoot "runtime\private\google-search-console\history.json"
-$Output = Join-Path $RepoRoot "runtime\tmp\gsc-live-check.json"
-$Report = Join-Path $RepoRoot "runtime\tmp\gsc-live-report.md"
-$Config = Join-Path $RepoRoot "examples\google-search-console\voice-site.public.json"
-$Arguments = @(
+$History = Join-Path $RepoRoot "runtime\private\google-search-console\domain-history.json"
+$Output = Join-Path $RepoRoot "runtime\tmp\gsc-live-domain-check.json"
+$Report = Join-Path $RepoRoot "runtime\tmp\gsc-live-domain-report.md"
+$Config = Join-Path $RepoRoot "examples\google-search-console\voice-site.domain.public.json"
+$ArgumentList = @(
   "-NoProfile",
   "-NonInteractive",
   "-ExecutionPolicy", "Bypass",
@@ -24,7 +25,11 @@ $Arguments = @(
   "-History", ('"' + $History + '"'),
   "-Output", ('"' + $Output + '"'),
   "-ReportOutput", ('"' + $Report + '"')
-) -join " "
+)
+if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) {
+  $ArgumentList += @("-ProxyUrl", ('"' + $ProxyUrl + '"'))
+}
+$Arguments = $ArgumentList -join " "
 
 $Plan = [ordered]@{
   mode = if ($Apply) { "apply" } else { "plan" }
@@ -38,6 +43,7 @@ $Plan = [ordered]@{
   output = $Output
   report = $Report
   history = $History
+  proxy = if ([string]::IsNullOrWhiteSpace($ProxyUrl)) { "not configured" } else { "configured" }
   safety = @(
     "Uses Search Console read-only credentials only.",
     "Stores redacted reports under runtime/tmp and redacted history under runtime/private.",
