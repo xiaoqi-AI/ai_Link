@@ -59,6 +59,7 @@ function checkRequiredFiles(files) {
     "dist/connectors/googleSearchConsoleApi.js",
     "dist/connectors/gscAuthorize.js",
     "dist/connectors/gscCheck.js",
+    "dist/connectors/gscHistory.js",
     "docs/quickstart.md",
     "docs/user-guide.md",
     "docs/20-architecture/configuration.md",

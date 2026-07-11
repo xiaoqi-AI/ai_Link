@@ -109,7 +109,9 @@ npm.cmd run gsc:check -- `
   --report-output runtime/tmp/gsc-live-report.md
 ```
 
-授权命令只申请 `webmasters.readonly`，使用系统浏览器、PKCE、随机 state 和 `127.0.0.1` 一次性回调。首轮验收的 refresh token 只保存在 `runtime/private/`，短期 access token 只驻留当前进程内存；长期自动化应再迁入受控 secret manager。完整 Google Cloud 中文操作、状态口径、Auth Hub `gsc_monitor` 任务格式、错误处理和 sitemap 写权限门禁见 `docs/20-architecture/google-search-console-connector.md`。
+真实只读检查默认把最多 90 次脱敏快照保存到 `runtime/private/google-search-console/history.json`，后续报告会输出相对上次检查的改善、退化和状态变化；临时运行可加 `--no-history`。授权完成后可先用 `npm.cmd run gsc:schedule:plan` 预览 Windows 每日任务，计划模式不会注册任务，真正应用仍需显式执行带 `-Apply` 的安装命令。
+
+授权命令只申请 `webmasters.readonly`，使用系统浏览器、PKCE、随机 state 和 `127.0.0.1` 一次性回调。首轮验收的 refresh token 只保存在 `runtime/private/`，短期 access token 只驻留当前进程内存；长期自动化应再迁入受控 secret manager。完整 Google Cloud 中文操作、状态口径、Auth Hub `gsc_monitor` 任务格式、历史快照、错误处理、定时运行和 sitemap 写权限门禁见 `docs/20-architecture/google-search-console-connector.md`。
 
 ## 统一授权中枢本地试跑
 

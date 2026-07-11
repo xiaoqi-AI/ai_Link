@@ -112,6 +112,7 @@
     "workflow:dry": "npm run ai-link -- workflow run auto_ops --dry-run --input \"fresh workflow check\"",
     "gsc:check": "npm run build && node dist/connectors/gscCheck.js",
     "gsc:authorize": "npm run build && node dist/connectors/gscAuthorize.js",
+    "gsc:schedule:plan": "powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1",
     "start": "node src/server.js",
     "ai-link": "tsx src/cli.ts",
     "auth-hub:start": "node src/server.js",

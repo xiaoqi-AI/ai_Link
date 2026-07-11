@@ -27,7 +27,8 @@ if (result.status === 0) {
     "googleSearchConsole.js",
     "googleSearchConsoleApi.js",
     "gscAuthorize.js",
-    "gscCheck.js"
+    "gscCheck.js",
+    "gscHistory.js"
   ]) {
     copyFileSync(path.join(cwd, "src", "connectors", file), path.join(connectorDist, file));
   }

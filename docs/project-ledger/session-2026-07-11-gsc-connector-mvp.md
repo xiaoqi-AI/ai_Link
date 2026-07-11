@@ -82,3 +82,16 @@ AI Link 已形成面向 prenatal voice 海外 SEO 验证的公开安全 GSC conn
 - `ai-link-gsc` 可通过 `--credentials` 进入私有只读 API 模式；默认行为仍是公开检查 + Google API mock。
 
 本阶段代码验收可以在无真实 Google 账号时完成。业务验收仍需用户确认 Google Cloud 项目、Desktop OAuth client、授权账号和 GSC property 后，在本机执行一次真实只读授权；在这一步之前不能宣称 Sites、URL Inspection 或 Sitemaps 已通过 live 验收。
+
+## 同日继续推进：历史变化与本地每日监控
+
+等待用户创建 Google Desktop OAuth client 期间，继续完成不依赖真实账号的自动监控基础：
+
+- `ai-link-gsc` 在真实只读模式下默认维护 `runtime/private/google-search-console/history.json`。
+- 每个快照只包含 property、检查时间、URL、统一状态、公开检查摘要、计数和稳定错误码；不保存 OAuth token、Cookie、账号列表、原始 Google 响应或错误正文。
+- 历史默认保留 90 次，最多 365 次；超过 2 MiB、跨 property 或结构不合法时拒绝读取/写入。
+- 中文报告“今日变化”支持首个基线、无变化、状态变化、改善、退化、新增/移除 URL、新增问题和已恢复问题。
+- 两次公开站点冒烟生成 2 个快照；第二次报告正确输出“URL 状态和技术问题没有变化”，历史文件未出现 access token 字段。
+- 新增 Windows 每日监控 runner 与 plan-first 安装器。默认只输出计划；只有凭据已就绪并显式传入 `-Apply` 时才注册当前用户的交互式计划任务。
+
+当前仍未自动注册系统任务，因为 authorized-user 凭据尚不存在，且用户尚未确认具体每日执行时间。真实通知渠道、sitemap 写权限和真实提交继续保留独立门禁。

@@ -151,6 +151,14 @@ npm.cmd run gsc:check -- `
   --report-output runtime/tmp/gsc-live-report.md
 ```
 
+真实只读模式默认维护最多 90 次脱敏快照：
+
+```text
+runtime/private/google-search-console/history.json
+```
+
+历史只保存 property、检查时间、URL、统一状态、公开检查布尔摘要、计数和稳定错误码，不保存 OAuth 凭据、Google 原始响应或错误正文。第二次及后续运行时，中文报告的“今日变化”会列出状态变化、改善、退化、新增/移除 URL，以及新增/已恢复问题。可用 `--history-limit 30` 调整保留数量；临时检查不希望写历史时使用 `--no-history`。
+
 验收成功应满足：
 
 - `mode` 为 `private-api-client+public-check`。
@@ -168,6 +176,32 @@ npm.cmd run gsc:check -- `
 | `gsc_permission_denied` | 授权账号无权访问目标 property | 在 GSC 的 Settings > Users and permissions 核对账号权限 |
 | `gsc_property_not_listed` | Sites list 未返回配置 property | 核对 `siteUrl` 是否与 GSC 中的 URL-prefix 或 Domain property 完全一致 |
 | `gsc_quota_exceeded` | Google API 配额暂时不可用 | 等待配额恢复，不循环重试、不绕过配额 |
+
+### 第五步：预览并启用 Windows 每日监控
+
+先只生成计划，不创建任务：
+
+```powershell
+npm.cmd run gsc:schedule:plan
+```
+
+计划会显示运行账号、每日时间、配置、凭据、报告和历史路径，但不会读取或打印凭据内容。只有 `credentialReady` 与 `configReady` 都为 `true` 后才允许应用。
+
+确认每天本地时间后再执行，例如每天 09:00：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1 `
+  -At "09:00" `
+  -Apply
+```
+
+该任务只在当前 Windows 用户存在交互会话时运行，调用 `tools/run-gsc-monitor.ps1`，最长运行 30 分钟；如果上一轮仍在执行，新一轮会被忽略，避免两个进程同时覆盖历史文件。任务固定输出：
+
+- 脱敏 JSON：`runtime/tmp/gsc-live-check.json`
+- 中文报告：`runtime/tmp/gsc-live-report.md`
+- 脱敏历史：`runtime/private/google-search-console/history.json`
+
+监控检测到必须人工处理的异常时会返回退出码 2，并在报告中列出问题；第一版不自动发送邮件、短信或聊天消息。通知渠道属于后续独立配置，不能把凭据或原始 Google 响应放进通知正文。
 
 官方操作依据：
 
@@ -247,6 +281,8 @@ URL Inspection API 返回的是 Google 索引中的版本，不能执行 live UR
 - OAuth refresh token 只用于内存换取 access token；错误不回显 Google 原始响应。
 - Sites、URL Inspection、Sitemaps list 使用官方 REST endpoint 和请求结构。
 - read-only client 即使收到 connector 审批，也会拒绝 sitemap submit。
+- 历史文件只保留脱敏快照，跨 property 复用会失败，默认最多保留 90 次。
+- Windows 定时任务安装器默认只输出计划，缺少只读 OAuth 凭据时拒绝应用。
 - HTTP、robots、sitemap、canonical、noindex 和 301/308 旧 URL 跳转检查。
 - `Discovered - currently not indexed` 在技术条件正常时不会误判为站点故障。
 - sitemap submit 未审批时返回 `manual_action_required`。

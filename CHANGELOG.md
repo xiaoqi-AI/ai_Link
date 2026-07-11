@@ -19,6 +19,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
 - Google Search Console connector contract with mock Google API data, live read-only public crawlability checks, normalized URL states, Chinese reports, and an Auth Hub `gsc_monitor` task.
 - Google Search Console Desktop OAuth PKCE/loopback authorization, in-memory access-token refresh, and live read-only Sites, URL Inspection, and Sitemaps REST client.
+- Redacted GSC snapshot history, Chinese change summaries, and a plan-first Windows daily monitoring task installer.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.

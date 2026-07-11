@@ -331,6 +331,7 @@ export class GoogleSearchConsoleConnector {
       "quota_wait"
     ].includes(item.status));
     const manual = result.alerts;
+    const changes = renderGscChanges(result.changes);
     const lines = [
       "# GSC 自动检查报告",
       "",
@@ -339,7 +340,7 @@ export class GoogleSearchConsoleConnector {
       "",
       "## 今日变化",
       "",
-      "- 当前为单次快照；接入历史记录后才能计算日级变化。",
+      ...changes,
       "",
       "## 已恢复项",
       ""
@@ -848,6 +849,40 @@ function statusLabel(status) {
     manual_action_required: "需要人工处理",
     quota_wait: "人工请求配额已用尽，等待下一日"
   })[status] || status;
+}
+
+function renderGscChanges(changes) {
+  if (!changes) return ["- 当前为单次快照；启用历史文件后可计算检查间变化。"];
+  if (changes.baseline) return ["- 已建立首个脱敏状态快照；暂无上一次检查可比较。"];
+  if (!changes.items?.length) {
+    return [`- 与 ${changes.previousCheckedAt || "上一次检查"} 相比，URL 状态和技术问题没有变化。`];
+  }
+  const summary = changes.summary || {};
+  const lines = [
+    `- 对比时间：${changes.previousCheckedAt || "未知"}；变化 ${summary.total || 0} 项，改善 ${summary.improved || 0} 项，退化 ${summary.regressed || 0} 项。`
+  ];
+  for (const item of changes.items) {
+    if (item.type === "status_changed") {
+      lines.push(`- ${item.url}：${statusLabel(item.fromStatus)} → ${statusLabel(item.toStatus)}（${directionLabel(item.direction)}）。`);
+    } else if (item.type === "public_readiness_changed") {
+      lines.push(`- ${item.url}：公开技术检查${item.direction === "improved" ? "恢复正常" : "出现异常"}。`);
+    } else if (item.type === "url_added") {
+      lines.push(`- ${item.url}：新增监控 URL，当前为${statusLabel(item.toStatus)}。`);
+    } else if (item.type === "url_removed") {
+      lines.push(`- ${item.url}：已从本次监控清单移除。`);
+    } else if (item.type === "issue_added") {
+      lines.push(`- ${item.url || "站点级检查"}：新增问题 ${item.code}。`);
+    } else if (item.type === "issue_resolved") {
+      lines.push(`- ${item.url || "站点级检查"}：问题 ${item.code} 已恢复。`);
+    }
+  }
+  return lines;
+}
+
+function directionLabel(direction) {
+  if (direction === "improved") return "改善";
+  if (direction === "regressed") return "退化";
+  return "状态变化";
 }
 
 function safeApiError(capability, error, url = "") {
