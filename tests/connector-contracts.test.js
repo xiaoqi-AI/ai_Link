@@ -137,6 +137,77 @@ describe("connector contracts", () => {
     assert.equal(preview.approval.required, true);
   });
 
+  it("can expand monitored URLs from same-origin sitemaps for full-range readonly checks", async () => {
+    const siteUrl = "sc-domain:example.com";
+    const publicBaseUrl = "https://voice.example.com/";
+    const homeUrl = "https://voice.example.com/";
+    const articleUrl = "https://voice.example.com/guide";
+    const sitemapUrl = "https://voice.example.com/sitemap.xml";
+    const fixtures = new Map([
+      [
+        "https://voice.example.com/robots.txt",
+        response(`User-agent: *\nAllow: /\nSitemap: ${sitemapUrl}\n`, { url: "https://voice.example.com/robots.txt" })
+      ],
+      [
+        sitemapUrl,
+        response(`<?xml version="1.0"?><urlset><url><loc>${homeUrl}</loc></url><url><loc>${articleUrl}</loc></url></urlset>`, { url: sitemapUrl })
+      ],
+      [
+        homeUrl,
+        response(`<html><head><link href="${homeUrl}" rel="canonical"></head></html>`, { url: homeUrl })
+      ],
+      [
+        articleUrl,
+        response(`<html><head><link href="${articleUrl}" rel="canonical"></head></html>`, { url: articleUrl })
+      ]
+    ]);
+    const apiClient = new MockGoogleSearchConsoleApiClient({
+      sites: [{ siteUrl, permissionLevel: "siteOwner" }],
+      inspections: {
+        [homeUrl]: {
+          indexStatusResult: {
+            verdict: "PASS",
+            coverageState: "Submitted and indexed",
+            robotsTxtState: "ALLOWED",
+            indexingState: "INDEXING_ALLOWED",
+            userCanonical: homeUrl
+          }
+        },
+        [articleUrl]: {
+          indexStatusResult: {
+            verdict: "NEUTRAL",
+            coverageState: "URL is unknown to Google",
+            robotsTxtState: "ALLOWED",
+            indexingState: "INDEXING_ALLOWED",
+            userCanonical: articleUrl
+          }
+        }
+      },
+      sitemaps: [{ siteUrl, path: sitemapUrl, errors: 0, warnings: 0 }]
+    });
+    const connector = new GoogleSearchConsoleConnector({
+      apiClient,
+      fetchImpl: async (url) => {
+        const value = fixtures.get(url);
+        if (!value) throw new Error(`Missing fixture: ${url}`);
+        return value;
+      },
+      resolveHost: async () => [{ address: "93.184.216.34" }]
+    });
+
+    const result = await connector.monitorSite({
+      siteUrl,
+      publicBaseUrl,
+      urls: [homeUrl],
+      includeSitemapUrls: true,
+      sitemaps: [sitemapUrl]
+    });
+
+    assert.deepEqual(result.urls.map((item) => item.url).sort(), [homeUrl, articleUrl].sort());
+    assert.equal(result.summary.totalUrls, 2);
+    assert.equal(result.urls.find((item) => item.url === articleUrl).status, "ready_for_google");
+  });
+
   it("lets current technical faults override an earlier manual indexing request", () => {
     const status = classifyUrlStatus({
       publicCheck: {

@@ -151,15 +151,16 @@ export class GoogleSearchConsoleConnector {
   }
 
   async checkPublicCrawlability(input) {
-    const config = normalizeMonitorConfig(input);
-    const robots = await this.#checkRobots(config);
+    const baseConfig = normalizeMonitorConfig(input);
     const sitemapInternal = await Promise.all(
-      config.sitemaps.map((sitemapUrl) => this.#checkSitemap(sitemapUrl, config))
+      baseConfig.sitemaps.map((sitemapUrl) => this.#checkSitemap(sitemapUrl, baseConfig))
     );
     const sitemapUrls = new Set();
     for (const sitemap of sitemapInternal) {
       for (const url of sitemap.discoveredUrls) sitemapUrls.add(url);
     }
+    const config = expandMonitorUrlsFromSitemaps(baseConfig, sitemapUrls);
+    const robots = await this.#checkRobots(config);
 
     const urls = await Promise.all(config.urls.map(async (url) => {
       const page = await this.#checkPage(url, config);
@@ -232,7 +233,7 @@ export class GoogleSearchConsoleConnector {
     ]);
 
     const inspectionByUrl = new Map();
-    await Promise.all(config.urls.map(async (url) => {
+    await Promise.all(publicCheck.urls.map(async ({ url }) => {
       try {
         inspectionByUrl.set(url, await this.inspectUrl({
           inspectionUrl: url,
@@ -585,12 +586,36 @@ function normalizeMonitorConfig(input = {}) {
     origin,
     urls,
     sitemaps,
+    includeSitemapUrls: input.includeSitemapUrls === true,
+    maxSitemapUrls: normalizeSitemapUrlLimit(input.maxSitemapUrls),
     legacyUrls: normalizeLegacyUrls(input.legacyUrls, origin),
     schedule: input.schedule || "daily",
     languageCode: input.languageCode || "en-US",
     operatorStates: input.operatorStates || {},
     alertPolicy: input.alertPolicy || {}
   };
+}
+
+function expandMonitorUrlsFromSitemaps(config, sitemapUrls) {
+  if (!config.includeSitemapUrls) return config;
+  const merged = [...config.urls];
+  for (const url of sitemapUrls) {
+    if (merged.length >= config.maxSitemapUrls) break;
+    if (new URL(url).origin === config.origin && !merged.includes(url)) merged.push(url);
+  }
+  return {
+    ...config,
+    urls: merged
+  };
+}
+
+function normalizeSitemapUrlLimit(value) {
+  if (value === undefined || value === null || value === "") return 50;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 50) {
+    throw connectorError("invalid_gsc_input", "maxSitemapUrls must be an integer between 1 and 50.");
+  }
+  return parsed;
 }
 
 function uniqueUrls(values, origin, field) {

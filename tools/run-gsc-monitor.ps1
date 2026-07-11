@@ -3,7 +3,9 @@ param(
   [string]$Credentials = "",
   [string]$History = "",
   [string]$Output = "",
-  [string]$ReportOutput = ""
+  [string]$ReportOutput = "",
+  [string]$ProxyUrl = "",
+  [switch]$UseEnvProxy
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,19 +14,19 @@ $PrivateRoot = [IO.Path]::GetFullPath((Join-Path $RepoRoot "runtime\private"))
 $TmpRoot = [IO.Path]::GetFullPath((Join-Path $RepoRoot "runtime\tmp"))
 
 if ([string]::IsNullOrWhiteSpace($Config)) {
-  $Config = Join-Path $RepoRoot "examples\google-search-console\voice-site.public.json"
+  $Config = Join-Path $RepoRoot "examples\google-search-console\voice-site.domain.public.json"
 }
 if ([string]::IsNullOrWhiteSpace($Credentials)) {
   $Credentials = Join-Path $PrivateRoot "google-search-console\authorized-user.json"
 }
 if ([string]::IsNullOrWhiteSpace($History)) {
-  $History = Join-Path $PrivateRoot "google-search-console\history.json"
+  $History = Join-Path $PrivateRoot "google-search-console\domain-history.json"
 }
 if ([string]::IsNullOrWhiteSpace($Output)) {
-  $Output = Join-Path $TmpRoot "gsc-live-check.json"
+  $Output = Join-Path $TmpRoot "gsc-live-domain-check.json"
 }
 if ([string]::IsNullOrWhiteSpace($ReportOutput)) {
-  $ReportOutput = Join-Path $TmpRoot "gsc-live-report.md"
+  $ReportOutput = Join-Path $TmpRoot "gsc-live-domain-report.md"
 }
 
 function Resolve-FullPath([string]$Value) {
@@ -54,6 +56,18 @@ if (-not (Test-Path -LiteralPath $Config -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $Credentials -PathType Leaf)) {
   throw "GSC authorized-user credential is missing. Complete read-only OAuth first."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) {
+  $env:HTTPS_PROXY = $ProxyUrl
+  $env:HTTP_PROXY = $ProxyUrl
+  $UseEnvProxy = $true
+}
+if ($UseEnvProxy) {
+  $ExistingNodeOptions = [string]$env:NODE_OPTIONS
+  if ($ExistingNodeOptions -notmatch '(^|\s)--use-env-proxy(\s|$)') {
+    $env:NODE_OPTIONS = (($ExistingNodeOptions, "--use-env-proxy") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join " "
+  }
 }
 
 $Npm = Get-Command npm.cmd -ErrorAction Stop

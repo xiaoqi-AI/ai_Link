@@ -195,6 +195,17 @@ powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1 `
   -Apply
 ```
 
+如果本机 Node 访问 Google token endpoint 需要代理，可在注册任务时显式传入本机代理地址：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1 `
+  -At "09:00" `
+  -ProxyUrl "http://127.0.0.1:4780" `
+  -Apply
+```
+
+代理地址只写入本机 Windows 计划任务参数，不进入公开配置；如果代理不可用，下一轮会报告 OAuth 刷新失败而不会写入 Google。
+
 该任务只在当前 Windows 用户存在交互会话时运行，调用 `tools/run-gsc-monitor.ps1`，最长运行 30 分钟；如果上一轮仍在执行，新一轮会被忽略，避免两个进程同时覆盖历史文件。任务固定输出：
 
 - 脱敏 JSON：`runtime/tmp/gsc-live-check.json`
@@ -312,11 +323,15 @@ URL Inspection API 返回的是 Google 索引中的版本，不能执行 live UR
   "urls": [
     "https://voice.xiao-qi-ai.com/"
   ],
+  "includeSitemapUrls": true,
+  "maxSitemapUrls": 50,
   "sitemaps": [
     "https://voice.xiao-qi-ai.com/sitemap.xml"
   ]
 }
 ```
+
+`includeSitemapUrls` 用于全量只读监控：connector 会先读取配置的 sitemap，再把发现的同源 HTTPS URL 合并进本轮公开检查和 URL Inspection。`maxSitemapUrls` 是安全上限，默认 50，避免 sitemap 异常膨胀导致配额和运行时间失控。配置里的 `urls` 仍建议保留首页或核心 URL 作为种子和兜底。
 
 仓库示例：
 
@@ -339,6 +354,12 @@ node --use-env-proxy dist/connectors/gscCheck.js `
   --output runtime/tmp/gsc-live-domain-check.json `
   --report-output runtime/tmp/gsc-live-domain-report.md
 ```
+
+Windows 定时任务默认使用同一份 Domain Property 配置，输出到：
+
+- 脱敏 JSON：`runtime/tmp/gsc-live-domain-check.json`
+- 中文报告：`runtime/tmp/gsc-live-domain-report.md`
+- 脱敏历史：`runtime/private/google-search-console/domain-history.json`
 
 代理地址只是本机实测环境示例，不应写入公开配置、CI 或用户文档中的固定要求。若 Node 直连 Google 超时，但浏览器和 PowerShell 可访问 Google，可临时使用 `node --use-env-proxy` 配合当前终端的 `HTTP_PROXY` / `HTTPS_PROXY`。
 
