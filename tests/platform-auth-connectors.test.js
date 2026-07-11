@@ -1,0 +1,336 @@
+import assert from "node:assert/strict";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { describe, it } from "node:test";
+import { describeConnectorRegistry, validateConnectorRegistry } from "../src/connectors/contracts.js";
+import { normalizePlatformConnectorResult } from "../src/connectors/platformAuthContracts.js";
+import { loadPrivateConnectorRegistry } from "../src/connectors/privateLoader.js";
+import { createConnectorRegistry } from "../src/connectors/registry.js";
+import { validateTaskInput } from "../src/domain/workflow.js";
+import { runTask } from "../src/executor/runTask.js";
+import { redact } from "../src/security/redact.js";
+
+const CHECKED_AT = "2026-07-11T08:00:00.000Z";
+
+function readyXhsResult(items = [xhsItem()]) {
+  return {
+    status: "ready",
+    session: {
+      state: "valid",
+      checked_at: CHECKED_AT
+    },
+    items,
+    action_required: null,
+    diagnostics: {
+      item_count: items.length,
+      duration_ms: 125,
+      raw_response: "must-not-leave-private-boundary"
+    },
+    cookie: "must-not-leave-private-boundary"
+  };
+}
+
+function xhsItem() {
+  return {
+    source_platform: "xiaohongshu",
+    source_url: "https://www.xiaohongshu.com/explore/note123?xsec_token=private-value&xsec_source=pc_search#private",
+    title: "公开标题",
+    summary: "有限长度公开摘要",
+    published_at: "",
+    acquisition_provider: "ai_link_xhs_readonly",
+    source_reachability: {
+      status: "verified",
+      method: "authenticated_search"
+    },
+    rawHtml: "<html>private</html>"
+  };
+}
+
+function privateXhsConnector(readContent) {
+  return {
+    mode: "private",
+    checkSession: async () => readyXhsResult([]),
+    beginLogin: async () => ({
+      status: "needs_action",
+      session: { state: "missing", checked_at: CHECKED_AT },
+      items: [],
+      action_required: { code: "login_required" },
+      diagnostics: { item_count: 0 }
+    }),
+    readContent
+  };
+}
+
+describe("platform authorization connector contracts", () => {
+  it("publishes required session capabilities without exposing connector instances", () => {
+    const summary = describeConnectorRegistry(createConnectorRegistry());
+    const xhs = summary.connectors.find((connector) => connector.platform === "xiaohongshu");
+
+    assert.equal(xhs.status, "reserved");
+    assert.equal(xhs.mode, "reserved");
+    assert.deepEqual(
+      xhs.capabilities.filter((capability) => capability.required).map((capability) => capability.name),
+      ["check_session", "begin_login", "read_content"]
+    );
+    assert.equal(typeof xhs.checkSession, "undefined");
+  });
+
+  it("reports a stable contract error when a private connector misses a required method", () => {
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        xiaohongshu: {
+          mode: "private",
+          checkSession: async () => ({}),
+          readContent: async () => ({})
+        }
+      }
+    });
+    const issues = validateConnectorRegistry(registry);
+
+    assert.equal(
+      issues.some((issue) =>
+        issue.platform === "xiaohongshu"
+        && issue.code === "connector_contract_failed"
+        && issue.capability === "begin_login"
+      ),
+      true
+    );
+  });
+
+  it("normalizes a successful Xiaohongshu result through an allowlist", () => {
+    const normalized = normalizePlatformConnectorResult(readyXhsResult(), {
+      platform: "xiaohongshu",
+      operation: "search_content"
+    });
+    const serialized = JSON.stringify(normalized);
+
+    assert.equal(normalized.status, "ready");
+    assert.equal(normalized.items[0].source_url, "https://www.xiaohongshu.com/explore/note123");
+    assert.equal(normalized.diagnostics.item_count, 1);
+    assert.equal(normalized.diagnostics.duration_ms, 125);
+    assert.equal(serialized.includes("private-value"), false);
+    assert.equal(serialized.includes("must-not-leave-private-boundary"), false);
+    assert.equal(serialized.includes("rawHtml"), false);
+  });
+
+  it("runs a private read-only search and preserves only public session status", async () => {
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        xiaohongshu: privateXhsConnector(async () => readyXhsResult())
+      }
+    });
+    const result = await runTask({
+      workflow: "platform_auth_collect",
+      currentStep: "process",
+      input: {
+        platform: "xiaohongshu",
+        operation: "search_content",
+        query: "育儿热点",
+        sort: "latest",
+        limit: 1,
+        mode: "read_only"
+      }
+    }, { registry });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.result.status, "ready");
+    assert.deepEqual(result.result.session, { state: "valid", checked_at: CHECKED_AT });
+    assert.equal(result.result.items.length, 1);
+    assert.equal(JSON.stringify(result).includes("xsec_token"), false);
+  });
+
+  it("maps an expired login to a stable needs_action response", async () => {
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        xiaohongshu: privateXhsConnector(async () => ({
+          status: "needs_action",
+          session: { state: "expired", checked_at: CHECKED_AT, token: "private" },
+          items: [],
+          action_required: {
+            code: "login_expired",
+            action: "open C:\\private\\profile",
+            retryable: false
+          },
+          diagnostics: { item_count: 0, raw_response: "private" }
+        }))
+      }
+    });
+    const result = await runTask({
+      workflow: "platform_auth_collect",
+      input: {
+        platform: "xiaohongshu",
+        operation: "search_content",
+        query: "育儿热点",
+        sort: "latest",
+        limit: 1,
+        mode: "read_only"
+      }
+    }, { registry });
+
+    assert.equal(result.status, "needs_action");
+    assert.equal(result.error.code, "login_expired");
+    assert.equal(result.error.action, "renew_login_in_local_browser");
+    assert.equal(result.error.retryable, true);
+    assert.equal(JSON.stringify(result).includes("C:\\private"), false);
+  });
+
+  it("does not invoke interactive login before the P0.2 human gate exists", async () => {
+    let beginLoginCalled = false;
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        xiaohongshu: {
+          mode: "private",
+          checkSession: async () => readyXhsResult([]),
+          beginLogin: async () => {
+            beginLoginCalled = true;
+            return {
+              status: "needs_action",
+              session: { state: "missing", checked_at: CHECKED_AT },
+              items: [],
+              action_required: { code: "login_required" }
+            };
+          },
+          readContent: async () => readyXhsResult()
+        }
+      }
+    });
+    const result = await runTask({
+      workflow: "platform_auth_collect",
+      input: {
+        platform: "xiaohongshu",
+        operation: "begin_login"
+      }
+    }, { registry });
+
+    assert.equal(result.status, "needs_action");
+    assert.equal(result.error.code, "login_required");
+    assert.equal(beginLoginCalled, false);
+  });
+
+  it("closes a false ready result when no specific content URL exists", async () => {
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        xiaohongshu: privateXhsConnector(async () => readyXhsResult([]))
+      }
+    });
+    const result = await runTask({
+      workflow: "platform_auth_collect",
+      input: {
+        platform: "xiaohongshu",
+        operation: "search_content",
+        query: "育儿热点",
+        sort: "latest",
+        limit: 1,
+        mode: "read_only"
+      }
+    }, { registry });
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.error.code, "specific_content_missing");
+    assert.equal(result.result.status, "blocked");
+  });
+
+  it("accepts only the approved read-only workflow inputs", () => {
+    const parsed = validateTaskInput({
+      workflow: "platform_auth_collect",
+      input: {
+        platform: "xiaohongshu",
+        operation: "search_content",
+        query: "育儿热点",
+        sort: "latest",
+        limit: 4,
+        mode: "read_only",
+        cookie: "drop-me"
+      },
+      targets: ["toutiao"]
+    });
+    const denied = validateTaskInput({
+      workflow: "platform_auth_collect",
+      input: { platform: "xiaohongshu", operation: "publish" }
+    });
+
+    assert.equal(parsed.error, undefined);
+    assert.deepEqual(parsed.targets, ["xiaohongshu"]);
+    assert.equal(parsed.input.cookie, undefined);
+    assert.equal(denied.error, "unsupported_platform_operation");
+  });
+
+  it("loads private connectors only from runtime/private", async () => {
+    const workspaceRoot = process.cwd();
+    const privateRoot = path.join(workspaceRoot, "runtime", "private");
+    const modulePath = path.join(privateRoot, `platform-auth-test-${process.pid}-${Date.now()}.mjs`);
+    await mkdir(privateRoot, { recursive: true });
+    await writeFile(modulePath, `
+      export async function createPrivateConnectors() {
+        return {
+          xiaohongshu: {
+            checkSession: async () => ({}),
+            beginLogin: async () => ({}),
+            readContent: async () => ({})
+          }
+        };
+      }
+    `, "utf8");
+
+    try {
+      const registry = await loadPrivateConnectorRegistry({ modulePath, workspaceRoot });
+      const summary = describeConnectorRegistry(registry);
+      const xhs = summary.connectors.find((connector) => connector.platform === "xiaohongshu");
+      assert.equal(xhs.status, "available");
+      assert.equal(xhs.mode, "private");
+    } finally {
+      await rm(modulePath, { force: true });
+    }
+
+    await assert.rejects(
+      loadPrivateConnectorRegistry({
+        modulePath: path.join(workspaceRoot, "src", "connectors", "registry.js"),
+        workspaceRoot
+      }),
+      (error) =>
+        error.code === "connector_contract_failed"
+        && error.reason === "private_module_outside_runtime_private"
+        && !error.message.includes(workspaceRoot)
+    );
+  });
+
+  it("hides asynchronous private connector factory failures", async () => {
+    const workspaceRoot = process.cwd();
+    const privateRoot = path.join(workspaceRoot, "runtime", "private");
+    const modulePath = path.join(privateRoot, `platform-auth-failure-${process.pid}-${Date.now()}.mjs`);
+    await mkdir(privateRoot, { recursive: true });
+    await writeFile(modulePath, `
+      export async function createPrivateConnectors() {
+        throw new Error("private factory details must stay local");
+      }
+    `, "utf8");
+
+    try {
+      await assert.rejects(
+        loadPrivateConnectorRegistry({ modulePath, workspaceRoot }),
+        (error) =>
+          error.code === "connector_contract_failed"
+          && error.reason === "private_connector_module_unavailable"
+          && !error.message.includes("private factory details")
+          && !error.message.includes(workspaceRoot)
+      );
+    } finally {
+      await rm(modulePath, { force: true });
+    }
+  });
+
+  it("keeps the safe session envelope while redacting all session secrets", () => {
+    const value = redact({
+      session: {
+        state: "valid",
+        checked_at: CHECKED_AT,
+        token: "private"
+      },
+      session_token: "private"
+    });
+
+    assert.deepEqual(value.session, { state: "valid", checked_at: CHECKED_AT });
+    assert.equal(value.session_token, "[redacted]");
+    assert.equal(JSON.stringify(value).includes("private"), false);
+  });
+});

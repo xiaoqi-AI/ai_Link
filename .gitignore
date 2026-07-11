@@ -65,6 +65,7 @@ tools/security-scan.js
 !src/ui/*.js
 !tests/
 !tests/task-flow.test.js
+!tests/platform-auth-connectors.test.js
 !tools/security-scan.js
 
 # Logs and caches

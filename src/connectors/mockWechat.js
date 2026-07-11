@@ -7,6 +7,25 @@ function digest(text) {
 export class MockWechatConnector {
   constructor({ clock = () => new Date() } = {}) {
     this.clock = clock;
+    this.mode = "mock";
+  }
+
+  async checkHealth() {
+    return {
+      schema_version: "1",
+      platform: "wechat_official",
+      operation: "check_health",
+      status: "ready",
+      session: {
+        state: "not_required",
+        checked_at: this.clock().toISOString()
+      },
+      items: [],
+      action_required: null,
+      diagnostics: {
+        item_count: 0
+      }
+    };
   }
 
   async readContent(input) {

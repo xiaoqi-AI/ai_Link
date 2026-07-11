@@ -151,11 +151,12 @@ export class MemoryStore {
     return clone(task);
   }
 
-  async failTask({ taskId, error, actor }) {
+  async failTask({ taskId, error, result, actor }) {
     const task = this.tasks.get(taskId);
     if (!task) return null;
     task.status = TASK_STATUSES.FAILED;
     task.error = error;
+    task.result = result || task.result;
     task.leasedBy = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();

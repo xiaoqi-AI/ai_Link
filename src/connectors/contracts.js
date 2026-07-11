@@ -1,4 +1,9 @@
 export const CONNECTOR_METHODS = Object.freeze({
+  check_health: "checkHealth",
+  check_session: "checkSession",
+  begin_login: "beginLogin",
+  complete_login: "completeLogin",
+  logout: "logout",
   read_content: "readContent",
   detect: "detectText",
   create_draft: "createDraft",
@@ -13,7 +18,7 @@ export const CONNECTOR_METHODS = Object.freeze({
 });
 
 export const PLATFORM_CONTRACTS = Object.freeze({
-  wechat_official: ["read_content", "create_draft", "publish", "metrics"],
+  wechat_official: ["check_health", "read_content", "create_draft", "publish", "metrics"],
   zhuque_ai: ["detect"],
   google_search_console: [
     "list_sites",
@@ -24,10 +29,35 @@ export const PLATFORM_CONTRACTS = Object.freeze({
     "generate_status_report"
   ],
   douyin: ["read_content", "create_draft", "publish", "metrics"],
-  xiaohongshu: ["read_content", "create_draft", "publish", "metrics"],
+  xiaohongshu: ["check_session", "begin_login", "complete_login", "logout", "read_content"],
   zhihu: ["read_content", "create_draft", "publish", "metrics"],
   toutiao: ["read_content", "create_draft", "publish", "metrics"]
 });
+
+export const PLATFORM_REQUIRED_CAPABILITIES = Object.freeze({
+  wechat_official: ["check_health", "read_content", "create_draft"],
+  zhuque_ai: ["detect"],
+  google_search_console: [
+    "list_sites",
+    "inspect_url",
+    "list_sitemaps",
+    "submit_sitemap",
+    "check_public_crawlability",
+    "generate_status_report"
+  ],
+  douyin: ["read_content", "create_draft", "publish", "metrics"],
+  xiaohongshu: ["check_session", "begin_login", "read_content"],
+  zhihu: ["read_content", "create_draft", "publish", "metrics"],
+  toutiao: ["read_content", "create_draft", "publish", "metrics"]
+});
+
+const PUBLIC_CONNECTOR_MODES = new Set([
+  "mock",
+  "private",
+  "reserved",
+  "public-check+mock-google-api",
+  "private-api-client+public-check"
+]);
 
 export function describeConnectorRegistry(registry) {
   const issues = validateConnectorRegistry(registry);
@@ -40,12 +70,14 @@ export function describeConnectorRegistry(registry) {
     return {
       platform,
       status: reserved ? "reserved" : (!connector || hasError ? "misconfigured" : "available"),
-      mode: reserved ? "reserved" : (connector?.mode || "mock"),
+      mode: publicConnectorMode(connector, reserved),
       capabilities: capabilities.map((capability) => ({
         name: capability,
         method: CONNECTOR_METHODS[capability],
         available: hasCapability(connector, capability),
-        mode: connector?.capabilityModes?.[capability] || (reserved ? "reserved" : "mock")
+        required: PLATFORM_REQUIRED_CAPABILITIES[platform].includes(capability),
+        mode: connector?.capabilityModes?.[capability]
+          || (reserved ? "reserved" : publicConnectorMode(connector, false))
       })),
       issues: platformIssues
     };
@@ -60,7 +92,8 @@ export function describeConnectorRegistry(registry) {
 export function validateConnectorRegistry(registry) {
   const issues = [];
 
-  for (const [platform, capabilities] of Object.entries(PLATFORM_CONTRACTS)) {
+  for (const platform of Object.keys(PLATFORM_CONTRACTS)) {
+    const capabilities = PLATFORM_REQUIRED_CAPABILITIES[platform];
     const connector = registry[platform];
     if (!connector) {
       issues.push({
@@ -81,7 +114,8 @@ export function validateConnectorRegistry(registry) {
         issues.push({
           platform,
           severity: "error",
-          code: "capability_missing",
+          code: "connector_contract_failed",
+          reason: "capability_missing",
           capability,
           method: CONNECTOR_METHODS[capability],
           message: `${platform} must implement ${CONNECTOR_METHODS[capability]} for ${capability}.`
@@ -95,4 +129,9 @@ export function validateConnectorRegistry(registry) {
 
 function hasCapability(connector, capability) {
   return typeof connector?.[CONNECTOR_METHODS[capability]] === "function";
+}
+
+function publicConnectorMode(connector, reserved) {
+  if (reserved) return "reserved";
+  return PUBLIC_CONNECTOR_MODES.has(connector?.mode) ? connector.mode : "mock";
 }

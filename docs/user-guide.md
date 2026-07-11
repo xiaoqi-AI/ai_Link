@@ -27,6 +27,7 @@
 - 细化项目规划：`docs/10-product/project-plan-detailed.md`
 - 产品方向草案：`docs/10-product/ai-link-product-direction-draft.md`
 - 授权中枢后续规划草案：`docs/10-product/auth-hub-next-steps-draft.md`
+- 平台授权与采集连接器 P0：`docs/10-product/platform-auth-connectors-p0.md`
 - 配置说明：`docs/20-architecture/configuration.md`
 - Bitwarden 密钥托管模式：`docs/20-architecture/bitwarden-secret-management.md`
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
@@ -130,6 +131,8 @@ npm run auth-hub:executor:start
 
 控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 也可读取平台能力契约，用来确认微信、朱雀AI和预留平台当前是可用、预留还是配置异常。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
 
+`platform_auth_collect` 用于统一处理小红书会话/只读搜索和公众号官方 API 健康检查。公开仓不会携带真实实现；维护者只能把已审查的模块放入 `runtime/private/`，再以 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 指向该文件后启动本地执行器。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
+
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
 停止本地执行器和控制台：
@@ -192,7 +195,7 @@ Bitwarden Secret key 必须直接等于环境变量名，例如 `DEEPSEEK_API_KE
 
 - 不要假设所有 provider 的高级能力都已经完整实现。
 - 不要假设扣子工作流已具备开箱即用的真实平台能力；当前支持 dry-run 和本机命令适配，真实执行取决于用户 `.ai-link/local.yaml` 或用户全局私有配置。
-- 不要假设统一授权中枢已经支持真实微信、朱雀AI、抖音、小红书、知乎或头条账号自动化；公开 MVP 目前只启用 mock 连接器和真实连接器边界。
+- 不要假设统一授权中枢已经自带真实微信、朱雀AI、抖音、小红书、知乎或头条账号自动化；公开 MVP 只提供 mock、合同和私有注入边界，真实实现及登录态仍由本机私有模块承担。
 - 不要把发布、真实 provider 调用、真实平台登录或正式内容发布当作自动步骤；这些都属于人工确认边界，详见 `docs/00-governance/iteration-boundaries.md`。
 - 不要把私密数据、账号、token、二维码、登录态或未脱敏截图提交到 issue、PR 或仓库文件。
 - 不要把 `BWS_ACCESS_TOKEN` 写入项目文件；它只允许存在于当前本机会话环境中。

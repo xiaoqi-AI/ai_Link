@@ -23,6 +23,7 @@ describe("connector contracts", () => {
 
     assert.equal(summary.issues.length, 0);
     assert.equal(wechat.status, "available");
+    assert.equal(wechat.capabilities.find((capability) => capability.name === "check_health").available, true);
     assert.equal(wechat.capabilities.find((capability) => capability.name === "publish").available, true);
     assert.equal(gsc.status, "available");
     assert.equal(gsc.mode, "public-check+mock-google-api");
@@ -43,7 +44,14 @@ describe("connector contracts", () => {
       toutiao: { status: "reserved" }
     });
 
-    assert.equal(issues.some((issue) => issue.platform === "douyin" && issue.code === "capability_missing"), true);
+    assert.equal(
+      issues.some((issue) =>
+        issue.platform === "douyin"
+        && issue.code === "connector_contract_failed"
+        && issue.reason === "capability_missing"
+      ),
+      true
+    );
   });
 
   it("checks public crawlability and classifies Google lag without treating it as a site failure", async () => {
