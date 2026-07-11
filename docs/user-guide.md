@@ -32,6 +32,7 @@
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
 - Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
 - 连接器合同：`docs/20-architecture/connector-contracts.md`
+- Google Search Console connector：`docs/20-architecture/google-search-console-connector.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - AI Link Skill 制作模板：`docs/90-templates/ai-link-skill-authoring.md`
 - 统一授权中枢说明：`docs/20-architecture/auth-hub.md`
@@ -73,6 +74,44 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 `skill draft` 会把自然语言说明转换成候选 `routes` 和 `workflows`；加 `--write .ai-link/local.yaml` 时默认只预览，只有再加 `--yes` 才会写入；加 `--diff` 会额外列出本次合并将新增或更新哪些 `routes`、`workflows` 和 `policies`；再加 `--json` 会输出机器可读的 `target`、`previewOnly`、`merged`、`draft` 和 `diff`。`workflow run` 会按配置串联多个阶段。默认 `auto_ops` 示例会依次运行 Grok 调研、Kimi 写稿和 Coze agent workflow dry-run。需要给后续 Codex 步骤稳定交接时，用 `--output runtime/tmp/*.json` 写入结构化结果；需要保留本地运行索引时，可以加 `--record`，记录会写入 `runtime/tmp/ai-link-runs/`，随后用 `runs list` 查看最近记录、用 `runs show <id>` 查看单条记录。多阶段任务可以先用 `--stages research --record` 留下阶段记录，再用 `--resume-from latest` 或 `--resume-from <id>` 续跑剩余阶段；需要从某个阶段重跑时，加 `--from-stage article_draft`。这些运行产物默认不进入 Git；`--record` 不会在 request 里单独保存原始 input，但 provider 输出可能回显任务内容，所以仍只适合留在本地临时目录。制作新 skill 时，先用 `docs/90-templates/ai-link-skill-authoring.md` 明确需求、预期开发工作、验证和边界控制，再参考 `examples/codex-skills/ai-link-skill-author/SKILL.md`；自动运营示例见 `examples/codex-skills/auto-ops-ai-link/SKILL.md`；进入 BWS 密钥托管模式时，示例见 `examples/codex-skills/bws-secret-mode/SKILL.md`。
 
 默认 policy 使用 `allowOutbound: user-approved`，所以真实调用 DeepSeek、Kimi、豆包、Grok、OpenAI-compatible 或 Coze 等外部 provider 前都需要人工批准；dry-run 只显示审批提示。直接 `run` 真实调用前需要加 `--approve-policy`，通过 workflow 真实运行前需要加对应的 `--approve-stage <stage>`，完整工作流可用 `--approve-all`。`auto_ops.agent_flow` 额外标记为 `external_action` policy，只允许 `coze` / `mock` 这类 agent workflow 路径，并在结果 metadata 中保留审计标签和数据分类。policy 还可以配置 `allowedModels`、`blockedModels` 和 `budget`，在密钥可用前先限制可用模型与单次调用预算；`--record` 生成的本地运行记录会额外写入顶层 `audit` 摘要，方便后续复盘或接授权中枢。
+
+## Google Search Console 公开检查与真实只读验收
+
+仓库内可以直接检查公开站点的 HTTP、robots、sitemap、canonical、noindex 和旧 `.html` URL 跳转，不需要 Google OAuth：
+
+```powershell
+npm.cmd run gsc:check -- --config examples/google-search-console/voice-site.public.json
+```
+
+需要给其他 Agent 或 CI 交接时，可同时保存 JSON 与中文 Markdown：
+
+```powershell
+npm.cmd run gsc:check -- `
+  --config examples/google-search-console/voice-site.public.json `
+  --json `
+  --output runtime/tmp/gsc-public-check.json `
+  --report-output runtime/tmp/gsc-public-report.md
+```
+
+公开默认只使用 Google API mock，不读取 OAuth token，也不会点击 `Request indexing` 或真实提交 sitemap。
+
+完成 Google Cloud Desktop OAuth client 配置并确认只读授权后，可以在本机运行：
+
+```powershell
+npm.cmd run gsc:authorize -- `
+  --client-config runtime/private/google-search-console/desktop-client.json
+
+npm.cmd run gsc:check -- `
+  --config examples/google-search-console/voice-site.public.json `
+  --credentials runtime/private/google-search-console/authorized-user.json `
+  --json `
+  --output runtime/tmp/gsc-live-check.json `
+  --report-output runtime/tmp/gsc-live-report.md
+```
+
+真实只读检查默认把最多 90 次脱敏快照保存到 `runtime/private/google-search-console/history.json`，后续报告会输出相对上次检查的改善、退化和状态变化；临时运行可加 `--no-history`。授权完成后可先用 `npm.cmd run gsc:schedule:plan` 预览 Windows 每日任务，计划模式不会注册任务，真正应用仍需显式执行带 `-Apply` 的安装命令。
+
+授权命令只申请 `webmasters.readonly`，使用系统浏览器、PKCE、随机 state 和 `127.0.0.1` 一次性回调。首轮验收的 refresh token 只保存在 `runtime/private/`，短期 access token 只驻留当前进程内存；长期自动化应再迁入受控 secret manager。完整 Google Cloud 中文操作、状态口径、Auth Hub `gsc_monitor` 任务格式、历史快照、错误处理、定时运行和 sitemap 写权限门禁见 `docs/20-architecture/google-search-console-connector.md`。
 
 ## 统一授权中枢本地试跑
 

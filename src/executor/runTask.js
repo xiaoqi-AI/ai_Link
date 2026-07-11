@@ -25,6 +25,10 @@ export async function runTask(task, { registry = createConnectorRegistry() } = {
 }
 
 async function runTaskInner(task, { registry }) {
+  if (task.workflow === "gsc_monitor") {
+    return runGscMonitorTask(task, registry);
+  }
+
   if (task.currentStep === "publish") {
     const draftId = task.result?.draft?.draftId;
     if (!draftId) {
@@ -110,6 +114,52 @@ async function runTaskInner(task, { registry }) {
       summary: `确认后将继续发布草稿：${draft.title}`,
       nextStep: "publish"
     }
+  };
+}
+
+async function runGscMonitorTask(task, registry) {
+  const connector = registry.google_search_console;
+  if (!connector || typeof connector.monitorSite !== "function") {
+    throw Object.assign(new Error("Google Search Console connector is not available."), {
+      code: "connector_missing",
+      platform: "google_search_console",
+      retryable: false
+    });
+  }
+  const monitor = await connector.monitorSite(task.input || {});
+  const result = redact(monitor);
+  const artifacts = [
+    {
+      kind: "gsc-status-report",
+      title: "GSC 自动检查报告",
+      summary: monitor.summary.conclusion,
+      content: {
+        reportMarkdown: monitor.reportMarkdown,
+        checkedAt: monitor.checkedAt,
+        nextCheckAt: monitor.nextCheckAt,
+        counts: monitor.summary.counts
+      }
+    }
+  ];
+  if (monitor.summary.requiresManualAction) {
+    return {
+      status: "needs_action",
+      summary: monitor.summary.conclusion,
+      error: {
+        code: "manual_action_required",
+        platform: "google_search_console",
+        action: "Review the GSC status report and complete the listed manual checks.",
+        retryable: true
+      },
+      result,
+      artifacts
+    };
+  }
+  return {
+    status: "completed",
+    summary: monitor.summary.conclusion,
+    result,
+    artifacts
   };
 }
 

@@ -3,12 +3,26 @@ export const CONNECTOR_METHODS = Object.freeze({
   detect: "detectText",
   create_draft: "createDraft",
   publish: "publish",
-  metrics: "metrics"
+  metrics: "metrics",
+  list_sites: "listSites",
+  inspect_url: "inspectUrl",
+  list_sitemaps: "listSitemaps",
+  submit_sitemap: "submitSitemap",
+  check_public_crawlability: "checkPublicCrawlability",
+  generate_status_report: "generateStatusReport"
 });
 
 export const PLATFORM_CONTRACTS = Object.freeze({
   wechat_official: ["read_content", "create_draft", "publish", "metrics"],
   zhuque_ai: ["detect"],
+  google_search_console: [
+    "list_sites",
+    "inspect_url",
+    "list_sitemaps",
+    "submit_sitemap",
+    "check_public_crawlability",
+    "generate_status_report"
+  ],
   douyin: ["read_content", "create_draft", "publish", "metrics"],
   xiaohongshu: ["read_content", "create_draft", "publish", "metrics"],
   zhihu: ["read_content", "create_draft", "publish", "metrics"],
@@ -26,10 +40,12 @@ export function describeConnectorRegistry(registry) {
     return {
       platform,
       status: reserved ? "reserved" : (!connector || hasError ? "misconfigured" : "available"),
+      mode: reserved ? "reserved" : (connector?.mode || "mock"),
       capabilities: capabilities.map((capability) => ({
         name: capability,
         method: CONNECTOR_METHODS[capability],
-        available: hasCapability(connector, capability)
+        available: hasCapability(connector, capability),
+        mode: connector?.capabilityModes?.[capability] || (reserved ? "reserved" : "mock")
       })),
       issues: platformIssues
     };

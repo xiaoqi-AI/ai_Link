@@ -27,6 +27,7 @@
 - Provider 说明：`docs/20-architecture/provider-adapters.md`
 - Provider 真实调用验收：`docs/20-architecture/provider-live-verification.md`
 - 连接器合同：`docs/20-architecture/connector-contracts.md`
+- Google Search Console connector：`docs/20-architecture/google-search-console-connector.md`
 - Codex Skill 调用约定：`docs/20-architecture/codex-skill-integration.md`
 - AI Link Skill 制作模板：`docs/90-templates/ai-link-skill-authoring.md`
 - 统一授权中枢：`docs/20-architecture/auth-hub.md`
@@ -111,6 +112,9 @@ npm run bws:github-vars:apply-plan
 npm run bws:acceptance:print
 npm run bws:acceptance:json
 npm run providers:dry:json
+npm run gsc:check -- --config examples/google-search-console/voice-site.public.json
+npm run gsc:authorize -- --help
+npm run gsc:schedule:plan
 npm run maintainer:pack
 npm run external:preflight
 npm run roadmap:next
@@ -224,6 +228,7 @@ powershell -ExecutionPolicy Bypass -File tools/run-closeout.ps1 -Summary "本次
 - 配置优先级：会话临时指定 > 项目 local 私有配置 > 项目公开配置 > 用户全局配置 > 默认配置。
 - `mock/local-dry-run`、`openai-compatible`、`deepseek`、`kimi`、`doubao`、`grok` provider。
 - `coze` agent provider dry-run 和本地命令适配。
+- `google_search_console` connector 合同、Google API mock、同源 HTTPS 公开抓取检查、统一索引状态归类和中文报告；真实 OAuth/API client 仍在私有人工门禁后。
 - `ai-link config validate` 配置校验。
 - `package:check` npm dry-run 打包内容检查，确认公开包不携带测试产物、运行态或私有文件。
 - `package:install-smoke` 临时 tarball 安装检查，确认安装后的 CLI 能启动并校验配置。

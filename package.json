@@ -5,7 +5,9 @@
   "type": "module",
   "license": "Apache-2.0",
   "bin": {
-    "ai-link": "dist/cli.js"
+    "ai-link": "dist/cli.js",
+    "ai-link-gsc": "dist/connectors/gscCheck.js",
+    "ai-link-gsc-auth": "dist/connectors/gscAuthorize.js"
   },
   "files": [
     "dist",
@@ -108,6 +110,9 @@
     "providers:github:dispatch": "powershell -ExecutionPolicy Bypass -File tools/invoke-provider-live-workflow.ps1 -Dispatch -AcknowledgeCost",
     "providers:github:dispatch-strict": "powershell -ExecutionPolicy Bypass -File tools/invoke-provider-live-workflow.ps1 -Dispatch -AcknowledgeCost -Strict",
     "workflow:dry": "npm run ai-link -- workflow run auto_ops --dry-run --input \"fresh workflow check\"",
+    "gsc:check": "npm run build && node dist/connectors/gscCheck.js",
+    "gsc:authorize": "npm run build && node dist/connectors/gscAuthorize.js",
+    "gsc:schedule:plan": "powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1",
     "start": "node src/server.js",
     "ai-link": "tsx src/cli.ts",
     "auth-hub:start": "node src/server.js",

@@ -41,6 +41,7 @@ describe("package contents report", () => {
     assert.equal(report.summary.counts.fail, 0);
     assert.equal(report.package.name, "@xiaoqi-ai/ai-link");
     assert.equal(fileChecks.some((check) => check.name === "required file dist/cli.js" && check.status === "pass"), true);
+    assert.equal(fileChecks.some((check) => check.name === "required file dist/connectors/gscCheck.js" && check.status === "pass"), true);
     assert.equal(fileChecks.some((check) => check.name === "required file examples/codex-skills/bws-secret-mode/SKILL.md" && check.status === "pass"), true);
     assert.equal(report.checks.some((check) => check.name === "compiled tests excluded" && check.status === "pass"), true);
   });
