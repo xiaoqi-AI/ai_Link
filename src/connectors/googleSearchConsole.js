@@ -86,7 +86,11 @@ export class GoogleSearchConsoleConnector {
       list_sites: apiClient.mode === "mock" ? "mock" : "live-read-only",
       inspect_url: apiClient.mode === "mock" ? "mock" : "live-read-only",
       list_sitemaps: apiClient.mode === "mock" ? "mock" : "live-read-only",
-      submit_sitemap: apiClient.mode === "mock" ? "approval-required-mock" : "approval-required",
+      submit_sitemap: apiClient.mode === "mock"
+        ? "approval-required-mock"
+        : apiClient.mode === "live-read-only"
+          ? "approval-and-write-scope-required"
+          : "approval-required",
       check_public_crawlability: "live-read-only",
       generate_status_report: "local"
     });

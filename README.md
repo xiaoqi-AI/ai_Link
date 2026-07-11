@@ -113,6 +113,7 @@ npm run bws:acceptance:print
 npm run bws:acceptance:json
 npm run providers:dry:json
 npm run gsc:check -- --config examples/google-search-console/voice-site.public.json
+npm run gsc:authorize -- --help
 npm run maintainer:pack
 npm run external:preflight
 npm run roadmap:next

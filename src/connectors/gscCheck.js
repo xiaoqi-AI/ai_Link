@@ -5,14 +5,17 @@ import {
   GoogleSearchConsoleConnector,
   MockGoogleSearchConsoleApiClient
 } from "./googleSearchConsole.js";
+import { createReadOnlyGoogleSearchConsoleApiClient } from "./googleSearchConsoleApi.js";
+import { loadAuthorizedUserCredentials } from "./googleOAuthDesktop.js";
 
 function parseArgs(argv) {
-  const result = { config: "", output: "", reportOutput: "", json: false, strict: false };
+  const result = { config: "", credentials: "", output: "", reportOutput: "", json: false, strict: false };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "--json") result.json = true;
     else if (value === "--strict") result.strict = true;
     else if (value === "--config") result.config = argv[++index] || "";
+    else if (value === "--credentials") result.credentials = argv[++index] || "";
     else if (value === "--output") result.output = argv[++index] || "";
     else if (value === "--report-output") result.reportOutput = argv[++index] || "";
     else if (["--help", "-h"].includes(value)) result.help = true;
@@ -26,13 +29,16 @@ function printHelp() {
 
 Usage:
   npm run gsc:check -- --config <config.json> [--json]
+    [--credentials runtime/private/google-search-console/authorized-user.json]
     [--output runtime/tmp/gsc-check.json]
     [--report-output runtime/tmp/gsc-report.md]
     [--strict]
 
 Safety:
   - Performs same-origin HTTPS read-only checks for public pages, robots.txt, and sitemaps.
-  - Uses mock Search Console API data unless a private client is injected by another runtime.
+  - Uses mock Search Console API data unless --credentials selects a local authorized-user file.
+  - Credential files inside this repository must stay under runtime/private/.
+  - Live mode requests only read operations from Sites, URL Inspection, and Sitemaps.
   - Never performs Request indexing or a live sitemap submission.
 `);
 }
@@ -56,7 +62,11 @@ async function main() {
   }
 
   const config = JSON.parse(await readFile(path.resolve(args.config), "utf8"));
-  const apiClient = new MockGoogleSearchConsoleApiClient(config.mockGoogle || {});
+  const apiClient = args.credentials
+    ? createReadOnlyGoogleSearchConsoleApiClient({
+        credentials: await loadAuthorizedUserCredentials(args.credentials)
+      })
+    : new MockGoogleSearchConsoleApiClient(config.mockGoogle || {});
   const connector = new GoogleSearchConsoleConnector({ apiClient });
   const result = await connector.monitorSite(config);
   const json = `${JSON.stringify(result, null, 2)}\n`;

@@ -78,6 +78,7 @@ try {
 
   addCheck("dist cli", existsSync(path.resolve(cwd, "dist", "cli.js")) ? "pass" : "fail", "dist/cli.js", "files");
   addCheck("dist gsc cli", existsSync(path.resolve(cwd, "dist", "connectors", "gscCheck.js")) ? "pass" : "fail", "dist/connectors/gscCheck.js", "files");
+  addCheck("dist gsc auth cli", existsSync(path.resolve(cwd, "dist", "connectors", "gscAuthorize.js")) ? "pass" : "fail", "dist/connectors/gscAuthorize.js", "files");
 
   const packResult = runNpm(["pack", "--json", "--pack-destination", packDir], cwd);
   let packMetadata;
@@ -112,8 +113,10 @@ try {
 
   const installedCli = path.join(consumerDir, "node_modules", "@xiaoqi-ai", "ai-link", "dist", "cli.js");
   const installedGscCli = path.join(consumerDir, "node_modules", "@xiaoqi-ai", "ai-link", "dist", "connectors", "gscCheck.js");
+  const installedGscAuthCli = path.join(consumerDir, "node_modules", "@xiaoqi-ai", "ai-link", "dist", "connectors", "gscAuthorize.js");
   addCheck("installed cli", existsSync(installedCli) ? "pass" : "fail", "node_modules/@xiaoqi-ai/ai-link/dist/cli.js", "install");
   addCheck("installed gsc cli", existsSync(installedGscCli) ? "pass" : "fail", "node_modules/@xiaoqi-ai/ai-link/dist/connectors/gscCheck.js", "install");
+  addCheck("installed gsc auth cli", existsSync(installedGscAuthCli) ? "pass" : "fail", "node_modules/@xiaoqi-ai/ai-link/dist/connectors/gscAuthorize.js", "install");
 
   if (existsSync(installedCli)) {
     const versionResult = runNode([installedCli, "--version"], consumerDir);
@@ -146,6 +149,18 @@ try {
     );
   } else {
     addCheck("installed gsc cli help", "fail", "installed gsc cli unavailable", "cli");
+  }
+
+  if (existsSync(installedGscAuthCli)) {
+    const helpResult = runNode([installedGscAuthCli, "--help"], consumerDir);
+    addCheck(
+      "installed gsc auth cli help",
+      helpResult.status === 0 && helpResult.stdout.includes("read-only authorization") ? "pass" : "fail",
+      helpResult.status === 0 ? "help rendered" : cleanFailure(helpResult),
+      "cli"
+    );
+  } else {
+    addCheck("installed gsc auth cli help", "fail", "installed gsc auth cli unavailable", "cli");
   }
 } finally {
   if (process.env.AI_LINK_KEEP_PACKAGE_INSTALL_SMOKE !== "1") {

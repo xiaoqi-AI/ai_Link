@@ -68,3 +68,17 @@ AI Link 已形成面向 prenatal voice 海外 SEO 验证的公开安全 GSC conn
 - 每日定时执行、历史趋势和异常通知仍属于下一阶段。
 - 当前公开检查不能证明 Google 已索引，也不能替代 GSC Live Test、Pages 报告或 Crawl stats 页面。
 - Search Analytics 不在本轮实现范围。
+
+## 同日继续推进：真实只读 OAuth/API 实现
+
+在公开安全核心完成后，继续补齐不需要触碰真实账号即可开发和验证的 OAuth/API 层：
+
+- 新增 Google Desktop OAuth 2.0 授权命令，固定只申请 `webmasters.readonly`。
+- 授权流程使用系统浏览器、PKCE S256、随机 state 与 `127.0.0.1` 随机端口回调，不模拟登录、不支持 OOB 复制授权码。
+- authorized-user 凭据在仓库内只能保存到 `runtime/private/`；授权命令不打印 token、authorization code 或 Google 原始响应。
+- refresh token 只用于进程内换取短期 access token；access token 不写入凭据文件。
+- 新增真实 Sites list、URL Inspection 和 Sitemaps list REST client，使用官方 endpoint 与请求结构。
+- sitemap submit REST 调用已具备第二层 client 写权限保护，但只读授权命令无法启用它；真实写权限和调用仍是独立人工门禁。
+- `ai-link-gsc` 可通过 `--credentials` 进入私有只读 API 模式；默认行为仍是公开检查 + Google API mock。
+
+本阶段代码验收可以在无真实 Google 账号时完成。业务验收仍需用户确认 Google Cloud 项目、Desktop OAuth client、授权账号和 GSC property 后，在本机执行一次真实只读授权；在这一步之前不能宣称 Sites、URL Inspection 或 Sitemaps 已通过 live 验收。

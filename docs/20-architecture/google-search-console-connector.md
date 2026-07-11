@@ -2,12 +2,13 @@
 
 ## 目标
 
-`google_search_console` connector 为 SEO 恢复验证提供两层能力：
+`google_search_console` connector 为 SEO 恢复验证提供三层能力：
 
 1. 仓库内可直接运行的公开站点只读检查，用于验证 HTTP、旧 URL 跳转、robots、sitemap、canonical 和 noindex。
-2. 可注入私有 Google API client 的能力合同，用于后续接入 Sites、URL Inspection 和 Sitemaps API。
+2. 使用本机私有 OAuth 凭据的 Search Console 只读检查，用于调用 Sites、URL Inspection 和 Sitemaps API。
+3. 始终由人工审批控制的 sitemap submit 能力；只读授权命令不会申请或启用写权限。
 
-公开仓默认使用 Google API mock。它不会读取 Google OAuth token，不会模拟浏览器登录，不会执行 GSC Live Test，也不会点击 `Request indexing`。
+公开仓默认使用 Google API mock。只有显式传入 `--credentials` 时才读取本机私有授权文件；它不会模拟浏览器登录，不会执行 GSC Live Test，也不会点击 `Request indexing`。
 
 ## 本轮边界
 
@@ -21,16 +22,19 @@
 - `generate_status_report`
 - Auth Hub `gsc_monitor` 本地任务入口
 - 中文 Markdown 报告和机器可读 JSON
+- Google Desktop OAuth 2.0 PKCE/loopback 授权命令
+- OAuth refresh token 换取短期 access token，access token 只保留在进程内存
+- 真实 Sites list、URL Inspection 和 Sitemaps list REST client
+- sitemap submit REST client 与第二层写权限保护
 
 未实现：
 
-- Google OAuth 登录和 token 刷新
-- 真实 Search Console API client
-- 自动提交 sitemap
+- 使用真实 Google 账号完成只读 live 验收
+- 写 scope 授权和真实 sitemap submit 验收
 - 自动点击 `Request indexing`
 - 定时调度器和历史趋势面板
 
-真实 Google API client、凭据与原始响应应留在私有仓、本机 `runtime/private/` 或 secret manager；公开仓只保留接口、mock、脱敏结果和测试。
+OAuth client 配置、refresh token 与原始响应应留在本机 `runtime/private/` 或 secret manager。公开仓只保留无密钥实现、mock、脱敏结果和测试。
 
 ## 仓库内公开检查
 
@@ -80,6 +84,98 @@ npx ai-link-gsc --config examples/google-search-console/voice-site.public.json
 }
 ```
 
+## 真实只读 OAuth 中文操作手册
+
+### 第一步：确认授权边界
+
+本阶段只申请：
+
+```text
+https://www.googleapis.com/auth/webmasters.readonly
+```
+
+它可以读取 Sites、URL Inspection 和 Sitemaps，不允许提交 sitemap。不要在聊天、issue、PR、知识库或普通日志中粘贴 client secret、authorization code、access token 或 refresh token。
+
+### 第二步：配置 Google Cloud
+
+1. 打开 Google Cloud Console，选择已有项目或创建专用于 AI Link GSC 验收的项目。
+2. 在 API Library 搜索并启用 `Google Search Console API`。
+3. 打开 Google Auth Platform：
+   - Google Workspace 且项目属于同一组织时，可按组织策略选择 `Internal`。
+   - 个人 Gmail 首次验收可选择 `External` + `Testing`，并把自己的 Google 账号加入 Test users。
+4. 打开 Google Auth Platform 的 Clients 页面，选择 `Create client`。
+5. Application type 选择 `Desktop app`，名称建议使用 `AI Link GSC Local Readonly`。
+6. 下载 Desktop OAuth client JSON，并保存为：
+
+```text
+runtime/private/google-search-console/desktop-client.json
+```
+
+External + Testing 适合首轮验收，但 Google 当前规则下测试用户授权通常在 7 天后失效，不应直接作为长期无人值守方案。长期运行需再决定 Workspace Internal、生产 OAuth 或受控服务身份。
+
+### 第三步：在本机授权
+
+PowerShell：
+
+```powershell
+cd D:\codex_workplace\ai_Link
+npm.cmd run gsc:authorize -- `
+  --client-config runtime/private/google-search-console/desktop-client.json
+```
+
+命令会：
+
+1. 生成 PKCE verifier/challenge 和随机 state。
+2. 在 `127.0.0.1` 随机端口启动一次性回调。
+3. 打开系统默认浏览器，不使用内嵌浏览器或模拟登录。
+4. 只请求 `webmasters.readonly`。
+5. 验证 callback state，并交换 refresh token。
+6. 只把 authorized-user 凭据保存到：
+
+```text
+runtime/private/google-search-console/authorized-user.json
+```
+
+命令不会打印 token、authorization code 或 Google 原始响应。已有授权文件不会被静默覆盖；只有确认轮换时才使用 `--force`。
+
+`runtime/private/` 可以阻止凭据进入 Git 和知识库，文件也会尝试设置为当前用户可读写，但它不是应用层加密保险箱。首轮验收完成后，长期自动化应把 refresh token 迁入 Bitwarden Secrets Manager、Google Secret Manager 或等价的受控密钥服务；在迁移前不要把该文件同步、备份或发送给其他人。
+
+### 第四步：执行真实只读检查
+
+```powershell
+npm.cmd run gsc:check -- `
+  --config examples/google-search-console/voice-site.public.json `
+  --credentials runtime/private/google-search-console/authorized-user.json `
+  --json `
+  --output runtime/tmp/gsc-live-check.json `
+  --report-output runtime/tmp/gsc-live-report.md
+```
+
+验收成功应满足：
+
+- `mode` 为 `private-api-client+public-check`。
+- `googleApi.mode` 为 `private-client`。
+- 当前 `siteUrl` 出现在 `googleApi.sites`。
+- 每个配置 URL 都有脱敏的 `inspection` 字段。
+- `googleApi.errors` 为空。
+- 报告仍为中文，且不包含 token、Cookie、账号列表、原始 Google 响应或登录截图。
+
+常见失败：
+
+| 错误码 | 含义 | 处理 |
+| --- | --- | --- |
+| `gsc_oauth_refresh_failed` | refresh token 失效或测试授权过期 | 重新运行只读授权；先确认 OAuth app 状态 |
+| `gsc_permission_denied` | 授权账号无权访问目标 property | 在 GSC 的 Settings > Users and permissions 核对账号权限 |
+| `gsc_property_not_listed` | Sites list 未返回配置 property | 核对 `siteUrl` 是否与 GSC 中的 URL-prefix 或 Domain property 完全一致 |
+| `gsc_quota_exceeded` | Google API 配额暂时不可用 | 等待配额恢复，不循环重试、不绕过配额 |
+
+官方操作依据：
+
+- https://developers.google.com/webmaster-tools/v1/how-tos/authorizing
+- https://developers.google.com/identity/protocols/oauth2/native-app
+- https://support.google.com/cloud/answer/15549257
+- https://developers.google.com/identity/protocols/oauth2/production-readiness/overview
+
 ## Auth Hub 任务入口
 
 创建任务时使用 `gsc_monitor`：
@@ -122,12 +218,12 @@ npx ai-link-gsc --config examples/google-search-console/voice-site.public.json
 
 ## 真实 Google API 人工门禁
 
-后续接入私有 client 前需要确认：
+发起真实账号授权前需要确认：
 
 1. Google Cloud 项目与 Search Console API 已启用。
-2. OAuth client、授权账号和 property 权限已确认。
+2. Desktop OAuth client、授权账号和 property 权限已确认。
 3. 只读阶段使用 `webmasters.readonly`；真实 sitemap submit 必须提升到 `webmasters`。
-4. token 只通过 secret manager 或本机私有运行时注入。
+4. refresh token 只通过 secret manager 或本机 `runtime/private/` 注入；access token 只驻留内存。
 5. `submit_sitemap` 每次都必须带明确审批；`Request indexing` 永远保留人工操作。
 
 私有 API client 默认以 `en-US` 请求 URL Inspection，保持机器状态分类稳定；最终报告仍输出中文。
@@ -147,6 +243,10 @@ URL Inspection API 返回的是 Google 索引中的版本，不能执行 live UR
 仓库测试覆盖：
 
 - connector 合同和能力模式不泄露私有实现。
+- Desktop OAuth 只允许 read-only scope，并验证 PKCE、state 和 loopback callback。
+- OAuth refresh token 只用于内存换取 access token；错误不回显 Google 原始响应。
+- Sites、URL Inspection、Sitemaps list 使用官方 REST endpoint 和请求结构。
+- read-only client 即使收到 connector 审批，也会拒绝 sitemap submit。
 - HTTP、robots、sitemap、canonical、noindex 和 301/308 旧 URL 跳转检查。
 - `Discovered - currently not indexed` 在技术条件正常时不会误判为站点故障。
 - sitemap submit 未审批时返回 `manual_action_required`。

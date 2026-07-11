@@ -75,7 +75,7 @@ npm run ai-link -- run auto_ops.article_draft --provider mock --input "写一段
 
 默认 policy 使用 `allowOutbound: user-approved`，所以真实调用 DeepSeek、Kimi、豆包、Grok、OpenAI-compatible 或 Coze 等外部 provider 前都需要人工批准；dry-run 只显示审批提示。直接 `run` 真实调用前需要加 `--approve-policy`，通过 workflow 真实运行前需要加对应的 `--approve-stage <stage>`，完整工作流可用 `--approve-all`。`auto_ops.agent_flow` 额外标记为 `external_action` policy，只允许 `coze` / `mock` 这类 agent workflow 路径，并在结果 metadata 中保留审计标签和数据分类。policy 还可以配置 `allowedModels`、`blockedModels` 和 `budget`，在密钥可用前先限制可用模型与单次调用预算；`--record` 生成的本地运行记录会额外写入顶层 `audit` 摘要，方便后续复盘或接授权中枢。
 
-## Google Search Console 公开检查
+## Google Search Console 公开检查与真实只读验收
 
 仓库内可以直接检查公开站点的 HTTP、robots、sitemap、canonical、noindex 和旧 `.html` URL 跳转，不需要 Google OAuth：
 
@@ -93,7 +93,23 @@ npm.cmd run gsc:check -- `
   --report-output runtime/tmp/gsc-public-report.md
 ```
 
-公开默认只使用 Google API mock，不读取 OAuth token，也不会点击 `Request indexing` 或真实提交 sitemap。完整配置、状态口径、Auth Hub `gsc_monitor` 任务格式和私有 OAuth 人工门禁见 `docs/20-architecture/google-search-console-connector.md`。
+公开默认只使用 Google API mock，不读取 OAuth token，也不会点击 `Request indexing` 或真实提交 sitemap。
+
+完成 Google Cloud Desktop OAuth client 配置并确认只读授权后，可以在本机运行：
+
+```powershell
+npm.cmd run gsc:authorize -- `
+  --client-config runtime/private/google-search-console/desktop-client.json
+
+npm.cmd run gsc:check -- `
+  --config examples/google-search-console/voice-site.public.json `
+  --credentials runtime/private/google-search-console/authorized-user.json `
+  --json `
+  --output runtime/tmp/gsc-live-check.json `
+  --report-output runtime/tmp/gsc-live-report.md
+```
+
+授权命令只申请 `webmasters.readonly`，使用系统浏览器、PKCE、随机 state 和 `127.0.0.1` 一次性回调。首轮验收的 refresh token 只保存在 `runtime/private/`，短期 access token 只驻留当前进程内存；长期自动化应再迁入受控 secret manager。完整 Google Cloud 中文操作、状态口径、Auth Hub `gsc_monitor` 任务格式、错误处理和 sitemap 写权限门禁见 `docs/20-architecture/google-search-console-connector.md`。
 
 ## 统一授权中枢本地试跑
 

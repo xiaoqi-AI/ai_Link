@@ -22,7 +22,13 @@ if (result.error) {
 if (result.status === 0) {
   const connectorDist = path.join(distPath, "connectors");
   mkdirSync(connectorDist, { recursive: true });
-  for (const file of ["googleSearchConsole.js", "gscCheck.js"]) {
+  for (const file of [
+    "googleOAuthDesktop.js",
+    "googleSearchConsole.js",
+    "googleSearchConsoleApi.js",
+    "gscAuthorize.js",
+    "gscCheck.js"
+  ]) {
     copyFileSync(path.join(cwd, "src", "connectors", file), path.join(connectorDist, file));
   }
 }
