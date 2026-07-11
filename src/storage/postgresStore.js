@@ -331,13 +331,13 @@ export class PostgresStore {
     return rowTask(rows[0]);
   }
 
-  async failTask({ taskId, error, actor }) {
+  async failTask({ taskId, error, result, actor }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
-       SET status = $1, error = $2, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
-       WHERE id = $3
+       SET status = $1, error = $2, result = $3, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       WHERE id = $4
        RETURNING *`,
-      [TASK_STATUSES.FAILED, json(error || {}), taskId]
+      [TASK_STATUSES.FAILED, json(error || {}), json(result || null), taskId]
     );
     await this.appendAudit({ taskId, actor, eventType: "task.failed", detail: { error } });
     return rowTask(rows[0]);

@@ -98,6 +98,16 @@ describe("AI Link task flow", () => {
     assert.equal(needsApproval.data.task.status, "approval_required");
     assert.equal(server.notifications.length, 1);
 
+    const implicitApproval = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/approve`, {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        approvalId: needsApproval.data.approval.id
+      }
+    });
+    assert.equal(implicitApproval.response.status, 400);
+    assert.equal(implicitApproval.data.error, "missing_approval_decision");
+
     const denied = await requestJson(server.baseUrl, `/api/tasks/${leased.data.task.id}/approve`, {
       token: "codex-token",
       method: "POST",
@@ -524,6 +534,67 @@ describe("AI Link task flow", () => {
     assert.equal(result.artifacts[0].kind, "gsc-status-report");
   });
 
+  it("persists a redacted blocked connector result for Hermes to inspect", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "platform_auth_collect",
+        input: {
+          platform: "wechat_official",
+          operation: "check_health"
+        }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "failed",
+        summary: "公众号 API 当前不可达。",
+        error: {
+          code: "source_unreachable",
+          platform: "wechat_official",
+          retryable: true
+        },
+        result: {
+          schema_version: "1",
+          platform: "wechat_official",
+          operation: "check_health",
+          status: "blocked",
+          session: {
+            state: "not_required",
+            checked_at: "2026-07-11T08:00:00.000Z",
+            token: "test-private-session-token"
+          },
+          items: [],
+          action_required: {
+            code: "source_unreachable",
+            action: "verify_source_reachability",
+            retryable: true
+          },
+          diagnostics: {
+            item_count: 0,
+            raw_response: "private-response"
+          }
+        }
+      }
+    });
+
+    assert.equal(reported.response.status, 200);
+    assert.equal(reported.data.task.status, "failed");
+    assert.equal(reported.data.task.result.status, "blocked");
+    assert.deepEqual(reported.data.task.result.session, {
+      state: "not_required",
+      checked_at: "2026-07-11T08:00:00.000Z"
+    });
+    assert.equal(reported.data.task.result.diagnostics.raw_response, "[redacted-content]");
+    assert.equal(JSON.stringify(reported.data).includes("test-private-session-token"), false);
+    assert.equal(JSON.stringify(reported.data).includes("private-response"), false);
+  });
+
   it("describes connector capability contracts without private state", () => {
     const description = describeConnectorRegistry(createConnectorRegistry());
     assert.deepEqual(description.issues, []);
@@ -532,7 +603,7 @@ describe("AI Link task flow", () => {
     assert.equal(wechat.status, "available");
     assert.deepEqual(
       wechat.capabilities.map((capability) => capability.name),
-      ["read_content", "create_draft", "publish", "metrics"]
+      ["check_health", "read_content", "create_draft", "publish", "metrics"]
     );
     assert.ok(wechat.capabilities.every((capability) => capability.available));
 

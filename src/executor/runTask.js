@@ -1,15 +1,56 @@
 import { createConnectorRegistry } from "../connectors/registry.js";
+import {
+  getPlatformAuthOperation,
+  normalizePlatformConnectorResult,
+  publicIssueForCode
+} from "../connectors/platformAuthContracts.js";
 import { redact } from "../security/redact.js";
 
 const ACTION_REQUIRED_CODES = new Set([
   "captcha_required",
+  "credential_invalid",
+  "credential_missing",
+  "login_required",
   "login_expired",
   "manual_action_required",
+  "official_api_ip_not_whitelisted",
+  "official_api_rate_limited",
   "platform_rate_limited",
   "rate_limited",
   "session_expired",
   "verification_required"
 ]);
+
+const SAFE_PLATFORMS = new Set([
+  "wechat_official",
+  "zhuque_ai",
+  "google_search_console",
+  "douyin",
+  "xiaohongshu",
+  "zhihu",
+  "toutiao"
+]);
+
+const SAFE_ERROR_MESSAGES = Object.freeze({
+  captcha_required: "需要在本机浏览器完成人机验证。",
+  credential_invalid: "公众号官方 API 凭据无效，需要重新配置。",
+  credential_missing: "公众号官方 API 凭据尚未配置。",
+  login_required: "平台尚未登录，需要在本机浏览器完成登录。",
+  login_expired: "平台登录已过期，需要在本机浏览器续登。",
+  manual_action_required: "任务需要人工处理后重试。",
+  official_api_ip_not_whitelisted: "当前执行器出口 IP 未加入公众号 API 白名单。",
+  official_api_rate_limited: "公众号官方 API 当前限流，需要稍后重试。",
+  official_api_unavailable: "公众号官方 API 当前不可用，需要稍后重试。",
+  platform_rate_limited: "平台当前限流，需要按退避时间重试。",
+  rate_limited: "外部服务当前限流，需要稍后重试。",
+  session_expired: "平台登录已过期，需要在本机浏览器续登。",
+  verification_required: "需要在本机浏览器完成人工验证。",
+  connector_missing: "本机尚未安装或启用对应的私有连接器。",
+  connector_contract_failed: "私有连接器未通过公开结果合同校验。",
+  specific_content_missing: "本次没有取得可验证的具体内容链接。",
+  source_unreachable: "本次取得的具体内容链接无法验证可达。",
+  executor_error: "本地执行器处理任务失败。"
+});
 
 function approvalTitle(task) {
   if (task.currentStep === "publish") return "确认正式发布";
@@ -27,6 +68,9 @@ export async function runTask(task, { registry = createConnectorRegistry() } = {
 async function runTaskInner(task, { registry }) {
   if (task.workflow === "gsc_monitor") {
     return runGscMonitorTask(task, registry);
+  }
+  if (task.workflow === "platform_auth_collect") {
+    return runPlatformAuthTask(task, registry);
   }
 
   if (task.currentStep === "publish") {
@@ -163,15 +207,159 @@ async function runGscMonitorTask(task, registry) {
   };
 }
 
+async function runPlatformAuthTask(task, registry) {
+  const { platform, operation, ...operationInput } = task.input || {};
+  const operationContract = getPlatformAuthOperation(platform, operation);
+  const connector = registry[platform];
+
+  if (!operationContract) {
+    return platformTaskResult(syntheticPlatformResult({
+      platform,
+      operation,
+      code: "connector_contract_failed"
+    }));
+  }
+  if (!connector || connector.status === "reserved") {
+    return platformTaskResult(syntheticPlatformResult({ platform, operation, code: "connector_missing" }));
+  }
+
+  const method = connector[operationContract.method];
+  if (typeof method !== "function") {
+    return platformTaskResult(syntheticPlatformResult({
+      platform,
+      operation,
+      code: "connector_contract_failed"
+    }));
+  }
+  if (operationContract.mode !== "read_only") {
+    return platformTaskResult(syntheticPlatformResult({
+      platform,
+      operation,
+      code: "login_required"
+    }));
+  }
+
+  let rawResult;
+  try {
+    rawResult = await method.call(connector, operationInput);
+  } catch (error) {
+    const code = String(error?.code || "");
+    if (publicIssueForCode(code)) {
+      return platformTaskResult(syntheticPlatformResult({ platform, operation, code }));
+    }
+    throw error;
+  }
+
+  let normalized;
+  try {
+    normalized = normalizePlatformConnectorResult(rawResult, { platform, operation });
+  } catch (error) {
+    if (error?.code === "connector_contract_failed") {
+      normalized = syntheticPlatformResult({
+        platform,
+        operation,
+        code: "connector_contract_failed"
+      });
+    } else {
+      throw error;
+    }
+  }
+
+  return platformTaskResult(normalized);
+}
+
+function platformTaskResult(normalized) {
+  const result = redact(normalized);
+  const summary = platformResultSummary(normalized);
+
+  if (normalized.status === "needs_action") {
+    return {
+      status: "needs_action",
+      summary,
+      error: {
+        code: normalized.action_required.code,
+        platform: normalized.platform,
+        action: normalized.action_required.action,
+        retryable: normalized.action_required.retryable,
+        message: summary
+      },
+      result,
+      artifacts: []
+    };
+  }
+
+  if (normalized.status === "blocked") {
+    return {
+      status: "failed",
+      summary,
+      error: {
+        code: normalized.action_required.code,
+        platform: normalized.platform,
+        action: normalized.action_required.action,
+        retryable: normalized.action_required.retryable,
+        message: summary
+      },
+      result,
+      artifacts: []
+    };
+  }
+
+  return {
+    status: "completed",
+    summary,
+    result,
+    artifacts: []
+  };
+}
+
+function syntheticPlatformResult({ platform, operation, code }) {
+  const status = ACTION_REQUIRED_CODES.has(code) ? "needs_action" : "blocked";
+  return normalizePlatformConnectorResult({
+    status,
+    session: {
+      state: sessionStateForCode(code, platform),
+      checked_at: new Date().toISOString()
+    },
+    items: [],
+    action_required: { code },
+    diagnostics: {
+      item_count: 0,
+      issue_codes: [code]
+    }
+  }, { platform, operation });
+}
+
+function sessionStateForCode(code, platform) {
+  if (code === "login_required") return "missing";
+  if (code === "login_expired") return "expired";
+  if (["captcha_required", "verification_required"].includes(code)) return "verification_required";
+  if (["connector_missing", "connector_contract_failed"].includes(code)) return "blocked";
+  return platform === "wechat_official" ? "not_required" : "valid";
+}
+
+function platformResultSummary(result) {
+  if (result.status === "ready") {
+    if (result.operation === "search_content") {
+      return `小红书只读采集完成，取得 ${result.diagnostics.item_count} 条已验证具体链接。`;
+    }
+    if (result.operation === "check_health") {
+      return "公众号官方 API 健康检查通过。";
+    }
+    return "平台会话检查通过。";
+  }
+  return SAFE_ERROR_MESSAGES[result.action_required?.code] || "平台连接器返回了需要处理的状态。";
+}
+
 function resultFromError(error) {
   const code = String(error?.code || "executor_error");
-  const message = error?.message || "Executor failed while running the task.";
+  const issue = publicIssueForCode(code);
+  const message = SAFE_ERROR_MESSAGES[code] || SAFE_ERROR_MESSAGES.executor_error;
   const common = {
     code,
     message,
-    platform: error?.platform || "",
-    action: error?.action || "",
-    retryable: error?.retryable !== false
+    platform: SAFE_PLATFORMS.has(error?.platform) ? error.platform : "",
+    action: issue?.action || "",
+    retryable: issue?.retryable ?? ACTION_REQUIRED_CODES.has(code)
   };
 
   if (error?.needsAction || ACTION_REQUIRED_CODES.has(code)) {
@@ -179,7 +367,7 @@ function resultFromError(error) {
       status: "needs_action",
       summary: message,
       error: redact(common),
-      result: redact(error?.result || {}),
+      result: {},
       artifacts: []
     };
   }
@@ -187,8 +375,8 @@ function resultFromError(error) {
   return {
     status: "failed",
     error: redact({
-      ...common,
-      retryable: false
-    })
+      ...common
+    }),
+    result: {}
   };
 }

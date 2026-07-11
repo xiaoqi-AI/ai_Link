@@ -56,7 +56,19 @@ export function createApiRouter() {
   });
 
   router.post("/tasks/:id/approve", requireApiScope("tasks:approve"), async (req, res) => {
-    const approved = req.body?.approved !== false && req.body?.decision !== "reject";
+    const approvedFlag = req.body?.approved;
+    const decisionValue = req.body?.decision;
+    const hasApprovedFlag = typeof approvedFlag === "boolean";
+    const hasDecisionValue = decisionValue === "approve" || decisionValue === "reject";
+    if (!hasApprovedFlag && !hasDecisionValue) {
+      res.status(400).json({ error: "missing_approval_decision" });
+      return;
+    }
+    if (hasApprovedFlag && hasDecisionValue && approvedFlag !== (decisionValue === "approve")) {
+      res.status(400).json({ error: "conflicting_approval_decision" });
+      return;
+    }
+    const approved = hasApprovedFlag ? approvedFlag : decisionValue === "approve";
     const approvalId = req.body?.approvalId;
     if (!approvalId) {
       res.status(400).json({ error: "missing_approval_id" });
@@ -182,6 +194,7 @@ export function createApiRouter() {
       const failed = await req.app.locals.store.failTask({
         taskId: task.id,
         error: redact(body.error || { message: "Unknown executor failure" }),
+        result: sanitizedExecutorResult(body, aiLinkAudit),
         actor
       });
       await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
