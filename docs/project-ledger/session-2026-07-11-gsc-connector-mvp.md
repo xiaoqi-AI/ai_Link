@@ -69,6 +69,33 @@ AI Link 已形成面向 prenatal voice 海外 SEO 验证的公开安全 GSC conn
 - 当前公开检查不能证明 Google 已索引，也不能替代 GSC Live Test、Pages 报告或 Crawl stats 页面。
 - Search Analytics 不在本轮实现范围。
 
+## 同日继续推进：真实 GSC 只读验收完成
+
+用户批准 GSC 只读实测后，本轮完成了从 Google Cloud 到 Search Console 的端到端验证：
+
+- Google Cloud 项目已启用 Search Console API。
+- OAuth app 使用 `External + Testing`，测试用户确认为实际授权账号。
+- Desktop OAuth client 已完成本机授权，`authorized-user.json` 仅保存在 `runtime/private/google-search-console/`。
+- 本机 Node 访问 Google 需显式继承系统代理；使用 `node --use-env-proxy` 后授权与 API 调用均可完成。
+- Search Console UI 证明授权账号能访问 `xiao-qi-ai.com` Domain Property。
+- 真实 API 验证发现 AI Link 配置应使用 `sc-domain:xiao-qi-ai.com`，而不是 URL-prefix `https://voice.xiao-qi-ai.com/`。
+- 新增公开示例 `examples/google-search-console/voice-site.domain.public.json`，用于记录 Domain Property + `publicBaseUrl` 的正确配置方式。
+- 重新提交 `sitemap.xml` 与 `sitemap-basic.xml` 后，GSC UI 和 API 均显示 sitemap `Success`，发现 16 页，`gsc_sitemap_error` 已恢复。
+- 最新真实只读报告结论为：站点技术抓取条件正常，Google Index 仍在刷新。
+
+最新 URL Inspection 状态：
+
+- `https://voice.xiao-qi-ai.com/`：Google 已抓取但尚未索引。
+- `https://voice.xiao-qi-ai.com/guides`：Google 还未知，但公开技术条件正常。
+- `https://voice.xiao-qi-ai.com/when-to-start-talking-to-baby-in-the-womb`：Google 已抓取但尚未索引。
+
+后续建议：
+
+1. 不再反复提交 sitemap，避免把刷新等待误判为 sitemap 故障。
+2. 对核心 URL 在 GSC UI 中人工执行 URL Inspection，并按配额手动 `Request indexing`。
+3. 若进入长期监控，使用 `sc-domain:xiao-qi-ai.com` 配置和独立历史文件 `domain-history.json`。
+4. 是否安装 Windows 每日监控任务仍需用户确认执行时间。
+
 ## 同日继续推进：真实只读 OAuth/API 实现
 
 在公开安全核心完成后，继续补齐不需要触碰真实账号即可开发和验证的 OAuth/API 层：
