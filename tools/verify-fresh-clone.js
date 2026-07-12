@@ -82,6 +82,8 @@ const commands = [
   ["npm", ["run", "ai-link", "--", "run", "auto_ops.research", "--dry-run", "--input", "fresh clone check"], clonePath],
   ["npm", ["run", "auth-hub:audit-smoke"], clonePath],
   ["npm", ["run", "auth-hub:deploy:check"], clonePath],
+  ["npm", ["run", "auth-hub:status"], clonePath],
+  ["npm", ["run", "auth-hub:status:json"], clonePath],
   ["npm", ["run", "security:scan"], clonePath]
 ];
 
