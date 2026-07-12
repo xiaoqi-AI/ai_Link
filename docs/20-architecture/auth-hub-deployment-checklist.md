@@ -29,12 +29,13 @@ npm run auth-hub:local:stop
 使用 `render.yaml` 创建 Web Service 和 Postgres。生产环境必须配置：
 
 - `NODE_ENV=production`
-- `AI_LINK_BASE_URL=https://voice.xiao-qi-ai.com`
+- `AI_LINK_BASE_URL=<confirmed dedicated Auth Hub URL>`，建议候选为 `https://auth.xiao-qi-ai.com`
 - `DATABASE_URL`
 - `AI_LINK_APP_PASSWORD`
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
+- `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS=60000`
 - `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
 - `AI_LINK_ALLOWED_ACCESS_EMAILS`
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
@@ -52,14 +53,14 @@ npm run auth-hub:local:stop
 生产部署前，在只注入生产环境变量的终端中运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://voice.xiao-qi-ai.com"
+powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://auth.xiao-qi-ai.com"
 ```
 
 生产检查会要求应用自身开启 Cloudflare Access origin guard，并配置 Access JWT 校验所需的 AUD tag 和 team domain/issuer。
 
 ## 3. Cloudflare Access
 
-`voice.xiao-qi-ai.com` 应先经过 Cloudflare Access，再进入应用内登录。
+独立 Auth Hub 域名应先经过 Cloudflare Access，再进入应用内登录。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不能覆盖；`auth.xiao-qi-ai.com` 是建议候选，创建 DNS 前仍需负责人确认。
 
 检查项：
 
@@ -77,7 +78,7 @@ powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Pr
 生产连接时设置：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
 $env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
@@ -93,6 +94,8 @@ npm run auth-hub:executor:start
 
 `auth-hub-executor-runner.ps1` 会包含本地执行器启动所需环境变量，因此必须留在被 Git 忽略的 `runtime/tmp/`，不要复制到公开位置。
 
+执行器会在每轮领取任务前发送最小能力心跳。Auth Hub 默认 60 秒后把未更新的记录标记为 `stale`；心跳失败不阻塞 lease。状态中心显示 online 只证明进程在线且方法已加载，不证明真实账号、Cookie、凭据或平台 API 健康。
+
 ## 5. 敏感边界
 
 不得进入 Git、公开 issue、知识库或聊天记录：
@@ -105,10 +108,11 @@ npm run auth-hub:executor:start
 
 ## 6. 验收标准
 
-- `https://voice.xiao-qi-ai.com/healthz` 在 Cloudflare Access 后可用。
+- 已确认的独立 Auth Hub 域名 `/healthz` 在 Cloudflare Access 后可用，并返回 `service=ai-link-auth-hub`。
 - 未授权浏览器无法进入控制台。
 - 应用内登录可进入 dashboard。
 - 本地执行器能领取任务并回传结果。
+- `GET /api/connectors` 显示至少一个 online executor heartbeat；没有只读平台探测时，真实能力仍显示 `unverified` 和 `canRunReal=false`。
 - `auth-hub:smoke` 可跑通 mock 全链路。
 - 发布动作仍需要审批。
 - `npm run security:scan` 无敏感发现。
@@ -116,7 +120,7 @@ npm run auth-hub:executor:start
 远端部署后可运行：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
 $env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
@@ -140,9 +144,11 @@ powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -SkipExe
 - 提供 `AI_LINK_APP_PASSWORD` 时，应用内登录能进入 dashboard。
 - 管理 token 可以创建 `full_chain` mock 任务。
 - 控制台/API 可读取连接器公开状态，响应中不应出现 Cookie、浏览器 Profile、`runtime/private/` 等私有状态。
+- smoke 进程会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，连接器模式必须保持公开 mock/reserved，不能出现 `private`。
+- 本地执行器上报在线心跳，响应只包含受限 executor id、能力模式和服务端时间戳。
 - 受限 Codex token 可以读取脱敏任务，但不能领取执行器任务，也不能批准发布。
 - 本地执行器能领取任务、回写 `approval_required`、等待人工审批。
 - 管理 token 批准后，本地执行器再次领取并完成 mock 发布步骤。
 - 任务详情和审计日志只包含脱敏摘要。
 
-这些检查仍然只覆盖 mock 链路；真实微信、朱雀AI、抖音、小红书、知乎、头条账号登录和正式发布不属于本轮验收。
+这些检查仍然只覆盖 mock 链路；真实微信、公众号、GitHub、小红书、朱雀AI、抖音、知乎、头条账号登录、只读探测和正式发布不属于本轮验收。

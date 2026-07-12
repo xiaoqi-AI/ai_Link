@@ -69,6 +69,10 @@ async function buildReport({ baseUrl: targetBaseUrl, token: bearerToken }) {
   const blockers = nextActions
     .filter((action) => action.severity === "blocked")
     .map((action) => `${action.platform}: ${action.reason}`);
+  const unverified = (Array.isArray(authStatus.items) ? authStatus.items : [])
+    .filter((item) => item.status === "unverified")
+    .map((item) => `${item.platform}: ${item.reason || "unverified"}`);
+  blockers.push(...unverified);
   const manualCount = nextActions.filter((action) => action.severity !== "blocked").length;
   return {
     generatedAt,
@@ -143,6 +147,10 @@ function publicItem(item) {
     status: stringValue(item.status),
     connectorStatus: stringValue(item.connectorStatus),
     mode: stringValue(item.mode),
+    source: stringValue(item.source),
+    runtimeStatus: stringValue(item.runtimeStatus),
+    operationalStatus: stringValue(item.operationalStatus),
+    canRunReal: item.canRunReal === true,
     reason: stringValue(item.reason),
     action: stringValue(item.action),
     relatedTaskIds: safeTaskIds(item.relatedTaskIds)
@@ -161,12 +169,12 @@ function stringValue(value) {
 
 function recommendedNext({ nextActions, blockers }) {
   if (blockers.length > 0) {
-    return "Resolve blocked Auth Hub connector actions before dependent projects continue automation.";
+    return "Resolve blocked actions or obtain fresh executor/probe evidence before dependent projects continue real-platform automation.";
   }
   if (nextActions.length > 0) {
     return "Complete the listed manual actions, then retry the related Auth Hub tasks if retryAfterAction is true.";
   }
-  return "No platform authorization action is needed. Dependent projects can continue their normal automation.";
+  return "No platform authorization action is needed and the reported runtime evidence is sufficient for normal automation.";
 }
 
 function safetyNotes() {

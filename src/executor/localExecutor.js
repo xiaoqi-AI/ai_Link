@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { buildExecutorCapabilityHeartbeat } from "../connectors/executorCapabilities.js";
 import { loadPrivateConnectorRegistry } from "../connectors/privateLoader.js";
 import { runTask } from "./runTask.js";
 
@@ -67,10 +68,12 @@ export async function runExecutorOnce({
   statePath = "",
   registry
 }) {
+  const heartbeat = await reportHeartbeat({ baseUrl, token, executorId, registry });
   await writeState(statePath, {
     executorId,
     baseUrl,
-    status: "polling"
+    status: "polling",
+    heartbeat
   });
   const lease = await requestJson(`${baseUrl}/api/executor/lease`, {
     token,
@@ -82,7 +85,8 @@ export async function runExecutorOnce({
       executorId,
       baseUrl,
       status: "idle",
-      leased: false
+      leased: false,
+      heartbeat
     });
     return { leased: false };
   }
@@ -93,7 +97,8 @@ export async function runExecutorOnce({
     status: "running_task",
     leased: true,
     taskId: lease.task.id,
-    taskStep: lease.task.currentStep
+    taskStep: lease.task.currentStep,
+    heartbeat
   });
   const result = await runTask(lease.task, registry ? { registry } : undefined);
   await requestJson(`${baseUrl}/api/executor/tasks/${lease.task.id}/result`, {
@@ -107,9 +112,31 @@ export async function runExecutorOnce({
     status: "task_reported",
     leased: true,
     taskId: lease.task.id,
-    resultStatus: result.status
+    resultStatus: result.status,
+    heartbeat
   });
   return { leased: true, taskId: lease.task.id, status: result.status };
+}
+
+async function reportHeartbeat({ baseUrl, token, executorId, registry }) {
+  if (!registry) {
+    return { status: "skipped", error: "connector_registry_unavailable" };
+  }
+
+  try {
+    const payload = buildExecutorCapabilityHeartbeat({ executorId, registry });
+    const response = await requestJson(`${baseUrl}/api/executor/heartbeat`, {
+      token,
+      method: "POST",
+      body: payload
+    });
+    return {
+      status: response.accepted === true ? "reported" : "rejected",
+      expiresAt: response.expiresAt || null
+    };
+  } catch (error) {
+    return { status: "failed", error: safeErrorCode(error) };
+  }
 }
 
 async function main() {

@@ -1,6 +1,6 @@
 import express from "express";
 import { summarizeConnectorAuthStatus } from "../connectors/authStatus.js";
-import { describeConnectorRegistry } from "../connectors/contracts.js";
+import { describeConnectorRuntime } from "../connectors/executorCapabilities.js";
 import { createSessionCookie, clearSessionCookie } from "../security/session.js";
 import { requireAppSession } from "../security/auth.js";
 import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
@@ -37,15 +37,20 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard", requireAppSession, async (req, res) => {
-    const [tasks, actionTasks, approvalTasks, approvals] = await Promise.all([
+    const [tasks, actionTasks, approvalTasks, approvals, heartbeats] = await Promise.all([
       req.app.locals.store.listTasks({ limit: 50 }),
       req.app.locals.store.listTasks({ status: "action_required", limit: 20 }),
       req.app.locals.store.listTasks({ status: "approval_required", limit: 20 }),
-      req.app.locals.store.listApprovals({ status: "pending" })
+      req.app.locals.store.listApprovals({ status: "pending" }),
+      req.app.locals.store.listExecutorHeartbeats({ limit: 50 })
     ]);
-    const { connectors } = describeConnectorRegistry(req.app.locals.connectorRegistry);
+    const connectorDescription = describeConnectorRuntime({
+      registry: req.app.locals.connectorRegistry,
+      heartbeats
+    });
+    const { connectors } = connectorDescription;
     const authStatus = summarizeConnectorAuthStatus({
-      connectors,
+      connectors: connectorDescription.executorRuntime.connectors,
       actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
     });
     res.send(dashboardPage({
@@ -53,6 +58,7 @@ export function createUiRouter() {
       actionTasks: actionTasks.map(publicTask),
       approvals,
       connectors,
+      executorRuntime: connectorDescription.executorRuntime,
       authStatus
     }));
   });
@@ -62,15 +68,19 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard/connectors", requireAppSession, async (req, res) => {
-    const [connectorDescription, actionTasks, approvalTasks] = await Promise.all([
-      describeConnectorRegistry(req.app.locals.connectorRegistry),
+    const [heartbeats, actionTasks, approvalTasks] = await Promise.all([
+      req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
       req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
       req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
     ]);
+    const connectorDescription = describeConnectorRuntime({
+      registry: req.app.locals.connectorRegistry,
+      heartbeats
+    });
     res.send(connectorsPage({
       ...connectorDescription,
       authStatus: summarizeConnectorAuthStatus({
-        connectors: connectorDescription.connectors,
+        connectors: connectorDescription.executorRuntime.connectors,
         actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
       })
     }));

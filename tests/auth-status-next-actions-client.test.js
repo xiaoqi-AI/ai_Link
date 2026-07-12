@@ -121,6 +121,50 @@ describe("Auth status next action client", () => {
     assert.match(report.summary.recommendedNext, /AI_LINK_CODEX_TOKEN/);
   });
 
+  it("fails closed in strict mode when executor or probe evidence is unverified", async () => {
+    await withServer((req, res) => {
+      if (req.url === "/api/auth-status") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          authStatus: {
+            summary: { total: 1, ready: 0, unverified: 1, needs_action: 0, reserved: 0, blocked: 0, next_actions: 0 },
+            items: [{
+              platform: "xiaohongshu",
+              status: "unverified",
+              connectorStatus: "available",
+              mode: "private",
+              source: "executor",
+              runtimeStatus: "online",
+              operationalStatus: "unverified",
+              canRunReal: false,
+              reason: "probe_not_run",
+              action: "能力已加载，尚未完成只读健康检查",
+              relatedTaskIds: []
+            }],
+            nextActions: []
+          }
+        }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict"]
+      });
+      const report = JSON.parse(result.stdout);
+
+      assert.equal(result.status, 1, result.stderr);
+      assert.equal(report.summary.ok, false);
+      assert.equal(report.summary.blockingCount, 1);
+      assert.deepEqual(report.blockers, ["xiaohongshu: probe_not_run"]);
+      assert.equal(report.authStatus.items[0].canRunReal, false);
+      assert.equal(report.authStatus.items[0].runtimeStatus, "online");
+    });
+  });
+
   it("renders a markdown handoff for dependent projects", async () => {
     await withServer((req, res) => {
       if (req.url === "/api/auth-status") {

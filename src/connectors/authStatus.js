@@ -95,12 +95,29 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
       });
     }
 
-    if (connector.status === "available") {
+    if (connector.runtime?.status === "stale") {
       return authItem({
         connector,
-        status: "ready",
-        reason: connector.mode || "available",
-        action: "无需处理"
+        status: "unverified",
+        reason: "executor_heartbeat_stale",
+        action: "本机执行器心跳已过期"
+      });
+    }
+
+    if (connector.status === "available") {
+      const runtimeStatus = connector.runtime?.status || "unreported";
+      const reason = runtimeStatus === "online"
+        ? (connector.mode === "private" ? "probe_not_run" : "mock_only")
+        : "executor_heartbeat_missing";
+      return authItem({
+        connector,
+        status: "unverified",
+        reason,
+        action: {
+          probe_not_run: "能力已加载，尚未完成只读健康检查",
+          mock_only: "当前只有 mock/公开契约证据",
+          executor_heartbeat_missing: "尚未收到本机执行器心跳"
+        }[reason]
       });
     }
 
@@ -127,6 +144,7 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
     summary: {
       total: items.length,
       ready: items.filter((item) => item.status === "ready").length,
+      unverified: items.filter((item) => item.status === "unverified").length,
       needs_action: items.filter((item) => item.status === "needs_action").length,
       reserved: items.filter((item) => item.status === "reserved").length,
       blocked: items.filter((item) => item.status === "blocked").length,
@@ -143,6 +161,10 @@ function authItem({ connector, status, reason, action, relatedTaskIds = [] }) {
     status,
     connectorStatus: connector.status,
     mode: connector.mode,
+    source: connector.source || "server_registry",
+    runtimeStatus: connector.runtime?.status || "unreported",
+    operationalStatus: connector.operationalStatus || "unverified",
+    canRunReal: connector.canRunReal === true,
     reason,
     action,
     relatedTaskIds: relatedTaskIds.slice(0, 5)

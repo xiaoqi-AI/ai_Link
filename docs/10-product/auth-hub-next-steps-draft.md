@@ -8,7 +8,7 @@
 
 - 控制台、任务 API、审批、审计和 mock 连接器已经进入公开 MVP。
 - 控制台已能单独展示待人工处理任务，并支持处理后重新排队。
-- 连接器能力契约和只读状态 API 已进入公开 MVP，可展示微信、朱雀AI和预留平台的安全状态。
+- 连接器能力契约、执行器能力心跳和只读状态 API 已进入公开 MVP，可分开展示服务端合同、本地执行器在线证据和仍未运行的真实平台探测。
 - Provider live 验收通过 Bitwarden Secrets Manager 管理真实 API key。
 - Render 部署骨架保留，生产部署前必须经过 Cloudflare Access 和应用内登录双门禁。
 - 真实平台登录态、Cookie、二维码、截图和原始平台内容仍只允许放在本机私有目录或私有仓治理材料中。
@@ -29,7 +29,7 @@
 
 ## 阶段 1：生产门禁与远端空跑
 
-目标：让 `voice.xiao-qi-ai.com` 可以承载真实任务控制台，但仍只跑 mock 或脱敏任务。
+目标：用独立域名承载真实任务控制台，但仍只跑 mock 或脱敏任务。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，建议候选为 `auth.xiao-qi-ai.com`，最终域名待负责人确认。
 
 交付：
 
@@ -37,12 +37,14 @@
 - Cloudflare Access 保护域名，并配置 Access AUD tag。
 - Render 环境变量完成：应用密码、session secret、admin/executor/codex token、数据库和 Access origin guard。
 - 本地执行器通过 Cloudflare Service Auth 连接远端。
+- 本地执行器向远端上报最小能力心跳，缺失或过期时状态中心失败关闭。
 - 远端 smoke 可创建任务、执行 mock 链路并写回结果。
 
 验收：
 
 - `npm run auth-hub:deploy:check` 在生产变量注入后通过。
 - `npm run auth-hub:remote:smoke` 可穿过 Access 完成测试任务。
+- smoke 明确禁用私有连接器，只验证 mock 模式、在线心跳和 `canRunReal=false`。
 - 未授权浏览器不能进入控制台；授权后仍需要应用内登录。
 
 ## 阶段 2：小红书只读和公众号官方 API 私有连接器
@@ -103,7 +105,7 @@
 
 交付：
 
-- 审批超时策略、续登提醒、执行器离线提醒。
+- 审批超时策略、续登提醒和基于心跳 TTL 的执行器离线提醒。
 - 任务和 artifact 保留策略自动清理。
 - 私有仓和公开仓的脱敏发布流程。
 - 知识库镜像只同步公开说明、架构决策和脱敏交接。
@@ -111,7 +113,7 @@
 
 ## 需要确认的问题
 
-- `voice.xiao-qi-ai.com` 的 Cloudflare Access 授权邮箱范围。
+- 是否确认使用 `auth.xiao-qi-ai.com` 作为独立 Auth Hub 域名，以及 Cloudflare Access 授权邮箱范围。
 - 是否用 Bitwarden Secrets Manager 统一保存 Render 生产变量和 Cloudflare Service Auth 凭据。
 - P0.2 小红书真实只读验收使用哪个测试账号、关键词和时间窗。
 - P0.3 公众号官方 API 使用哪种固定出口方案及测试账号。

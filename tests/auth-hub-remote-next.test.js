@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import http from "node:http";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -44,6 +45,13 @@ async function runRemoteNext({ baseUrl, env = {}, args = ["--json"] }) {
 }
 
 describe("Auth Hub remote next report", () => {
+  it("requires an explicit dedicated Auth Hub URL in the Render blueprint", async () => {
+    const blueprint = await readFile(new URL("../render.yaml", import.meta.url), "utf8");
+
+    assert.match(blueprint, /key:\s*AI_LINK_BASE_URL\s+sync:\s*false/);
+    assert.equal(blueprint.includes("voice.xiao-qi-ai.com"), false);
+  });
+
   it("reports remote smoke readiness without leaking secret values", async () => {
     await withServer((req, res) => {
       if (req.url === "/healthz") {

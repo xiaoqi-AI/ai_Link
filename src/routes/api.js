@@ -1,7 +1,10 @@
 import express from "express";
 import { attachAiLinkAudit, extractAiLinkAudit } from "../audit/aiLinkAudit.js";
 import { summarizeConnectorAuthStatus } from "../connectors/authStatus.js";
-import { describeConnectorRegistry } from "../connectors/contracts.js";
+import {
+  describeConnectorRuntime,
+  normalizeExecutorCapabilityHeartbeat
+} from "../connectors/executorCapabilities.js";
 import { requireApiScope } from "../security/auth.js";
 import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
 import { validateTaskInput } from "../domain/workflow.js";
@@ -139,6 +142,26 @@ export function createApiRouter() {
     res.json({ task: publicTask(task) });
   });
 
+  router.post("/executor/heartbeat", requireApiScope("executor:heartbeat"), async (req, res) => {
+    const parsed = normalizeExecutorCapabilityHeartbeat(req.body || {});
+    if (parsed.error) {
+      res.status(400).json(parsed);
+      return;
+    }
+
+    const heartbeat = await req.app.locals.store.upsertExecutorHeartbeat({
+      ...parsed.value,
+      actor: actorName(req),
+      ttlMs: req.app.locals.config.executorHeartbeatTtlMs
+    });
+    res.json({
+      accepted: true,
+      executorId: heartbeat.executorId,
+      lastSeenAt: heartbeat.lastSeenAt,
+      expiresAt: heartbeat.expiresAt
+    });
+  });
+
   router.post("/executor/tasks/:id/result", requireApiScope("executor:result"), async (req, res) => {
     const body = req.body || {};
     const actor = actorName(req);
@@ -216,25 +239,33 @@ export function createApiRouter() {
   });
 
   router.get("/connectors", requireApiScope("connectors:read"), async (req, res) => {
-    res.json(describeConnectorRegistry(req.app.locals.connectorRegistry));
+    res.json(await runtimeConnectorDescription(req));
   });
 
   router.get("/auth-status", requireApiScope("connectors:read"), async (req, res) => {
     const [connectorDescription, actionTasks, approvalTasks] = await Promise.all([
-      describeConnectorRegistry(req.app.locals.connectorRegistry),
+      runtimeConnectorDescription(req),
       req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
       req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
     ]);
     res.json({
       ...connectorDescription,
       authStatus: summarizeConnectorAuthStatus({
-        connectors: connectorDescription.connectors,
+        connectors: connectorDescription.executorRuntime.connectors,
         actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
       })
     });
   });
 
   return router;
+}
+
+async function runtimeConnectorDescription(req) {
+  const heartbeats = await req.app.locals.store.listExecutorHeartbeats({ limit: 50 });
+  return describeConnectorRuntime({
+    registry: req.app.locals.connectorRegistry,
+    heartbeats
+  });
 }
 
 async function appendAiLinkAuditEvent(req, { taskId, actor, status, aiLinkAudit }) {
