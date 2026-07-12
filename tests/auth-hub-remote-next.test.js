@@ -52,6 +52,12 @@ describe("Auth Hub remote next report", () => {
 
     assert.match(blueprint, /key:\s*AI_LINK_BASE_URL\s+sync:\s*false/);
     assert.match(blueprint, /key:\s*AI_LINK_SESSION_MAX_AGE_SECONDS\s+value:\s*"28800"/);
+    assert.match(blueprint, /key:\s*AI_LINK_CSRF_TOKEN_TTL_SECONDS\s+value:\s*"900"/);
+    assert.match(blueprint, /key:\s*AI_LINK_LOGIN_MAX_FAILURES\s+value:\s*"5"/);
+    assert.match(blueprint, /key:\s*AI_LINK_LOGIN_WINDOW_SECONDS\s+value:\s*"900"/);
+    assert.match(blueprint, /key:\s*AI_LINK_LOGIN_BLOCK_SECONDS\s+value:\s*"900"/);
+    assert.match(blueprint, /key:\s*AI_LINK_LOGIN_MAX_KEYS\s+value:\s*"1000"/);
+    assert.match(blueprint, /numInstances:\s*1/);
     assert.match(blueprint, /autoDeployTrigger:\s*checksPass/);
     assert.match(blueprint, /key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false/);
     assert.match(blueprint, /databases:\s+[\s\S]*?plan:\s*basic-256mb/);
@@ -72,6 +78,7 @@ describe("Auth Hub remote next report", () => {
     assert.match(deploymentCheck, /"DATABASE_URL"/);
     assert.match(deploymentCheck, /Render Postgres plan/);
     assert.match(deploymentCheck, /Render Postgres public access/);
+    assert.match(deploymentCheck, /Render web instances/);
   });
 
   it("reports remote smoke readiness without leaking secret values", async () => {

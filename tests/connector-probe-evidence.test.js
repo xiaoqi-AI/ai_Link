@@ -538,16 +538,36 @@ function runtimeGithub(value) {
 }
 
 async function login(baseUrl) {
+  const page = await fetch(`${baseUrl}/login`);
+  const csrfCookie = responseCookie(page, "ai_link_csrf");
+  const csrfToken = (await page.text()).match(/name="csrfToken" value="([^"]+)"/)?.[1];
+  assert.ok(csrfCookie);
+  assert.ok(csrfToken);
+
   const response = await fetch(`${baseUrl}/login`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ password: "test-probe-password", next: "/dashboard" }),
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      origin: baseUrl,
+      cookie: csrfCookie
+    },
+    body: new URLSearchParams({
+      password: "test-probe-password",
+      next: "/dashboard",
+      csrfToken
+    }),
     redirect: "manual"
   });
-  assert.equal(response.status, 302);
-  const cookie = response.headers.get("set-cookie")?.split(";")[0];
+  assert.equal(response.status, 303);
+  const cookie = responseCookie(response, "ai_link_session");
   assert.ok(cookie);
   return cookie;
+}
+
+function responseCookie(response, name) {
+  const header = response.headers.get("set-cookie") || "";
+  const match = header.match(new RegExp(`(?:^|,\\s*)${name}=([^;]*)`));
+  return match ? `${name}=${match[1]}` : "";
 }
 
 async function requestHtml(baseUrl, path, cookie) {

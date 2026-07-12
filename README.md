@@ -190,6 +190,8 @@ npm run auth-hub:executor:start
 
 默认本地开发令牌和内存存储只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `DATABASE_URL`、`AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN`、`AI_LINK_EXECUTOR_ID`、`AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS`、`AI_LINK_CONNECTOR_PROBE_TTL_MS` 和 Cloudflare Access origin guard。生产缺少数据库会拒绝启动，避免重启后丢失任务、审批和审计。Access guard 会验证签名、issuer、audience 和用户/服务令牌身份，不会退化为信任转发邮件头；service token 必须由部署负责人显式允许，控制台会话还会执行服务端绝对过期，默认 8 小时。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
+控制台所有写表单都要求同源 `Origin`/`Referer` 和与当前浏览器、当前会话绑定的签名 CSRF token；登录前 token 不能在登录后重放，token 默认 15 分钟过期。登录失败默认在 15 分钟窗口内最多 5 次，随后锁定 15 分钟并返回 `429` 与 `Retry-After`。当前限流状态只保存在单个进程内，因此公开 Render 蓝图固定 `numInstances: 1`；横向扩容前必须先改为共享限流存储。任务只有在 `action_required` 或 `failed` 时可以重试，审批必须显式选择批准或拒绝，重复审批返回冲突且不改变状态。
+
 第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。`auth-hub:audit-smoke` 会启动或复用本地授权中枢，创建测试任务，运行 AI Link dry-run workflow 生成本地 run record，再用 `runs submit-audit` 回传审计并验证 `GET /api/audit?eventType=ai_link.audit`。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同基线；真实平台连接器应放在私有配置或私有仓中实现。
 
 平台授权 P0.2 已具备 `platform_auth_collect` 合同、人工登录审批门禁、小红书只读命令适配器脚手架，以及 GitHub、公众号、小红书三套私有适配器的安全组合生成器。GitHub 的 `repo_read`、`actions_read`、`pull_request_read` 分别使用只读分支、workflow runs 和 pull requests 列表端点，不再用仓库元数据代替 scope 验证；真实验收应使用经审查的非关键私有仓。小红书只允许会话检查、批准后的可见登录和只读搜索；公众号首批只增加官方 API 健康检查。受信任代码必须位于 `runtime/private/`，组合后由 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 仅注入本地执行器；公开结果只保留稳定状态、1 至 4 条具体链接、数量和有限诊断。脚手架不等于真实账号已验收，真实扫码、验证码、凭据和平台调用仍需独立人工门禁。完整范围见 `docs/10-product/platform-auth-connectors-p0.md` 与 `docs/20-architecture/connector-contracts.md`。

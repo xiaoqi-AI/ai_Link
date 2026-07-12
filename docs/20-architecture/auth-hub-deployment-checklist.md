@@ -34,6 +34,11 @@ npm run auth-hub:local:stop
 - `AI_LINK_APP_PASSWORD`
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_SESSION_MAX_AGE_SECONDS=28800`
+- `AI_LINK_CSRF_TOKEN_TTL_SECONDS=900`
+- `AI_LINK_LOGIN_MAX_FAILURES=5`
+- `AI_LINK_LOGIN_WINDOW_SECONDS=900`
+- `AI_LINK_LOGIN_BLOCK_SECONDS=900`
+- `AI_LINK_LOGIN_MAX_KEYS=1000`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
 - `AI_LINK_EXECUTOR_ID=local-executor`（或另一个受限公开标识，必须与本地执行器一致）
@@ -54,7 +59,7 @@ npm run auth-hub:local:stop
 
 所有真实值只放 Render Secrets、Bitwarden Secrets Manager 或本机环境变量，不写入 Git。
 
-公开蓝图使用 `basic-256mb` Postgres、`ipAllowList: []` 和 `autoDeployTrigger: checksPass`。数据库仅允许 Render 私网连接；service token 许可使用 `sync: false`，部署时必须明确选择。Render service 与数据库 region 创建后不可修改，当前蓝图不替负责人选择；创建资源前先确定是否使用推荐的 `singapore`，否则 Render 默认 `oregon`。
+公开蓝图使用 `basic-256mb` Postgres、`ipAllowList: []`、`autoDeployTrigger: checksPass` 和 `numInstances: 1`。数据库仅允许 Render 私网连接；service token 许可使用 `sync: false`，部署时必须明确选择。登录限流当前只在单个 Web 进程中保存有界匿名状态，部署后不得手工扩为多实例；需要扩容时先由负责人批准共享限流方案。Render service 与数据库 region 创建后不可修改，当前蓝图不替负责人选择；创建资源前先确定是否使用推荐的 `singapore`，否则 Render 默认 `oregon`。
 
 生产部署前，在只注入生产环境变量的终端中运行：
 
@@ -126,6 +131,9 @@ npm run auth-hub:executor:start
 - 缺少 JWT 校验参数、签名无效、audience/issuer 错误或邮件身份不一致的请求均被源站拒绝。
 - 应用内登录可进入 dashboard。
 - 应用内签名会话在 `AI_LINK_SESSION_MAX_AGE_SECONDS` 到期后由服务端拒绝，不能靠手工重放 Cookie 延长。
+- 登录、创建任务、审批、重试和退出均要求同源请求与有效 CSRF token；登录前 token 不能在登录后使用，过期或跨会话 token 必须返回 403 且不改变业务状态。
+- 达到登录失败阈值后返回 429 和 `Retry-After`；正确密码不能绕过锁定，窗口到期后恢复。
+- 控制台只接受本地安全跳转；任务只有 `action_required` 或 `failed` 可重试，非法或重复审批不得改变状态。
 - 本地执行器能领取任务并回传结果。
 - `GET /api/connectors` 显示至少一个 online executor heartbeat；没有显式只读 probe 时，真实能力仍显示 `unverified` 和 `canRunReal=false`。
 - 显式 probe 只允许三项健康操作，并验证 token/executor/session/lease 绑定、重放拒绝、服务端 TTL 与 `verifiedOperations` 操作级口径。

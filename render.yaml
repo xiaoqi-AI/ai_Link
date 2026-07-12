@@ -3,6 +3,7 @@ services:
     name: ai-link-auth-hub
     runtime: node
     plan: starter
+    numInstances: 1
     buildCommand: npm ci
     startCommand: npm start
     autoDeployTrigger: checksPass
@@ -22,6 +23,16 @@ services:
         sync: false
       - key: AI_LINK_SESSION_MAX_AGE_SECONDS
         value: "28800"
+      - key: AI_LINK_CSRF_TOKEN_TTL_SECONDS
+        value: "900"
+      - key: AI_LINK_LOGIN_MAX_FAILURES
+        value: "5"
+      - key: AI_LINK_LOGIN_WINDOW_SECONDS
+        value: "900"
+      - key: AI_LINK_LOGIN_BLOCK_SECONDS
+        value: "900"
+      - key: AI_LINK_LOGIN_MAX_KEYS
+        value: "1000"
       - key: AI_LINK_ADMIN_TOKEN
         sync: false
       - key: AI_LINK_EXECUTOR_TOKEN

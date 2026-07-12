@@ -688,10 +688,11 @@ export class PostgresStore {
       `UPDATE tasks
        SET status = $1, error = NULL, leased_by = NULL, lease_id = NULL,
            lease_executor_session_id = NULL, lease_heartbeat_revision = NULL, lease_expires_at = NULL, updated_at = now()
-       WHERE id = $2
+       WHERE id = $2 AND status = ANY($3::text[])
        RETURNING *`,
-      [TASK_STATUSES.QUEUED, taskId]
+      [TASK_STATUSES.QUEUED, taskId, [TASK_STATUSES.ACTION_REQUIRED, TASK_STATUSES.FAILED]]
     );
+    if (!rows[0]) return null;
     await this.appendAudit({ taskId, actor, eventType: "task.requeued", detail: { note } });
     return rowTask(rows[0]);
   }
