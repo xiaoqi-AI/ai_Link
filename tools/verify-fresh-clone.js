@@ -84,6 +84,8 @@ const commands = [
   ["npm", ["run", "auth-hub:deploy:check"], clonePath],
   ["npm", ["run", "auth-hub:status"], clonePath],
   ["npm", ["run", "auth-hub:status:json"], clonePath],
+  ["npm", ["run", "auth-hub:github-adapter:print"], clonePath],
+  ["npm", ["run", "auth-hub:github-adapter:json", "--", "--print"], clonePath],
   ["npm", ["run", "security:scan"], clonePath]
 ];
 
