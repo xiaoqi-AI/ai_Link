@@ -170,6 +170,19 @@ npm run auth-hub:executor:start
 
 脚手架只允许输出到 `runtime/private/`，不会保存 token。生成的 `github.checkAuth()` 只读 GitHub API 授权健康状态，并把缺少凭据、无效凭据和限流映射为公开错误码。
 
+公众号官方 API 健康检查也提供独立的公开安全脚手架：
+
+```powershell
+npm run auth-hub:wechat-adapter:print
+npm run auth-hub:wechat-adapter:new
+$env:WECHAT_OFFICIAL_APP_ID="<official-account-app-id>"
+$env:WECHAT_OFFICIAL_APP_SECRET="<official-account-app-secret>"
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/wechat-official-health-adapter.mjs"
+npm run auth-hub:executor:start
+```
+
+生成的 `wechat_official.checkHealth()` 只向微信官方稳定 access-token 接口发起健康检查。适配器会立即丢弃成功响应中的 access token，不保存或回传 AppID、AppSecret、access token、`errmsg` 或原始响应；只把结果映射为 `ready`、`credential_missing`、`credential_invalid`、`official_api_ip_not_whitelisted`、`official_api_rate_limited` 或 `official_api_unavailable`。当前脚手架只把 `check_health` 标记为 `private`，公众号内容读取、草稿、发布和指标能力继续保持 `mock`，不能据此声称已经接入真实草稿或发布能力。
+
 此边界假设 `runtime/private/` 只允许受信任的本机用户写入。加载器会解析真实路径并拒绝越界，但不承诺抵御一个已经能在加载瞬间替换本机文件的攻击者；该攻击者本身已经拥有等价的本机代码执行能力。生产使用应依靠操作系统账户权限限制目录写入者。
 
 如果模块越出 `runtime/private/`、缺少工厂、导出未知平台或缺少必备方法，执行器以稳定的 `connector_contract_failed` 关闭，不回显文件路径、模块异常或原始响应。
