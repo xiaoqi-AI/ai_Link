@@ -100,6 +100,7 @@ export function dashboardPage({ tasks, actionTasks = [], approvals, connectors =
 
   const connectorRows = connectorRowsHtml(connectors);
   const authStatusRows = authStatusRowsHtml(authStatus);
+  const authNextActionRows = authNextActionRowsHtml(authStatus);
 
   return layout({
     title: "任务",
@@ -126,6 +127,7 @@ export function dashboardPage({ tasks, actionTasks = [], approvals, connectors =
     <section class="panel">
       <h2>授权/登录关注项</h2>
       <p class="muted">只展示公开安全状态：平台、处理动作、公开错误码和关联任务；不读取或展示 Cookie、Profile、token、账号详情。</p>
+      ${authNextActionRows ? `<h3>下一步行动</h3><table><thead><tr><th>平台</th><th>负责人</th><th>动作</th><th>处理说明</th><th>关联任务</th></tr></thead><tbody>${authNextActionRows}</tbody></table>` : ""}
       <table><thead><tr><th>平台</th><th>状态</th><th>处理建议</th><th>原因</th><th>关联任务</th></tr></thead><tbody>${authStatusRows || "<tr><td colspan=\"5\">暂无授权/登录关注项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
@@ -165,6 +167,16 @@ function authStatusRowsHtml(authStatus) {
   </tr>`).join("");
 }
 
+function authNextActionRowsHtml(authStatus) {
+  return (authStatus?.nextActions || []).map((action) => `<tr>
+    <td>${escapeHtml(action.platform)}</td>
+    <td>${escapeHtml(authActionOwnerLabel(action.owner))}</td>
+    <td>${escapeHtml(action.title || "-")}</td>
+    <td>${escapeHtml(action.runbook || "-")}</td>
+    <td>${authTaskLinks(action.relatedTaskIds)}</td>
+  </tr>`).join("");
+}
+
 function authTaskLinks(taskIds = []) {
   if (!taskIds.length) {
     return "-";
@@ -189,6 +201,16 @@ function connectorStatusLabel(status) {
   }[status] || status;
 }
 
+function authActionOwnerLabel(owner) {
+  return {
+    account_owner: "账号负责人",
+    maintainer: "维护者",
+    secret_owner: "密钥负责人",
+    platform_admin: "平台管理员",
+    connector_maintainer: "连接器维护者"
+  }[owner] || owner;
+}
+
 export function connectorsPage({ connectors = [], issues = [], authStatus = null }) {
   const issueRows = issues.map((issue) => `<tr>
     <td>${escapeHtml(issue.platform)}</td>
@@ -196,6 +218,7 @@ export function connectorsPage({ connectors = [], issues = [], authStatus = null
     <td>${escapeHtml(issue.code)}</td>
     <td>${escapeHtml(issue.capability || "")}</td>
   </tr>`).join("");
+  const authNextActionRows = authNextActionRowsHtml(authStatus);
 
   return layout({
     title: "连接器",
@@ -207,6 +230,7 @@ export function connectorsPage({ connectors = [], issues = [], authStatus = null
     <section class="panel">
       <h2>授权/登录关注项</h2>
       <p class="muted">该表只汇总公开安全状态，用来判断是否需要本机续登、验证码、凭据配置或连接器维护。</p>
+      ${authNextActionRows ? `<h3>下一步行动</h3><table><thead><tr><th>平台</th><th>负责人</th><th>动作</th><th>处理说明</th><th>关联任务</th></tr></thead><tbody>${authNextActionRows}</tbody></table>` : ""}
       <table><thead><tr><th>平台</th><th>状态</th><th>处理建议</th><th>原因</th><th>关联任务</th></tr></thead><tbody>${authStatusRowsHtml(authStatus) || "<tr><td colspan=\"5\">暂无授权/登录关注项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
