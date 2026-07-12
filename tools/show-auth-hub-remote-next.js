@@ -277,6 +277,18 @@ function checkRenderYaml() {
   if (!/databases:/.test(text)) {
     missing.push("Postgres database");
   }
+  if (!/autoDeployTrigger:\s*checksPass/.test(text)) {
+    missing.push("autoDeployTrigger:checksPass");
+  }
+  if (!/databases:\s+[\s\S]*?plan:\s*basic-256mb/.test(text)) {
+    missing.push("Postgres plan:basic-256mb");
+  }
+  if (!/databases:\s+[\s\S]*?ipAllowList:\s*\[\]/.test(text)) {
+    missing.push("Postgres ipAllowList:[]");
+  }
+  if (!/key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false/.test(text)) {
+    missing.push("explicit Cloudflare service-token decision");
+  }
   return {
     ok: missing.length === 0,
     missing

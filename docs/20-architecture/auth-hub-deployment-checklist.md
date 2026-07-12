@@ -43,7 +43,8 @@ npm run auth-hub:local:stop
 - `AI_LINK_ALLOWED_ACCESS_EMAILS`
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
 - `AI_LINK_CLOUDFLARE_TEAM_DOMAIN` 或 `AI_LINK_CLOUDFLARE_ACCESS_ISSUER`
-- 可选：`AI_LINK_CODEX_TOKEN`
+- `AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true`（仅当负责人批准本地执行器使用 Service Auth 时）
+- 可选运行时：`AI_LINK_CODEX_TOKEN`；完整远程 smoke 必填
 
 邮件提醒可选配置：
 
@@ -53,13 +54,17 @@ npm run auth-hub:local:stop
 
 所有真实值只放 Render Secrets、Bitwarden Secrets Manager 或本机环境变量，不写入 Git。
 
+公开蓝图使用 `basic-256mb` Postgres、`ipAllowList: []` 和 `autoDeployTrigger: checksPass`。数据库仅允许 Render 私网连接；service token 许可使用 `sync: false`，部署时必须明确选择。Render service 与数据库 region 创建后不可修改，当前蓝图不替负责人选择；创建资源前先确定是否使用推荐的 `singapore`，否则 Render 默认 `oregon`。
+
 生产部署前，在只注入生产环境变量的终端中运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://auth.xiao-qi-ai.com"
 ```
 
-生产检查会要求应用自身开启 Cloudflare Access origin guard，并配置 Access JWT 校验所需的 AUD tag 和 team domain/issuer。生产进程也会在启动配置阶段失败关闭：缺少 AUD、issuer/team domain，或既没有授权邮箱又未明确允许 service token 时拒绝启动。
+生产检查会要求持久化 `DATABASE_URL`、当前 Render Postgres 规格、数据库私网入口、CI 通过后部署策略，以及应用自身开启 Cloudflare Access origin guard 并配置 JWT 校验所需的 AUD tag 和 team domain/issuer。生产进程也会在启动配置阶段失败关闭：缺少数据库、AUD、issuer/team domain，或既没有授权邮箱又未明确允许 service token 时拒绝启动。
+
+Render 官方参考：[Blueprint YAML Reference](https://render.com/docs/blueprint-spec)、[Render Postgres flexible plans](https://render.com/docs/postgresql-refresh)。
 
 ## 3. Cloudflare Access
 
@@ -149,11 +154,13 @@ npm run auth-hub:remote:smoke
 powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -SkipExecutor
 ```
 
+`-SkipExecutor` 只跳过执行器领取与回传；应用密码、Admin token 和受限 Codex token 仍然必填，否则 smoke 失败。
+
 完整远端 mock 空跑会验证：
 
 - `/healthz` 可访问。
 - 未开启 `-ExpectAccessGate` 时，应用登录页可访问；开启 `-ExpectAccessGate` 时，未带 Access 头的 `/login` 应被 Cloudflare Access 拦截或重定向。
-- 提供 `AI_LINK_APP_PASSWORD` 时，应用内登录能进入 dashboard。
+- 应用密码必填，应用内登录必须进入 dashboard。
 - 管理 token 可以创建 `full_chain` mock 任务。
 - 控制台/API 可读取连接器公开状态，响应中不应出现 Cookie、浏览器 Profile、`runtime/private/` 等私有状态。
 - smoke 进程会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，连接器模式必须保持公开 mock/reserved，不能出现 `private`。
