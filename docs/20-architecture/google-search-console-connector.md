@@ -187,11 +187,11 @@ npm.cmd run gsc:schedule:plan
 
 计划会显示运行账号、每日时间、配置、凭据、报告和历史路径，但不会读取或打印凭据内容。只有 `credentialReady` 与 `configReady` 都为 `true` 后才允许应用。
 
-确认每天本地时间后再执行，例如每天 09:00：
+确认每天本地时间后再执行，例如每天 13:00：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1 `
-  -At "09:00" `
+  -At "13:00" `
   -Apply
 ```
 
@@ -199,18 +199,20 @@ powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1 `
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1 `
-  -At "09:00" `
+  -At "13:00" `
   -ProxyUrl "http://127.0.0.1:4780" `
   -Apply
 ```
 
 代理地址只写入本机 Windows 计划任务参数，不进入公开配置；如果代理不可用，下一轮会报告 OAuth 刷新失败而不会写入 Google。
 
-该任务只在当前 Windows 用户存在交互会话时运行，调用 `tools/run-gsc-monitor.ps1`，最长运行 30 分钟；如果上一轮仍在执行，新一轮会被忽略，避免两个进程同时覆盖历史文件。任务固定输出：
+默认计划时间为每天本地时间 13:00。该任务只在当前 Windows 用户存在交互会话时运行，调用 `tools/run-gsc-monitor.ps1`，最长运行 30 分钟；如果上一轮仍在执行，新一轮会被忽略，避免两个进程同时覆盖历史文件。任务固定输出：
 
 - 脱敏 JSON：`runtime/tmp/gsc-live-check.json`
 - 中文报告：`runtime/tmp/gsc-live-report.md`
 - 脱敏历史：`runtime/private/google-search-console/history.json`
+
+在 Codex 桌面端，配套 heartbeat 会在每天 13:15 回看 `runtime/tmp/gsc-live-domain-report.md` 和 `runtime/tmp/gsc-live-domain-check.json`，并在当前任务里用中文汇报：今日结论、是否需要 ParentingGame 修复、是否只是 Google indexing 延迟、以及 AI Link 自动化/OAuth/代理/网络是否异常。该提醒不会展示 token、OAuth 文件、账号隐私或原始敏感响应。
 
 监控检测到必须人工处理的异常时会返回退出码 2，并在报告中列出问题；第一版不自动发送邮件、短信或聊天消息。通知渠道属于后续独立配置，不能把凭据或原始 Google 响应放进通知正文。
 
