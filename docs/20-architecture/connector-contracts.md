@@ -158,6 +158,42 @@ export async function createPrivateConnectors() {
 
 该模块拥有本机代码执行权，只能配置维护者已审查的文件。模块路径不接受 Auth Hub 任务输入，不能由远端调用方指定。真实代码可以进入私有仓，但 Cookie、Profile、二维码、凭据和原始响应仍不得进入任何 Git 仓库。
 
+三个独立适配器不能通过重复设置同一个环境变量直接共存；后一次赋值会替换前一次。维护者应使用公开组合生成器创建唯一入口：
+
+```powershell
+npm run auth-hub:private-bundle:print
+npm run auth-hub:private-bundle:new
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/platform-connectors.mjs"
+```
+
+默认输入是 `runtime/private/` 下的 GitHub、公众号和小红书适配器，也可以重复使用 `--module` 指定已审查文件。生成阶段验证真实路径、扩展名、文件类型、重复输入和输出边界，但不导入模块、不运行工厂、不读取环境凭据。生成的组合入口在执行器启动时逐个调用工厂，并拒绝非对象导出和重复平台所有权；不允许通过顺序覆盖把一个平台从已审查连接器切换到另一个连接器。每个 import 带生成时的文件修改版本；任一子模块更新后应重新生成组合入口并重启执行器。
+
+小红书真实只读能力可以用公开脚手架接入本机私有桥：
+
+```powershell
+npm run auth-hub:xhs-adapter:print
+npm run auth-hub:xhs-adapter:new
+$env:AI_LINK_XHS_READONLY_BRIDGE="runtime/private/xiaohongshu-readonly-bridge.mjs"
+```
+
+适配器和桥都必须位于同一个仓库的 `runtime/private/`，扩展名为 `.js` 或 `.mjs`。适配器通过 `spawn(process.execPath, ...)` 调用桥，固定 `shell=false`，把下列请求作为唯一标准输入：
+
+```json
+{
+  "schema_version": "1",
+  "platform": "xiaohongshu",
+  "operation": "search_content",
+  "input": {
+    "query": "AI Agent",
+    "limit": 4
+  }
+}
+```
+
+桥只能输出一个 JSON 对象。`check_session` 和批准后的 `begin_login` 可以返回 `{"ok":true,"schema_version":"1","data":{"authenticated":true}}`；未完成登录则使用 `error.code=not_authenticated`、`session_expired`、`captcha_required` 或 `verification_required`。`search_content` 可以在 `data.items` 或 `data.notes` 返回平台原始条目的有限子集，适配器只读取笔记 ID、标题、摘要和可选公开时间，再重建公开合同。未知错误、非 JSON、过大输出、非零退出且无稳定错误码、越界桥和非法公开结果全部失败关闭；stdout、stderr、异常栈和绝对路径不会进入任务结果。
+
+适配器不会接受远端任务指定桥路径，不会调用 shell，不会把 `xsec_token` 拼回 URL，也不会实现发布、点赞、评论、关注、私信、验证码规避或无人值守登录。桥超时映射为可重试的 `platform_unavailable`，明确限流映射为 `platform_rate_limited`。
+
 GitHub 授权健康检查可以用公开安全脚手架生成本机私有适配器：
 
 ```powershell

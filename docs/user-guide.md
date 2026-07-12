@@ -145,7 +145,35 @@ npm run auth-hub:status:json
 
 如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应或 `runtime/private` 路径。外部项目的默认处理规则是：`nextActions` 为空时继续自动化；存在 `manual` 或 `approval` 时暂停相关平台任务并提醒对应 owner；存在 `blocked` 时先修 AI Link/平台授权，不要在业务项目里盲目重试。
 
-`platform_auth_collect` 用于统一处理小红书会话/只读搜索、公众号官方 API 健康检查和 GitHub 授权健康检查。公开仓不会携带真实实现；维护者只能把已审查的模块放入 `runtime/private/`，再以 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 指向该文件后启动本地执行器。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据、GitHub token 或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
+`platform_auth_collect` 用于统一处理小红书会话/只读搜索、公众号官方 API 健康检查和 GitHub 授权健康检查。公开仓只提供安全脚手架，不携带真实登录态；维护者只能把已审查的模块放入 `runtime/private/`。单平台排障时可以让 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 直接指向一个适配器；三平台同时启用时，应先生成 `runtime/private/platform-connectors.mjs` 组合入口，再让该变量只指向组合入口。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据、GitHub token 或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
+
+小红书 P0.2 先生成私有命令适配器：
+
+```powershell
+npm run auth-hub:xhs-adapter:print
+npm run auth-hub:xhs-adapter:new
+$env:AI_LINK_XHS_READONLY_BRIDGE="runtime/private/xiaohongshu-readonly-bridge.mjs"
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/xiaohongshu-readonly-adapter.mjs"
+npm run auth-hub:executor:start
+```
+
+真实桥必须由维护者单独审查并放在 `runtime/private/`，适配器不会生成或保存账号登录态。它以 Node 子进程运行桥，不使用 shell；标准输入是带 `schema_version`、`platform`、`operation` 和受限 `input` 的 JSON，标准输出必须是一个 JSON 对象。允许的操作只有 `check_session`、`begin_login` 和 `search_content`。`begin_login` 首次只返回 Auth Hub 人工审批，批准并推进到 `platform_interactive_login` 后才调用私有桥；浏览器必须可见，扫码、验证码和续登由账号负责人完成。
+
+只读搜索最多返回 4 条具体笔记。适配器会删除 `xsec_token`、查询参数、fragment、账号字段和原始响应，只重建 `https://www.xiaohongshu.com/explore/{note_id}`、有限标题/摘要及 `source_reachability=verified`。发布、点赞、评论、关注、私信、绕验证码和无人值守登录均不在范围内。
+
+小红书会话检查任务示例：
+
+```json
+{
+  "workflow": "platform_auth_collect",
+  "input": {
+    "platform": "xiaohongshu",
+    "operation": "check_session"
+  }
+}
+```
+
+确认会话有效后，只读搜索使用 `operation=search_content`，并传入 `query` 与 `limit`（1 至 4）。需要登录时再创建 `operation=begin_login`，不要在定时任务里自动批准交互登录。
 
 GitHub P0.2 的最小任务输入示例：
 
@@ -188,6 +216,17 @@ npm run auth-hub:executor:start
 ```
 
 生成文件位于 `runtime/private/wechat-official-health-adapter.mjs`，不会进入 Git。它只检查微信官方 API 是否可用，并把缺凭据、凭据无效、出口 IP 未加白名单、限流和官方服务不可用变成 Auth Hub 的公开行动项。成功响应中的 access token 会被立即丢弃。当前只有 `check_health` 是真实私有能力，内容读取、草稿、发布和指标仍为 mock；首次真实健康检查、IP 白名单配置和任何草稿写入都需要单独人工确认。
+
+三套适配器都生成并审查后，用组合生成器建立唯一执行器入口：
+
+```powershell
+npm run auth-hub:private-bundle:print
+npm run auth-hub:private-bundle:new
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/platform-connectors.mjs"
+npm run auth-hub:executor:start
+```
+
+默认组合 `github-auth-adapter.mjs`、`wechat-official-health-adapter.mjs` 和 `xiaohongshu-readonly-adapter.mjs`。也可以重复传入 `--module <runtime/private 下的文件>` 定制模块集合。生成器不会导入模块或读取凭据；它拒绝越界、缺失、重复文件和输出自身。组合入口在运行时拒绝缺少工厂、非法导出和两个模块同时拥有同一平台，任一模块失败都会让整体加载失败，避免后加载模块静默覆盖已审查能力。任一子模块更新后，重新运行 `auth-hub:private-bundle:new -- --force` 并重启本地执行器，以刷新模块版本。
 
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 

@@ -21,6 +21,8 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Google Search Console Desktop OAuth PKCE/loopback authorization, in-memory access-token refresh, and live read-only Sites, URL Inspection, and Sitemaps REST client.
 - Redacted GSC snapshot history, Chinese change summaries, and a plan-first Windows daily monitoring task installer.
 - Platform authorization P0.1 contracts for Xiaohongshu read-only sessions/search, WeChat Official API health checks, stable action codes, and local private connector injection.
+- Xiaohongshu P0.2 private command-adapter scaffold with structured JSON transport, strict runtime/private path checks, approval-gated interactive login, bounded concrete-note output, and fail-closed bridge errors.
+- Private connector bundle generator that safely combines the GitHub, WeChat Official and Xiaohongshu adapters while rejecting missing modules and duplicate platform ownership.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.
@@ -40,7 +42,8 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - GSC public checks are same-origin HTTPS only; OAuth credentials must remain under `runtime/private/` or an external secret manager, the authorization CLI requests read-only scope only, and Search Console writes and Request indexing remain separately gated.
 - Private connector modules are accepted only from the repository-local `runtime/private/` boundary; public results are rebuilt through an allowlist before they reach Auth Hub.
 - Approval requests now require an explicit approve/reject decision; an approval ID by itself can no longer default to approval.
-- Interactive platform login remains fail-closed in P0.1 and cannot call a private connector until a dedicated human gate is implemented.
+- Interactive platform login is fail-closed and calls the Xiaohongshu private bridge only after the dedicated Auth Hub approval step; the public repository never performs unattended login or bypasses verification.
+- Exact query-free Xiaohongshu note URLs are preserved by redaction while tokenized URLs, account fields and raw bridge output remain blocked.
 - `package:check` uses `npm pack --dry-run` and does not publish.
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.
 - `next:actions` is read-only; it does not read secrets, modify GitHub settings, publish packages, or dispatch live providers.

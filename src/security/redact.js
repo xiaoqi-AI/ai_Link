@@ -2,6 +2,7 @@ import { normalizeAiLinkAudit } from "../audit/aiLinkAudit.js";
 
 const SENSITIVE_KEY_PATTERN = /(api[_-]?key|authorization|cookie|credential|csrf|jwt|login|password|private|secret|session|token)/i;
 const LONG_SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{16,}|[A-Za-z0-9+/]{32,}={0,2})\b/g;
+const SAFE_XHS_NOTE_URL = /^https:\/\/(?:www\.)?xiaohongshu\.com\/(?:explore|discovery\/item)\/[A-Za-z0-9_-]{8,80}\/?$/;
 const PUBLIC_SESSION_STATES = new Set([
   "not_required",
   "valid",
@@ -13,6 +14,7 @@ const PUBLIC_SESSION_STATES = new Set([
 
 export function redactText(value) {
   if (typeof value !== "string") return value;
+  if (SAFE_XHS_NOTE_URL.test(value)) return value;
   return value.replace(LONG_SECRET_PATTERN, "[redacted-secret]");
 }
 

@@ -10,6 +10,9 @@ const outputPath = valueAfter("--output") || "runtime/private/wechat-official-he
 const resolvedOutput = path.resolve(process.cwd(), outputPath);
 const privateRoot = path.resolve(process.cwd(), "runtime", "private");
 const relativeOutput = path.relative(process.cwd(), resolvedOutput).replaceAll("\\", "/");
+const mockWechatImport = moduleSpecifier(
+  path.relative(path.dirname(resolvedOutput), path.resolve(process.cwd(), "src", "connectors", "mockWechat.js"))
+);
 
 const report = buildReport();
 
@@ -70,7 +73,7 @@ function buildReport() {
 }
 
 function adapterTemplate() {
-  return `import { MockWechatConnector } from "../../src/connectors/mockWechat.js";
+  return `import { MockWechatConnector } from ${JSON.stringify(mockWechatImport)};
 
 const WECHAT_STABLE_TOKEN_API = "https://api.weixin.qq.com/cgi-bin/stable_token";
 const INVALID_CREDENTIAL_CODES = new Set([40013, 40125]);
@@ -312,4 +315,9 @@ function valueAfter(name) {
 function isInside(parent, candidate) {
   const relative = path.relative(parent, candidate);
   return relative !== "" && !relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative);
+}
+
+function moduleSpecifier(value) {
+  const normalized = value.replaceAll("\\", "/");
+  return normalized.startsWith(".") ? normalized : `./${normalized}`;
 }

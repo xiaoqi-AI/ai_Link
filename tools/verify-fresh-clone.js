@@ -88,6 +88,10 @@ const commands = [
   ["npm", ["run", "auth-hub:github-adapter:json", "--", "--print"], clonePath],
   ["npm", ["run", "auth-hub:wechat-adapter:print"], clonePath],
   ["npm", ["run", "auth-hub:wechat-adapter:json", "--", "--print"], clonePath],
+  ["npm", ["run", "auth-hub:xhs-adapter:print"], clonePath],
+  ["npm", ["run", "auth-hub:xhs-adapter:json", "--", "--print"], clonePath],
+  ["npm", ["run", "auth-hub:private-bundle:print"], clonePath],
+  ["npm", ["run", "auth-hub:private-bundle:json", "--", "--print"], clonePath],
   ["npm", ["run", "security:scan"], clonePath]
 ];
 
