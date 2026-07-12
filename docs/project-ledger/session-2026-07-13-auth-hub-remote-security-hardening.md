@@ -2,11 +2,11 @@
 
 日期：2026-07-13
 
-状态：本地实现与完整验证完成；等待叠加 PR 审查。未部署远端服务，未读取真实 Cloudflare、Render 或平台凭据。
+状态：本地实现与完整验证完成；堆叠草稿 PR #24 已创建且 CI 通过，等待负责人按 PR #22 -> PR #23 -> PR #24 顺序审查。未部署远端服务，未读取真实 Cloudflare、Render 或平台凭据。
 
 ## 背景
 
-Auth Hub 已具备 Render/Postgres 蓝图、Cloudflare Access 接入和远程 smoke，但审计发现两个上线前缺口：当 Access JWT 的 issuer/audience 未配置时，中间件可能继续信任请求携带的邮件头；应用内会话只依赖浏览器 `Max-Age`，服务端没有强制绝对过期。若 Render 原始域名被直接访问，这些退化路径会削弱双重门禁。
+Auth Hub 已具备 Render/Postgres 蓝图、Cloudflare Access 接入和远程 smoke，但审计发现四个上线前缺口：Access JWT 的 issuer/audience 未配置时可能退回信任请求邮件头；转发邮件头没有与 JWT `email` 绑定；service token 的 `common_name` 可能被误作用户邮箱；应用内会话只依赖浏览器 `Max-Age`，服务端没有强制绝对过期。若 Render 原始域名被直接访问，这些退化路径会削弱双重门禁。
 
 ## 本轮决策
 
