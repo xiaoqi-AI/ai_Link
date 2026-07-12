@@ -37,15 +37,16 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard", requireAppSession, async (req, res) => {
-    const [tasks, actionTasks, approvals] = await Promise.all([
+    const [tasks, actionTasks, approvalTasks, approvals] = await Promise.all([
       req.app.locals.store.listTasks({ limit: 50 }),
       req.app.locals.store.listTasks({ status: "action_required", limit: 20 }),
+      req.app.locals.store.listTasks({ status: "approval_required", limit: 20 }),
       req.app.locals.store.listApprovals({ status: "pending" })
     ]);
     const { connectors } = describeConnectorRegistry(req.app.locals.connectorRegistry);
     const authStatus = summarizeConnectorAuthStatus({
       connectors,
-      actionTasks: actionTasks.map(publicTask)
+      actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
     });
     res.send(dashboardPage({
       tasks: tasks.map(publicTask),
@@ -61,15 +62,16 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard/connectors", requireAppSession, async (req, res) => {
-    const [connectorDescription, actionTasks] = await Promise.all([
+    const [connectorDescription, actionTasks, approvalTasks] = await Promise.all([
       describeConnectorRegistry(req.app.locals.connectorRegistry),
-      req.app.locals.store.listTasks({ status: "action_required", limit: 50 })
+      req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
+      req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
     ]);
     res.send(connectorsPage({
       ...connectorDescription,
       authStatus: summarizeConnectorAuthStatus({
         connectors: connectorDescription.connectors,
-        actionTasks: actionTasks.map(publicTask)
+        actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
       })
     }));
   });

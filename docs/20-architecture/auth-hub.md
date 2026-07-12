@@ -67,7 +67,7 @@ npm run auth-hub:local:stop
 - `GET /api/tasks`：读取脱敏任务列表，可用 `status` 查询参数筛选。
 - `GET /api/tasks/:id`：读取脱敏任务状态。
 - `GET /api/connectors`：用 `connectors:read` 权限读取公开安全的连接器状态和能力契约，不返回密钥、Cookie、登录态或平台内容。
-- `POST /api/tasks/:id/approve`：确认或拒绝发布等高风险动作。
+- `POST /api/tasks/:id/approve`：确认或拒绝发布、交互登录等高风险或人工协助动作。
 - `POST /api/tasks/:id/retry`：人工处理完成后，把 `action_required` 或失败任务重新排队。
 - `POST /api/tasks/:id/audit`：Codex 追加 AI Link run record 审计摘要，不改变任务状态。
 - `POST /api/executor/lease`：本地执行器领取任务。
@@ -170,6 +170,7 @@ npm audit --audit-level=high
 - 原有 AI Link CLI 路由和 provider 行为。
 - 授权中枢 mock 全链路：创建任务、执行器领取、检测和草稿摘要、审批、发布完成。
 - 待人工处理状态：执行器可回传 `needs_action`，控制台会单独列出 `action_required` 任务，管理员处理后可 retry 重新排队。
+- 待人工审批状态：执行器可回传 `needs_approval`，控制台会创建 `approval_required` 任务；`platform_interactive_login` 审批通过后，才允许本机执行器进入交互式登录步骤。
 - 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。
@@ -181,7 +182,7 @@ Auth Hub 控制台在任务首页和 `/dashboard/connectors` 提供“授权/登
 该摘要只读取公开安全信息：
 
 - connector registry 中的平台、状态、模式、能力和稳定问题代码。
-- `action_required` 任务中的公开错误码、平台名和任务 ID。
+- `action_required` 与 `approval_required` 任务中的公开错误码、平台名和任务 ID。
 - 已脱敏的任务摘要。
 
 该摘要不会读取或展示 Cookie、浏览器 Profile、refresh token、access token、二维码、截图、账号详情、原始平台响应或本机私有路径。真实登录态仍只保存在本机私有边界内，由私有 connector 或本地执行器负责。
@@ -198,8 +199,8 @@ Authorization: Bearer <token with connectors:read>
 状态口径：
 
 - `ready`：公开能力契约可用，当前没有相关人工处理任务。
-- `needs_action`：已有关联 `action_required` 任务，例如 `login_expired`、`captcha_required`、`credential_missing`。
+- `needs_action`：已有关联 `action_required` 或 `approval_required` 任务，例如 `login_expired`、`captcha_required`、`credential_missing`、`interactive_approval_required`。
 - `reserved`：公开仓仅预留合同位，暂未接入真实账号。
 - `blocked`：connector 契约缺失或配置异常，需要维护者修复。
 
-该入口的目标不是替代真实平台会话探测，而是把“已经被执行器发现、已经脱敏、需要人处理”的事项集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试。
+该入口的目标不是替代真实平台会话探测，而是把“已经被执行器发现、已经脱敏、需要人处理或批准”的事项集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试。

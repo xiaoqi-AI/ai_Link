@@ -52,6 +52,8 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
   executor_error: "本地执行器处理任务失败。"
 });
 
+const PLATFORM_INTERACTIVE_LOGIN_STEP = "platform_interactive_login";
+
 function approvalTitle(task) {
   if (task.currentStep === "publish") return "确认正式发布";
   return "确认继续";
@@ -231,7 +233,10 @@ async function runPlatformAuthTask(task, registry) {
       code: "connector_contract_failed"
     }));
   }
-  if (operationContract.mode !== "read_only") {
+  if (operationContract.mode === "interactive" && task.currentStep !== PLATFORM_INTERACTIVE_LOGIN_STEP) {
+    return platformInteractionApproval({ platform, operation });
+  }
+  if (!["read_only", "interactive"].includes(operationContract.mode)) {
     return platformTaskResult(syntheticPlatformResult({
       platform,
       operation,
@@ -266,6 +271,34 @@ async function runPlatformAuthTask(task, registry) {
   }
 
   return platformTaskResult(normalized);
+}
+
+function platformInteractionApproval({ platform, operation }) {
+  const summary = "需要人工批准后，才会在本机执行交互式平台登录。";
+  return {
+    status: "needs_approval",
+    summary,
+    approval: {
+      type: "platform_interactive_login",
+      title: "确认本机交互登录",
+      summary: "批准后，本机执行器可以调用受信任私有连接器的交互登录流程。该批准不会保存 Cookie、二维码、账号详情或原始平台响应。",
+      nextStep: PLATFORM_INTERACTIVE_LOGIN_STEP
+    },
+    result: redact({
+      schema_version: "1",
+      platform,
+      operation,
+      approval_required: {
+        code: "interactive_approval_required",
+        action: "approve_platform_interactive_login",
+        retryable: false
+      },
+      diagnostics: {
+        issue_codes: ["interactive_approval_required"]
+      }
+    }),
+    artifacts: []
+  };
 }
 
 function platformTaskResult(normalized) {

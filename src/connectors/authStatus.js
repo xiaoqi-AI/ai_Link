@@ -6,6 +6,7 @@ const ACTION_REQUIRED_CODES = new Set([
   "verification_required",
   "credential_missing",
   "credential_invalid",
+  "interactive_approval_required",
   "official_api_ip_not_whitelisted",
   "connector_contract_failed"
 ]);
@@ -18,6 +19,7 @@ const ACTION_LABELS = Object.freeze({
   verification_required: "需要人工验证",
   credential_missing: "需要配置凭据",
   credential_invalid: "需要更换凭据",
+  interactive_approval_required: "需要批准本机交互登录",
   official_api_ip_not_whitelisted: "需要配置 IP 白名单",
   connector_contract_failed: "需要修复私有连接器"
 });
@@ -111,9 +113,17 @@ function groupActionTasksByPlatform(tasks) {
 }
 
 function actionCode(task) {
+  if (task?.status === "approval_required") {
+    return String(
+      task?.result?.approval_required?.code
+      || task?.result?.approval?.code
+      || "interactive_approval_required"
+    );
+  }
   return String(
     task?.error?.code
     || task?.result?.action_required?.code
+    || task?.result?.approval_required?.code
     || task?.result?.error?.code
     || task?.error?.message
     || ""
