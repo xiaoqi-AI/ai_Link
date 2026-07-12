@@ -220,15 +220,16 @@ export function createApiRouter() {
   });
 
   router.get("/auth-status", requireApiScope("connectors:read"), async (req, res) => {
-    const [connectorDescription, actionTasks] = await Promise.all([
+    const [connectorDescription, actionTasks, approvalTasks] = await Promise.all([
       describeConnectorRegistry(req.app.locals.connectorRegistry),
-      req.app.locals.store.listTasks({ status: "action_required", limit: 50 })
+      req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
+      req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
     ]);
     res.json({
       ...connectorDescription,
       authStatus: summarizeConnectorAuthStatus({
         connectors: connectorDescription.connectors,
-        actionTasks: actionTasks.map(publicTask)
+        actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
       })
     });
   });

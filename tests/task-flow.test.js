@@ -616,6 +616,63 @@ describe("AI Link task flow", () => {
     assert.ok(douyin.capabilities.every((capability) => !capability.available));
   });
 
+  it("requires approval before running an interactive platform login", async () => {
+    let beginLoginCalls = 0;
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        xiaohongshu: {
+          status: "available",
+          beginLogin: async () => {
+            beginLoginCalls += 1;
+            return {
+              schema_version: "1",
+              platform: "xiaohongshu",
+              operation: "begin_login",
+              status: "needs_action",
+              session: {
+                state: "verification_required",
+                checked_at: "2026-07-11T08:00:00.000Z"
+              },
+              items: [],
+              action_required: {
+                code: "verification_required"
+              },
+              diagnostics: {
+                item_count: 0
+              }
+            };
+          }
+        }
+      }
+    });
+
+    const first = await runTask({
+      workflow: "platform_auth_collect",
+      currentStep: "process",
+      input: {
+        platform: "xiaohongshu",
+        operation: "begin_login"
+      }
+    }, { registry });
+    assert.equal(first.status, "needs_approval");
+    assert.equal(first.approval.type, "platform_interactive_login");
+    assert.equal(first.approval.nextStep, "platform_interactive_login");
+    assert.equal(first.result.approval_required.code, "interactive_approval_required");
+    assert.equal(beginLoginCalls, 0);
+
+    const second = await runTask({
+      workflow: "platform_auth_collect",
+      currentStep: "platform_interactive_login",
+      input: {
+        platform: "xiaohongshu",
+        operation: "begin_login"
+      }
+    }, { registry });
+    assert.equal(second.status, "needs_action");
+    assert.equal(second.error.code, "verification_required");
+    assert.equal(beginLoginCalls, 1);
+  });
+
   it("exposes connector status through a read-only API", async () => {
     const allowed = await requestJson(server.baseUrl, "/api/connectors", {
       token: "codex-token"
@@ -635,6 +692,59 @@ describe("AI Link task flow", () => {
       token: "executor-token"
     });
     assert.equal(denied.response.status, 403);
+  });
+
+  it("summarizes pending interactive login approvals in auth status", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "platform_auth_collect",
+        input: {
+          platform: "xiaohongshu",
+          operation: "begin_login"
+        }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "needs_approval",
+        summary: "需要人工批准后，才会在本机执行交互式平台登录。",
+        approval: {
+          type: "platform_interactive_login",
+          title: "确认本机交互登录",
+          summary: "批准后，本机执行器可以调用受信任私有连接器的交互登录流程。",
+          nextStep: "platform_interactive_login"
+        },
+        result: {
+          schema_version: "1",
+          platform: "xiaohongshu",
+          operation: "begin_login",
+          approval_required: {
+            code: "interactive_approval_required",
+            action: "approve_platform_interactive_login",
+            retryable: false
+          },
+          token: "private-token"
+        }
+      }
+    });
+    assert.equal(reported.response.status, 200);
+    assert.equal(reported.data.task.status, "approval_required");
+
+    const status = await requestJson(server.baseUrl, "/api/auth-status", {
+      token: "codex-token"
+    });
+    assert.equal(status.response.status, 200);
+    const xiaohongshu = status.data.authStatus.items.find((item) => item.platform === "xiaohongshu");
+    assert.equal(xiaohongshu.status, "needs_action");
+    assert.equal(xiaohongshu.reason, "interactive_approval_required");
+    assert.deepEqual(xiaohongshu.relatedTaskIds, [created.data.task.id]);
+    assert.equal(JSON.stringify(status.data).includes("private-token"), false);
   });
 
   it("summarizes connector auth status without exposing private state", async () => {
@@ -683,7 +793,8 @@ describe("AI Link task flow", () => {
     const xiaohongshu = status.data.authStatus.items.find((item) => item.platform === "xiaohongshu");
     assert.equal(xiaohongshu.status, "needs_action");
     assert.equal(xiaohongshu.reason, "login_expired");
-    assert.deepEqual(xiaohongshu.relatedTaskIds, [created.data.task.id]);
+    assert.equal(xiaohongshu.relatedTaskIds[0], created.data.task.id);
+    assert.ok(xiaohongshu.relatedTaskIds.includes(created.data.task.id));
 
     const serialized = JSON.stringify(status.data);
     assert.equal(serialized.includes("private-cookie"), false);

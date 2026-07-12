@@ -174,7 +174,7 @@ describe("platform authorization connector contracts", () => {
     assert.equal(JSON.stringify(result).includes("C:\\private"), false);
   });
 
-  it("does not invoke interactive login before the P0.2 human gate exists", async () => {
+  it("does not invoke interactive login before the P0.2 human gate is approved", async () => {
     let beginLoginCalled = false;
     const registry = createConnectorRegistry({
       privateConnectors: {
@@ -202,8 +202,9 @@ describe("platform authorization connector contracts", () => {
       }
     }, { registry });
 
-    assert.equal(result.status, "needs_action");
-    assert.equal(result.error.code, "login_required");
+    assert.equal(result.status, "needs_approval");
+    assert.equal(result.approval.type, "platform_interactive_login");
+    assert.equal(result.result.approval_required.code, "interactive_approval_required");
     assert.equal(beginLoginCalled, false);
   });
 

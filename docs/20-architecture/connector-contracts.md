@@ -48,16 +48,16 @@ GET /api/auth-status
 Authorization: Bearer <token with connectors:read>
 ```
 
-该接口在 `GET /api/connectors` 的平台能力契约基础上，额外合并当前 `action_required` 任务，生成公开安全的 `authStatus`：
+该接口在 `GET /api/connectors` 的平台能力契约基础上，额外合并当前 `action_required` 与 `approval_required` 任务，生成公开安全的 `authStatus`：
 
 - `summary.ready`：无需人工处理的平台数量。
-- `summary.needs_action`：已有登录、验证码、凭据或连接器维护任务的平台数量。
+- `summary.needs_action`：已有登录、验证码、凭据、交互登录审批或连接器维护任务的平台数量。
 - `summary.reserved`：仅预留合同位的平台数量。
 - `summary.blocked`：契约缺失或配置异常的平台数量。
 - `items[].action`：面向维护者的中文处理建议。
 - `items[].relatedTaskIds`：关联任务 ID，便于进入 Auth Hub 控制台处理和 retry。
 
-`authStatus` 只允许使用平台名、公开错误码和任务 ID 推导，不得包含 Cookie、Profile、token、账号详情、二维码、截图、原始响应或本机私有路径。真实平台 connector 如果发现登录过期、验证码、IP 白名单、凭据错误或连接器合同异常，应把问题映射为稳定公开错误码，并通过 `needs_action` / `action_required` 回传。
+`authStatus` 只允许使用平台名、公开错误码和任务 ID 推导，不得包含 Cookie、Profile、token、账号详情、二维码、截图、原始响应或本机私有路径。真实平台 connector 如果发现登录过期、验证码、IP 白名单、凭据错误或连接器合同异常，应把问题映射为稳定公开错误码，并通过 `needs_action` / `action_required` 回传。需要打开本机浏览器或进入扫码/验证码的 `begin_login` 会先映射为 `interactive_approval_required`，并通过 `approval_required` 进入人工审批。
 
 ## Contract Rules
 
@@ -104,7 +104,7 @@ Authorization: Bearer <token with connectors:read>
 
 `session.state` 只能是 `not_required`、`valid`、`missing`、`expired`、`verification_required` 或 `blocked`。`status` 只能是 `ready`、`needs_action` 或 `blocked`。
 
-P0.1 只发布 `begin_login` 的能力合同，不直接调用该 interactive 方法；任务会保持 `needs_action/login_required`。真正打开本机浏览器属于 P0.2 人工协助，必须先建立独立交互门禁，不能由 Hermes 定时任务或普通 retry 隐式触发。
+`begin_login` 是 interactive 方法。执行器不会在普通任务、定时任务或未审批 retry 中直接调用它；首次运行会返回 `approval_required/interactive_approval_required`，只有审批通过并把任务推进到 `platform_interactive_login` 步骤后，才允许调用受信任私有连接器。
 
 公开合同使用 allowlist 重建结果：小红书只接受 `xiaohongshu.com` 的具体笔记路径，移除查询参数和 fragment；每条素材必须声明 `source_reachability.status=verified` 和 `acquisition_provider=ai_link_xhs_readonly`。额外字段不会进入 Auth Hub。
 
