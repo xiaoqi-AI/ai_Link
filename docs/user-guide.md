@@ -176,6 +176,19 @@ npm run auth-hub:executor:start
 
 生成文件位于 `runtime/private/github-auth-adapter.mjs`，不会进入 Git。适配器只读 GitHub `/user` 或 `/repos/{owner}/{repo}`，用于判断 token 是否可用或是否限流；不会合并 PR、修改仓库设置、写 GitHub Secrets、触发 Actions 或 provider-live。
 
+公众号 P0.3 可以先生成只读健康检查适配器，不需要把真实凭据写进仓库：
+
+```powershell
+npm run auth-hub:wechat-adapter:print
+npm run auth-hub:wechat-adapter:new
+$env:WECHAT_OFFICIAL_APP_ID="<official-account-app-id>"
+$env:WECHAT_OFFICIAL_APP_SECRET="<official-account-app-secret>"
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/wechat-official-health-adapter.mjs"
+npm run auth-hub:executor:start
+```
+
+生成文件位于 `runtime/private/wechat-official-health-adapter.mjs`，不会进入 Git。它只检查微信官方 API 是否可用，并把缺凭据、凭据无效、出口 IP 未加白名单、限流和官方服务不可用变成 Auth Hub 的公开行动项。成功响应中的 access token 会被立即丢弃。当前只有 `check_health` 是真实私有能力，内容读取、草稿、发布和指标仍为 mock；首次真实健康检查、IP 白名单配置和任何草稿写入都需要单独人工确认。
+
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
 停止本地执行器和控制台：

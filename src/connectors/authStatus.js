@@ -8,6 +8,8 @@ const ACTION_REQUIRED_CODES = new Set([
   "credential_invalid",
   "interactive_approval_required",
   "official_api_ip_not_whitelisted",
+  "official_api_rate_limited",
+  "official_api_unavailable",
   "connector_contract_failed"
 ]);
 
@@ -21,6 +23,8 @@ const ACTION_LABELS = Object.freeze({
   credential_invalid: "需要更换凭据",
   interactive_approval_required: "需要批准本机交互登录",
   official_api_ip_not_whitelisted: "需要配置 IP 白名单",
+  official_api_rate_limited: "公众号 API 正在限流",
+  official_api_unavailable: "公众号 API 暂不可用",
   connector_contract_failed: "需要修复私有连接器"
 });
 
@@ -34,6 +38,8 @@ const ACTION_OWNERS = Object.freeze({
   credential_missing: "secret_owner",
   credential_invalid: "secret_owner",
   official_api_ip_not_whitelisted: "platform_admin",
+  official_api_rate_limited: "maintainer",
+  official_api_unavailable: "maintainer",
   connector_contract_failed: "connector_maintainer"
 });
 
@@ -47,6 +53,8 @@ const ACTION_RUNBOOKS = Object.freeze({
   credential_missing: "补齐对应平台的本机或密钥管理器凭据后重试。",
   credential_invalid: "轮换对应平台凭据并确认最小权限后重试。",
   official_api_ip_not_whitelisted: "把当前执行器出口 IP 加入官方平台白名单后重试。",
+  official_api_rate_limited: "等待公众号 API 退避时间结束后重试，不要通过更换凭据绕过配额。",
+  official_api_unavailable: "确认网络和公众号官方服务恢复后重试；不要在故障期间反复调用。",
   connector_contract_failed: "修复私有连接器合同输出，确认不回传 Cookie、token、账号详情或原始响应。"
 });
 

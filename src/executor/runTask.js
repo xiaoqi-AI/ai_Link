@@ -15,6 +15,7 @@ const ACTION_REQUIRED_CODES = new Set([
   "manual_action_required",
   "official_api_ip_not_whitelisted",
   "official_api_rate_limited",
+  "official_api_unavailable",
   "platform_rate_limited",
   "rate_limited",
   "session_expired",
