@@ -76,6 +76,21 @@ function validatePlatformAuthCollectInput(input, options) {
     }
     Object.assign(normalized, { query, sort, limit, mode });
   }
+  if (platform === "github" && operation === "check_auth") {
+    const owner = String(input.owner || "").trim();
+    const repo = String(input.repo || "").trim();
+    const scope = String(input.scope || "repo_read").trim();
+    if (owner && !/^[A-Za-z0-9_.-]{1,100}$/.test(owner)) {
+      return { error: "invalid_owner", detail: "Use a GitHub owner name with public-safe characters." };
+    }
+    if (repo && !/^[A-Za-z0-9_.-]{1,100}$/.test(repo)) {
+      return { error: "invalid_repo", detail: "Use a GitHub repository name with public-safe characters." };
+    }
+    if (!["repo_read", "actions_read", "pull_request_read"].includes(scope)) {
+      return { error: "unsupported_github_scope" };
+    }
+    Object.assign(normalized, { owner, repo, scope });
+  }
 
   return {
     workflow: "platform_auth_collect",

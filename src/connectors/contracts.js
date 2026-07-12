@@ -9,6 +9,7 @@ export const CONNECTOR_METHODS = Object.freeze({
   create_draft: "createDraft",
   publish: "publish",
   metrics: "metrics",
+  check_auth: "checkAuth",
   list_sites: "listSites",
   inspect_url: "inspectUrl",
   list_sitemaps: "listSitemaps",
@@ -28,6 +29,7 @@ export const PLATFORM_CONTRACTS = Object.freeze({
     "check_public_crawlability",
     "generate_status_report"
   ],
+  github: ["check_auth"],
   douyin: ["read_content", "create_draft", "publish", "metrics"],
   xiaohongshu: ["check_session", "begin_login", "complete_login", "logout", "read_content"],
   zhihu: ["read_content", "create_draft", "publish", "metrics"],
@@ -45,6 +47,7 @@ export const PLATFORM_REQUIRED_CAPABILITIES = Object.freeze({
     "check_public_crawlability",
     "generate_status_report"
   ],
+  github: ["check_auth"],
   douyin: ["read_content", "create_draft", "publish", "metrics"],
   xiaohongshu: ["check_session", "begin_login", "read_content"],
   zhihu: ["read_content", "create_draft", "publish", "metrics"],

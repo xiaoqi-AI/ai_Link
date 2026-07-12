@@ -1,5 +1,6 @@
 import { MockWechatConnector } from "./mockWechat.js";
 import { MockZhuqueConnector } from "./mockZhuque.js";
+import { MockGitHubConnector } from "./mockGitHub.js";
 import { GoogleSearchConsoleConnector } from "./googleSearchConsole.js";
 import { describeConnectorRegistry, PLATFORM_CONTRACTS } from "./contracts.js";
 
@@ -14,6 +15,7 @@ export function createConnectorRegistry({ mode = "mock", privateConnectors = {} 
     wechat_official: new MockWechatConnector(),
     zhuque_ai: new MockZhuqueConnector(),
     google_search_console: new GoogleSearchConsoleConnector(),
+    github: new MockGitHubConnector(),
     douyin: { status: "reserved" },
     xiaohongshu: { status: "reserved" },
     zhihu: { status: "reserved" },
