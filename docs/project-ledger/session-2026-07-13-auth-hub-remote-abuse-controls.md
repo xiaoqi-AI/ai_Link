@@ -2,7 +2,7 @@
 
 日期：2026-07-13
 
-状态：实现、本地全量验证和提交后全新克隆验证完成；等待知识库镜像和 GitHub CI。本轮只处理浏览器认证请求面，不执行远程部署或真实账号调用。
+状态：实现、本地全量验证、提交后全新克隆和知识库镜像验证完成；草稿 PR #27 等待 GitHub CI。本轮只处理浏览器认证请求面，不执行远程部署或真实账号调用。
 
 ## 需求
 
@@ -55,3 +55,9 @@
 - 本地完整远程 smoke：14 项通过，任务最终状态为 `completed`。
 - 缺少应用密码的 smoke：按预期非零退出，证明登录验证不会静默跳过。
 - `npm run verify:fresh`：通过，独立克隆耗时约 184 秒。
+
+## GitHub
+
+- 草稿 PR：[fix(auth-hub): harden remote browser writes #27](https://github.com/xiaoqi-AI/ai_Link/pull/27)
+- 基线分支：`codex/auth-hub-deployment-readiness`（PR #25）。
+- 本 PR 只进入评审和 CI，不自动合并、不创建远程资源。
