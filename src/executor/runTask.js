@@ -17,6 +17,7 @@ const ACTION_REQUIRED_CODES = new Set([
   "official_api_rate_limited",
   "official_api_unavailable",
   "platform_rate_limited",
+  "platform_unavailable",
   "rate_limited",
   "session_expired",
   "verification_required"
@@ -44,6 +45,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
   official_api_rate_limited: "公众号官方 API 当前限流，需要稍后重试。",
   official_api_unavailable: "公众号官方 API 当前不可用，需要稍后重试。",
   platform_rate_limited: "平台当前限流，需要按退避时间重试。",
+  platform_unavailable: "平台或本机只读桥当前不可用，需要恢复后重试。",
   rate_limited: "外部服务当前限流，需要稍后重试。",
   session_expired: "平台登录已过期，需要在本机浏览器续登。",
   verification_required: "需要在本机浏览器完成人工验证。",

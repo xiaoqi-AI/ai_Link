@@ -35,6 +35,7 @@ const PUBLIC_ISSUES = Object.freeze({
   official_api_rate_limited: Object.freeze({ action: "retry_after_backoff", retryable: true }),
   official_api_unavailable: Object.freeze({ action: "retry_when_official_api_recovers", retryable: true }),
   platform_rate_limited: Object.freeze({ action: "retry_after_backoff", retryable: true }),
+  platform_unavailable: Object.freeze({ action: "retry_when_platform_recovers", retryable: true }),
   connector_missing: Object.freeze({ action: "install_or_enable_private_connector", retryable: false }),
   connector_contract_failed: Object.freeze({ action: "repair_private_connector_contract", retryable: false }),
   specific_content_missing: Object.freeze({ action: "retry_with_a_more_specific_query", retryable: true }),

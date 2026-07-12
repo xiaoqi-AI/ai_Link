@@ -150,6 +150,28 @@ describe("WeChat Official health private adapter scaffold", () => {
     }
   });
 
+  it("loads correctly when generated in a nested runtime/private directory", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "ai-link-wechat-adapter-"));
+    try {
+      await prepareWorkspace(workspace);
+      const output = "runtime/private/platforms/wechat-official-health-adapter.mjs";
+      const result = await runScaffold({ cwd: workspace, args: ["--json", "--output", output] });
+      const report = JSON.parse(result.stdout);
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(report.summary.ok, true);
+      assert.equal(report.summary.written, true);
+      const modulePath = path.join(workspace, ...output.split("/"));
+      const registry = await loadPrivateConnectorRegistry({ modulePath, workspaceRoot: workspace });
+      const summary = describeConnectorRegistry(registry);
+      const wechat = summary.connectors.find((connector) => connector.platform === "wechat_official");
+      assert.equal(wechat.status, "available");
+      assert.equal(wechat.mode, "private");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("renders a safe handoff without writing when --print is used", async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), "ai-link-wechat-adapter-"));
     try {
