@@ -21,6 +21,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Google Search Console Desktop OAuth PKCE/loopback authorization, in-memory access-token refresh, and live read-only Sites, URL Inspection, and Sitemaps REST client.
 - Redacted GSC snapshot history, Chinese change summaries, and a plan-first Windows daily monitoring task installer.
 - Platform authorization P0.1 contracts for Xiaohongshu read-only sessions/search, WeChat Official API health checks, stable action codes, and local private connector injection.
+- GitHub P0.2 private authorization probe with target-required, scope-specific Contents/Actions/Pull requests GET endpoints and public-safe rate-limit, credential, platform and network failure classification.
 - Xiaohongshu P0.2 private command-adapter scaffold with structured JSON transport, strict runtime/private path checks, approval-gated interactive login, bounded concrete-note output, and fail-closed bridge errors.
 - Private connector bundle generator that safely combines the GitHub, WeChat Official and Xiaohongshu adapters while rejecting missing modules and duplicate platform ownership.
 - Auth Hub executor capability heartbeat with strict allowlists, server-side TTL, static-contract/runtime-evidence separation, fail-closed unverified states, and mock-only remote smoke enforcement.

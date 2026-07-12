@@ -107,7 +107,7 @@ npm run auth-hub:status:json
 | `xiaohongshu` | `begin_login` | `beginLogin` | 本机可见浏览器，人工扫码/验证 |
 | `xiaohongshu` | `search_content` | `readContent` | `latest`、1 至 4 条、`read_only` |
 | `wechat_official` | `check_health` | `checkHealth` | 官方 API 只读健康检查 |
-| `github` | `check_auth` | `checkAuth` | GitHub 授权健康检查，支持 `repo_read` / `actions_read` / `pull_request_read` |
+| `github` | `check_auth` | `checkAuth` | 目标仓库必填；`repo_read` / `actions_read` / `pull_request_read` 分别探测 Contents、Actions、Pull requests 只读端点 |
 
 连接器结果固定为：
 

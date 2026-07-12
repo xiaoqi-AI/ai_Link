@@ -81,6 +81,12 @@ function validatePlatformAuthCollectInput(input, options) {
     const owner = String(input.owner || "").trim();
     const repo = String(input.repo || "").trim();
     const scope = String(input.scope || "repo_read").trim();
+    if (!owner || !repo) {
+      return {
+        error: "github_repository_required",
+        detail: "Provide both owner and repo so the requested GitHub read scope can be verified."
+      };
+    }
     if (owner && !/^[A-Za-z0-9_.-]{1,100}$/.test(owner)) {
       return { error: "invalid_owner", detail: "Use a GitHub owner name with public-safe characters." };
     }
