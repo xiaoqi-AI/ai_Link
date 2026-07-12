@@ -49,6 +49,7 @@ describe("Auth Hub remote next report", () => {
     const blueprint = await readFile(new URL("../render.yaml", import.meta.url), "utf8");
 
     assert.match(blueprint, /key:\s*AI_LINK_BASE_URL\s+sync:\s*false/);
+    assert.match(blueprint, /key:\s*AI_LINK_SESSION_MAX_AGE_SECONDS\s+value:\s*"28800"/);
     assert.equal(blueprint.includes("voice.xiao-qi-ai.com"), false);
   });
 
@@ -72,6 +73,7 @@ describe("Auth Hub remote next report", () => {
         AI_LINK_SESSION_SECRET: "secret-session-value",
         AI_LINK_REQUIRE_CLOUDFLARE_ACCESS: "true",
         AI_LINK_CLOUDFLARE_ACCESS_AUD: "secret-aud",
+        AI_LINK_CLOUDFLARE_TEAM_DOMAIN: "test-team.cloudflareaccess.com",
         AI_LINK_ALLOWED_ACCESS_EMAILS: "owner@example.com",
         CF_ACCESS_CLIENT_ID: "secret-access-client-id",
         CF_ACCESS_CLIENT_SECRET: "secret-access-client-secret"
@@ -86,6 +88,7 @@ describe("Auth Hub remote next report", () => {
       assert.equal(result.stdout.includes("secret-admin-token"), false);
       assert.equal(result.stdout.includes("secret-access-client-secret"), false);
       assert.ok(report.checks.some((check) => check.name === "remote healthz" && check.status === "pass"));
+      assert.ok(report.checks.some((check) => check.name === "Cloudflare Access verification" && check.status === "pass"));
     });
   });
 
@@ -106,6 +109,7 @@ describe("Auth Hub remote next report", () => {
           AI_LINK_SESSION_SECRET: "",
           AI_LINK_REQUIRE_CLOUDFLARE_ACCESS: "",
           AI_LINK_CLOUDFLARE_ACCESS_AUD: "",
+          AI_LINK_CLOUDFLARE_TEAM_DOMAIN: "",
           CF_ACCESS_CLIENT_ID: "",
           CF_ACCESS_CLIENT_SECRET: ""
         }
@@ -118,6 +122,43 @@ describe("Auth Hub remote next report", () => {
       assert.ok(report.blockers.some((blocker) => blocker.includes("HTTP 404")));
       assert.ok(report.blockers.some((blocker) => blocker.includes("Missing production/smoke environment markers")));
       assert.match(report.summary.recommendedNext, /Configure Render custom domain|health payload/);
+    });
+  });
+
+  it("does not report smoke readiness when the Access origin guard is disabled", async () => {
+    await withServer((req, res) => {
+      if (req.url === "/healthz") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ ok: true, service: "ai-link-auth-hub" }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
+    }, async (baseUrl) => {
+      const result = await runRemoteNext({
+        baseUrl,
+        env: {
+          AI_LINK_BASE_URL: baseUrl,
+          AI_LINK_ADMIN_TOKEN: "test-disabled-guard-admin-token",
+          AI_LINK_EXECUTOR_TOKEN: "test-disabled-guard-executor-token",
+          AI_LINK_EXECUTOR_ID: "local-executor",
+          AI_LINK_CODEX_TOKEN: "test-disabled-guard-codex-token",
+          AI_LINK_APP_PASSWORD: "test-disabled-guard-password",
+          AI_LINK_SESSION_SECRET: "test-disabled-guard-session-secret",
+          AI_LINK_REQUIRE_CLOUDFLARE_ACCESS: "false",
+          AI_LINK_CLOUDFLARE_ACCESS_AUD: "test-disabled-guard-aud",
+          AI_LINK_CLOUDFLARE_TEAM_DOMAIN: "test-team.cloudflareaccess.com",
+          AI_LINK_ALLOWED_ACCESS_EMAILS: "owner@example.com",
+          CF_ACCESS_CLIENT_ID: "test-disabled-guard-client-id",
+          CF_ACCESS_CLIENT_SECRET: "test-disabled-guard-client-secret"
+        }
+      });
+      const report = JSON.parse(result.stdout);
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(report.summary.remoteReady, true);
+      assert.equal(report.summary.smokeReady, false);
+      assert.ok(report.blockers.some((blocker) => blocker.includes("must be true")));
     });
   });
 

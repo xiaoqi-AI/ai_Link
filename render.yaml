@@ -19,6 +19,8 @@ services:
         sync: false
       - key: AI_LINK_SESSION_SECRET
         sync: false
+      - key: AI_LINK_SESSION_MAX_AGE_SECONDS
+        value: "28800"
       - key: AI_LINK_ADMIN_TOKEN
         sync: false
       - key: AI_LINK_EXECUTOR_TOKEN

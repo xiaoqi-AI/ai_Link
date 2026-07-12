@@ -12,6 +12,7 @@ const requiredRenderRefs = [
   "DATABASE_URL",
   "AI_LINK_APP_PASSWORD",
   "AI_LINK_SESSION_SECRET",
+  "AI_LINK_SESSION_MAX_AGE_SECONDS",
   "AI_LINK_ADMIN_TOKEN",
   "AI_LINK_EXECUTOR_TOKEN",
   "AI_LINK_EXECUTOR_ID",
@@ -56,8 +57,22 @@ const repository = gitState();
 const missingRequiredEnv = envChecks.filter((item) => item.required && !item.set).map((item) => item.name);
 const missingSmokeEnv = requiredSmokeEnv.filter((name) => !process.env[name]);
 const missingAccessOperatorEnv = ["CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"].filter((name) => !process.env[name]);
+const accessGuardEnabled = enabled(process.env.AI_LINK_REQUIRE_CLOUDFLARE_ACCESS);
+const accessIssuerReady = Boolean(
+  process.env.AI_LINK_CLOUDFLARE_TEAM_DOMAIN
+  || process.env.AI_LINK_CLOUDFLARE_ACCESS_ISSUER
+);
+const accessIdentityPolicyReady = Boolean(process.env.AI_LINK_ALLOWED_ACCESS_EMAILS)
+  || enabled(process.env.AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN);
+const accessVerificationReady = accessGuardEnabled
+  && Boolean(process.env.AI_LINK_CLOUDFLARE_ACCESS_AUD)
+  && accessIssuerReady
+  && accessIdentityPolicyReady;
 const remoteReady = remoteHealth.status === "pass";
-const smokeReady = remoteReady && missingSmokeEnv.length === 0 && missingAccessOperatorEnv.length === 0;
+const smokeReady = remoteReady
+  && missingSmokeEnv.length === 0
+  && missingAccessOperatorEnv.length === 0
+  && accessVerificationReady;
 
 const blockers = [];
 if (!remoteReady) {
@@ -68,6 +83,15 @@ if (missingRequiredEnv.length > 0) {
 }
 if (missingAccessOperatorEnv.length > 0) {
   blockers.push("Cloudflare Access Service Auth client id/secret are not present in the current process.");
+}
+if (!accessGuardEnabled) {
+  blockers.push("AI_LINK_REQUIRE_CLOUDFLARE_ACCESS must be true for remote smoke readiness.");
+}
+if (!accessIssuerReady) {
+  blockers.push("Set AI_LINK_CLOUDFLARE_TEAM_DOMAIN or AI_LINK_CLOUDFLARE_ACCESS_ISSUER for signed JWT verification.");
+}
+if (!accessIdentityPolicyReady) {
+  blockers.push("Set AI_LINK_ALLOWED_ACCESS_EMAILS or explicitly allow Cloudflare Access service tokens.");
 }
 if (!renderCheck.ok) {
   blockers.push("render.yaml is missing required Auth Hub deployment references.");
@@ -99,6 +123,13 @@ const report = {
       detail: renderCheck.ok
         ? "render.yaml references the expected Auth Hub service, Postgres, env vars, and /healthz check."
         : `Missing render.yaml references: ${renderCheck.missing.join(", ")}.`
+    },
+    {
+      name: "Cloudflare Access verification",
+      status: accessVerificationReady ? "pass" : "fail",
+      detail: accessVerificationReady
+        ? "Origin guard, audience, issuer/team domain, and an identity policy are configured."
+        : "Remote smoke requires a true origin guard, audience, issuer/team domain, and an allowed user or service-token policy."
     },
     ...envChecks.map((item) => ({
       name: `env ${item.name}`,
@@ -174,6 +205,10 @@ function valueAfter(name) {
 
 function trimSlash(value) {
   return String(value || "").replace(/\/+$/, "");
+}
+
+function enabled(value) {
+  return ["1", "true", "yes"].includes(String(value || "").toLowerCase());
 }
 
 async function checkHealthz(targetBaseUrl) {

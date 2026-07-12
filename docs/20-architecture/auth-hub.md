@@ -131,6 +131,7 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - `DATABASE_URL`
 - `AI_LINK_APP_PASSWORD`
 - `AI_LINK_SESSION_SECRET`
+- `AI_LINK_SESSION_MAX_AGE_SECONDS`，默认 `28800`，允许范围为 5 分钟至 24 小时
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
 - `AI_LINK_EXECUTOR_ID`，必须与本地执行器使用的 ID 一致
@@ -143,7 +144,7 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - 可选：`AI_LINK_CODEX_TOKEN`
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
-Cloudflare Access 应限制独立 Auth Hub 域名只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access header/JWT，应用内登录作为第二层门禁。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖；建议候选为 `auth.xiao-qi-ai.com`，最终域名仍需负责人确认。
+Cloudflare Access 应限制独立 Auth Hub 域名只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access JWT 的 RS256 签名、issuer 和 audience。用户身份只取已验证 JWT 的 `email`，若转发邮件头存在则必须与 JWT 一致；服务令牌只接受已验证 JWT 的 `common_name`，且必须显式开启 service-token 访问。任何 JWT 校验参数缺失、身份不一致或签名失败都会拒绝请求，不退化为信任请求头。应用内登录作为第二层门禁，其签名会话包含服务端校验的绝对过期时间，默认 8 小时。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖；建议候选为 `auth.xiao-qi-ai.com`，最终域名仍需负责人确认。
 
 部署前检查见 `docs/20-architecture/auth-hub-deployment-checklist.md`。
 
@@ -214,6 +215,7 @@ npm audit --audit-level=high
 - 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
 - 执行器心跳：严格字段白名单、TTL 过期、缺失/过期失败关闭、旧版 Hub 兼容和心跳失败不阻塞 lease。
 - 显式 probe：token/executor/session/lease 全链绑定、mock 不可领取、服务端重验、结果重放拒绝、最新失败覆盖、TTL 失败关闭和敏感内部字段不外泄。
+- 远程访问：Access JWT 签名/issuer/audience 校验、邮件身份绑定、服务令牌分类、缺失配置失败关闭，以及控制台会话服务端绝对过期。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。
 

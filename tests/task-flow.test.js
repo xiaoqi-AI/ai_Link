@@ -922,7 +922,7 @@ describe("AI Link task flow", () => {
     assert.equal(value.nested.safe, "visible");
   });
 
-  it("can require Cloudflare Access headers before API access", async () => {
+  it("fails closed when Cloudflare Access JWT validation is not configured", async () => {
     const config = loadConfig({
       NODE_ENV: "test",
       AI_LINK_APP_PASSWORD: "test-password",
@@ -947,31 +947,15 @@ describe("AI Link task flow", () => {
       });
       assert.equal(denied.status, 403);
 
-      const allowed = await fetch(`${baseUrl}/api/tasks`, {
+      const unverified = await fetch(`${baseUrl}/api/tasks`, {
         headers: {
           authorization: "Bearer admin-token",
           "cf-access-authenticated-user-email": "owner@example.com",
           "cf-access-jwt-assertion": "placeholder-jwt"
         }
       });
-      assert.equal(allowed.status, 200);
-
-      const wrongEmail = await fetch(`${baseUrl}/api/tasks`, {
-        headers: {
-          authorization: "Bearer admin-token",
-          "cf-access-authenticated-user-email": "other@example.com",
-          "cf-access-jwt-assertion": "placeholder-jwt"
-        }
-      });
-      assert.equal(wrongEmail.status, 403);
-
-      const missingEmail = await fetch(`${baseUrl}/api/tasks`, {
-        headers: {
-          authorization: "Bearer admin-token",
-          "cf-access-jwt-assertion": "placeholder-jwt"
-        }
-      });
-      assert.equal(missingEmail.status, 403);
+      assert.equal(unverified.status, 403);
+      assert.equal((await unverified.json()).detail, "jwt_validation_not_configured");
     } finally {
       await new Promise((resolve) => local.close(resolve));
     }
