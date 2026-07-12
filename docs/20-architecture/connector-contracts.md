@@ -69,6 +69,17 @@ Authorization: Bearer <token with connectors:read>
 
 `nextActions[].severity` 的稳定取值包括 `approval`、`manual` 和 `blocked`。外部项目只应把这些字段作为暂停、提醒和人工门禁信号；不得据此读取 Cookie、Profile、token、二维码、截图、账号详情、原始响应或本机私有路径。
 
+外部项目或本地维护者可以用只读命令消费同一合同：
+
+```powershell
+$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
+npm run auth-hub:status
+npm run auth-hub:status:json
+```
+
+该命令只读取 `GET /api/auth-status`，并把返回结果重新收敛为公开安全的 `summary`、`authStatus.items` 和 `nextActions`。如果远程 Auth Hub 使用 Cloudflare Access Service Auth，可以在当前终端临时设置 `CF_ACCESS_CLIENT_ID` 与 `CF_ACCESS_CLIENT_SECRET`；命令只报告是否可达和行动清单，不打印这些值。
+
 `authStatus` 只允许使用平台名、公开错误码和任务 ID 推导，不得包含 Cookie、Profile、token、账号详情、二维码、截图、原始响应或本机私有路径。真实平台 connector 如果发现登录过期、验证码、IP 白名单、凭据错误或连接器合同异常，应把问题映射为稳定公开错误码，并通过 `needs_action` / `action_required` 回传。需要打开本机浏览器或进入扫码/验证码的 `begin_login` 会先映射为 `interactive_approval_required`，并通过 `approval_required` 进入人工审批。
 
 ## Contract Rules

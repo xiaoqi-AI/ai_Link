@@ -134,6 +134,17 @@ npm run auth-hub:executor:start
 
 如果要从项目负责人视角判断“现在是否需要人工续登或配置授权”，打开 `/dashboard` 或 `/dashboard/connectors` 的“授权/登录关注项”。其他项目可用只读 API `GET /api/auth-status` 读取同一份摘要：它只返回平台、状态、公开错误码、处理建议、行动负责人、处理说明和关联任务 ID，不返回 Cookie、Profile、token、账号详情或原始平台响应。ParentingGame、Hermes Agent 等项目应把这个接口当作“是否需要暂停自动化并提醒维护者”的信号，而不是直接读取真实登录态。`authStatus.nextActions` 是给项目负责人和外部项目消费的行动清单：`owner` 表示账号负责人、维护者、密钥负责人、平台管理员或连接器维护者；`retryAfterAction` 表示人工处理后是否可以重试关联任务。
 
+跨项目只读消费可以直接运行：
+
+```powershell
+$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
+npm run auth-hub:status
+npm run auth-hub:status:json
+```
+
+如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应或 `runtime/private` 路径。外部项目的默认处理规则是：`nextActions` 为空时继续自动化；存在 `manual` 或 `approval` 时暂停相关平台任务并提醒对应 owner；存在 `blocked` 时先修 AI Link/平台授权，不要在业务项目里盲目重试。
+
 `platform_auth_collect` 用于统一处理小红书会话/只读搜索和公众号官方 API 健康检查。公开仓不会携带真实实现；维护者只能把已审查的模块放入 `runtime/private/`，再以 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 指向该文件后启动本地执行器。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
 
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
