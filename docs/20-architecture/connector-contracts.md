@@ -54,8 +54,20 @@ Authorization: Bearer <token with connectors:read>
 - `summary.needs_action`：已有登录、验证码、凭据、交互登录审批或连接器维护任务的平台数量。
 - `summary.reserved`：仅预留合同位的平台数量。
 - `summary.blocked`：契约缺失或配置异常的平台数量。
+- `summary.next_actions`：当前需要项目负责人或维护者跟进的行动数量。
 - `items[].action`：面向维护者的中文处理建议。
 - `items[].relatedTaskIds`：关联任务 ID，便于进入 Auth Hub 控制台处理和 retry。
+- `nextActions[]`：面向项目负责人和外部项目的行动清单。每条只包含 `platform`、`reason`、`title`、`owner`、`severity`、`runbook`、`relatedTaskIds` 和 `retryAfterAction`，不包含真实登录态。
+
+`nextActions[].owner` 的稳定取值包括：
+
+- `account_owner`：需要账号负责人在受信任本机登录、续登或完成人机验证。
+- `maintainer`：需要 AI Link 维护者审批或判断是否继续。
+- `secret_owner`：需要密钥负责人补齐或轮换凭据。
+- `platform_admin`：需要平台管理员配置 IP 白名单等平台设置。
+- `connector_maintainer`：需要修复私有连接器合同或脱敏输出。
+
+`nextActions[].severity` 的稳定取值包括 `approval`、`manual` 和 `blocked`。外部项目只应把这些字段作为暂停、提醒和人工门禁信号；不得据此读取 Cookie、Profile、token、二维码、截图、账号详情、原始响应或本机私有路径。
 
 `authStatus` 只允许使用平台名、公开错误码和任务 ID 推导，不得包含 Cookie、Profile、token、账号详情、二维码、截图、原始响应或本机私有路径。真实平台 connector 如果发现登录过期、验证码、IP 白名单、凭据错误或连接器合同异常，应把问题映射为稳定公开错误码，并通过 `needs_action` / `action_required` 回传。需要打开本机浏览器或进入扫码/验证码的 `begin_login` 会先映射为 `interactive_approval_required`，并通过 `approval_required` 进入人工审批。
 

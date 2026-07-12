@@ -744,6 +744,13 @@ describe("AI Link task flow", () => {
     assert.equal(xiaohongshu.status, "needs_action");
     assert.equal(xiaohongshu.reason, "interactive_approval_required");
     assert.deepEqual(xiaohongshu.relatedTaskIds, [created.data.task.id]);
+    assert.equal(status.data.authStatus.summary.next_actions, 1);
+    assert.equal(status.data.authStatus.nextActions[0].platform, "xiaohongshu");
+    assert.equal(status.data.authStatus.nextActions[0].owner, "maintainer");
+    assert.equal(status.data.authStatus.nextActions[0].severity, "approval");
+    assert.match(status.data.authStatus.nextActions[0].runbook, /审批本机交互登录/);
+    assert.deepEqual(status.data.authStatus.nextActions[0].relatedTaskIds, [created.data.task.id]);
+    assert.equal(status.data.authStatus.nextActions[0].retryAfterAction, false);
     assert.equal(JSON.stringify(status.data).includes("private-token"), false);
   });
 
@@ -795,6 +802,11 @@ describe("AI Link task flow", () => {
     assert.equal(xiaohongshu.reason, "login_expired");
     assert.equal(xiaohongshu.relatedTaskIds[0], created.data.task.id);
     assert.ok(xiaohongshu.relatedTaskIds.includes(created.data.task.id));
+    const nextAction = status.data.authStatus.nextActions.find((action) => action.platform === "xiaohongshu");
+    assert.equal(nextAction.owner, "account_owner");
+    assert.equal(nextAction.severity, "manual");
+    assert.equal(nextAction.retryAfterAction, true);
+    assert.match(nextAction.runbook, /续登/);
 
     const serialized = JSON.stringify(status.data);
     assert.equal(serialized.includes("private-cookie"), false);
@@ -816,6 +828,8 @@ describe("AI Link task flow", () => {
     const html = await page.text();
     assert.equal(page.status, 200);
     assert.match(html, /授权\/登录关注项/);
+    assert.match(html, /下一步行动/);
+    assert.match(html, /账号负责人/);
     assert.match(html, /需要续登/);
     assert.match(html, /xiaohongshu/);
     assert.equal(html.includes("private-cookie"), false);
