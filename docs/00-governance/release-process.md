@@ -77,7 +77,7 @@ Use `docs/00-governance/manual-confirmation-playbook.md` when the release owner 
 
 Use `npm run setup:handoff` or `npm run setup:handoff:json` when you need the ordered handoff across Bitwarden setup, GitHub provider-live wiring, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
 
-Use `npm run maintainer:pack` or `npm run maintainer:pack:json` when a maintainer needs one consolidated action pack across GitHub UI hardening, Bitwarden local foundation, provider-live GitHub wiring, release decision closeout, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
+Use `npm run maintainer:pack` or `npm run maintainer:pack:json` when a maintainer needs one consolidated action pack across GSC monitoring operations, platform auth P0.2 interactive login gates, Auth Hub remote blockers, GitHub UI hardening, Bitwarden local foundation, provider-live GitHub wiring, release decision closeout, provider-live cost approval, and release-channel choice. The command is read-only and safe for public logs.
 
 Use `npm run external:preflight` or `npm run external:preflight:json` immediately before touching Bitwarden or GitHub UI. It is a read-only go/no-go gate that blocks external setup from a dirty or unsynced public repository, reports source-report availability, and never reads or prints secret values.
 

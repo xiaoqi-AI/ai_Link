@@ -47,14 +47,20 @@ describe("maintainer action pack", () => {
       "baseline-before-external-work",
       "bitwarden-local-foundation",
       "github-ui-hardening",
+      "gsc-monitor-operations",
+      "platform-auth-p0-2-interactive-gate",
       "provider-live-cost-gate",
       "provider-live-github-wiring",
       "release-channel-choice",
       "release-decision-closeout"
     ]);
     assert.equal(report.sources.githubHardeningNext.available, true);
+    assert.equal(report.sources.authHubRemoteNext.available, true);
     assert.equal(report.sources.releaseDecisionNext.available, true);
     assert.equal(report.sections.some((section) => section.id === "auth-hub-remote-mock-dry-run" && section.commands?.some((command) => command.includes("auth-hub:remote:smoke"))), true);
+    assert.equal(report.sections.some((section) => section.id === "auth-hub-remote-mock-dry-run" && section.currentBlockers?.length > 0), true);
+    assert.equal(report.sections.some((section) => section.id === "gsc-monitor-operations" && section.evidence?.some((item) => item.includes("13:15"))), true);
+    assert.equal(report.sections.some((section) => section.id === "platform-auth-p0-2-interactive-gate" && section.evidence?.some((item) => item.includes("interactive_approval_required"))), true);
     assert.equal(report.sections.some((section) => section.links?.some((link) => link.includes("/settings/rules"))), true);
     assert.equal(report.sections.some((section) => section.commands?.some((command) => command.includes("bws:acceptance:json"))), true);
     assert.equal(report.sections.some((section) => section.afterReviewCommands?.some((command) => command.includes("release:decisions:update"))), true);
@@ -68,6 +74,9 @@ describe("maintainer action pack", () => {
     assert.match(result.stdout, /AI Link Maintainer Action Pack/);
     assert.match(result.stdout, /GitHub UI hardening/);
     assert.match(result.stdout, /Auth Hub remote mock dry-run/);
+    assert.match(result.stdout, /GSC monitor operations/);
+    assert.match(result.stdout, /Platform auth P0\.2 interactive gate/);
+    assert.match(result.stdout, /Current blockers/);
     assert.match(result.stdout, /Bitwarden local foundation/);
     assert.match(result.stdout, /auth-hub:remote:smoke/);
     assert.match(result.stdout, /bws:acceptance:json/);
