@@ -155,7 +155,8 @@ export function dashboardPage({
     </section>
     <section class="panel">
       <h2>执行器能力证据</h2>
-      <table><thead><tr><th>平台</th><th>来源</th><th>心跳</th><th>实现模式</th><th>真实可运行</th></tr></thead><tbody>${runtimeConnectorRows || "<tr><td colspan=\"5\">暂无执行器能力证据</td></tr>"}</tbody></table>
+      <p class="muted">“已验证操作”只表示列出的只读健康操作在有效期内由绑定执行器完成；不代表整个平台、写操作或发布权限可用。</p>
+      <table><thead><tr><th>平台</th><th>来源</th><th>心跳</th><th>实现模式</th><th>探测状态</th><th>已验证操作</th><th>有效期至</th></tr></thead><tbody>${runtimeConnectorRows || "<tr><td colspan=\"7\">暂无执行器能力证据</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>待确认动作</h2>
@@ -205,8 +206,21 @@ function runtimeConnectorRowsHtml(connectors) {
     <td>${escapeHtml(connector.source === "executor" ? "本机执行器" : "服务端契约")}</td>
     <td><span class="status ${escapeHtml(connector.runtime?.status || "unreported")}">${escapeHtml(executorRuntimeLabel(connector.runtime?.status || "unreported"))}</span></td>
     <td>${escapeHtml(connector.mode || "-")}</td>
-    <td>${escapeHtml(connector.canRunReal === true ? "已验证" : "未验证")}</td>
+    <td>${escapeHtml(probeStatusLabel(connector.probe?.status || "not_run"))}</td>
+    <td>${escapeHtml((connector.verifiedOperations || []).join(", ") || "-")}</td>
+    <td>${escapeHtml(connector.probe?.expiresAt || "-")}</td>
   </tr>`).join("");
+}
+
+function probeStatusLabel(status) {
+  return {
+    verified: "已验证",
+    action_required: "需要人工处理",
+    blocked: "阻断",
+    unverified: "未形成可信证据",
+    stale: "证据已过期",
+    not_run: "尚未探测"
+  }[status] || status;
 }
 
 function authNextActionRowsHtml(authStatus) {
@@ -289,7 +303,8 @@ export function connectorsPage({ connectors = [], issues = [], executorRuntime =
     </section>
     <section class="panel">
       <h2>执行器能力证据</h2>
-      <table><thead><tr><th>平台</th><th>来源</th><th>心跳</th><th>实现模式</th><th>真实可运行</th></tr></thead><tbody>${runtimeConnectorRows || "<tr><td colspan=\"5\">暂无执行器能力证据</td></tr>"}</tbody></table>
+      <p class="muted">“已验证操作”只表示列出的只读健康操作在有效期内由绑定执行器完成；不代表整个平台、写操作或发布权限可用。</p>
+      <table><thead><tr><th>平台</th><th>来源</th><th>心跳</th><th>实现模式</th><th>探测状态</th><th>已验证操作</th><th>有效期至</th></tr></thead><tbody>${runtimeConnectorRows || "<tr><td colspan=\"7\">暂无执行器能力证据</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>授权/登录关注项</h2>

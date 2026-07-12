@@ -13,6 +13,8 @@ const ACTION_REQUIRED_CODES = new Set([
   "platform_rate_limited",
   "platform_unavailable",
   "specific_content_missing",
+  "source_unreachable",
+  "connector_missing",
   "connector_contract_failed"
 ]);
 
@@ -31,6 +33,8 @@ const ACTION_LABELS = Object.freeze({
   platform_rate_limited: "平台正在限流",
   platform_unavailable: "平台只读连接暂不可用",
   specific_content_missing: "需要更具体的搜索词",
+  source_unreachable: "平台只读检查不可达",
+  connector_missing: "需要安装或启用私有连接器",
   connector_contract_failed: "需要修复私有连接器"
 });
 
@@ -49,6 +53,8 @@ const ACTION_OWNERS = Object.freeze({
   platform_rate_limited: "maintainer",
   platform_unavailable: "maintainer",
   specific_content_missing: "task_owner",
+  source_unreachable: "maintainer",
+  connector_missing: "connector_maintainer",
   connector_contract_failed: "connector_maintainer"
 });
 
@@ -67,6 +73,8 @@ const ACTION_RUNBOOKS = Object.freeze({
   platform_rate_limited: "等待平台退避时间结束后重试，不要通过切换账号绕过限制。",
   platform_unavailable: "确认本机只读桥、网络和平台服务恢复后重试，不要在故障期间反复调用。",
   specific_content_missing: "换用更具体的只读关键词后低频重试；不要扩大到互动、发布或绕过平台限制。",
+  source_unreachable: "确认本机网络、私有连接器和官方平台恢复后重试。",
+  connector_missing: "安装或启用已审查的本机私有连接器后重试。",
   connector_contract_failed: "修复私有连接器合同输出，确认不回传 Cookie、token、账号详情或原始响应。"
 });
 
@@ -75,13 +83,15 @@ const ACTION_SEVERITY = Object.freeze({
   connector_contract_failed: "blocked",
   credential_missing: "blocked",
   credential_invalid: "blocked",
+  connector_missing: "blocked",
   official_api_ip_not_whitelisted: "blocked"
 });
 
 export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = [] } = {}) {
   const actionByPlatform = groupActionTasksByPlatform(actionTasks);
   const items = connectors.map((connector) => {
-    const platformActions = actionByPlatform.get(connector.platform) || [];
+    const platformActions = (actionByPlatform.get(connector.platform) || [])
+      .filter((action) => !connector.probe?.checkedAt || !action.updatedAt || action.updatedAt >= connector.probe.checkedAt);
     const firstAction = platformActions[0];
     const issueCodes = connector.issues?.map((issue) => issue.code).filter(Boolean) || [];
 
@@ -101,6 +111,51 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
         status: "unverified",
         reason: "executor_heartbeat_stale",
         action: "本机执行器心跳已过期"
+      });
+    }
+
+    if (connector.probe?.status === "blocked") {
+      return authItem({
+        connector,
+        status: "blocked",
+        reason: connector.probe.issueCode || "probe_blocked",
+        action: actionLabel(connector.probe.issueCode)
+      });
+    }
+
+    if (connector.probe?.status === "action_required") {
+      return authItem({
+        connector,
+        status: "needs_action",
+        reason: connector.probe.issueCode || "probe_action_required",
+        action: actionLabel(connector.probe.issueCode)
+      });
+    }
+
+    if (connector.probe?.status === "verified" && connector.canRunReal === true) {
+      return authItem({
+        connector,
+        status: "ready",
+        reason: "probe_verified",
+        action: "无需处理"
+      });
+    }
+
+    if (connector.probe?.status === "stale") {
+      return authItem({
+        connector,
+        status: "unverified",
+        reason: "probe_stale",
+        action: "只读探测证据已过期，需要重新执行显式健康检查"
+      });
+    }
+
+    if (connector.probe?.status === "unverified") {
+      return authItem({
+        connector,
+        status: "unverified",
+        reason: connector.probe.issueCode || "probe_unverified",
+        action: "探测结果未形成可信证据"
       });
     }
 
@@ -165,6 +220,8 @@ function authItem({ connector, status, reason, action, relatedTaskIds = [] }) {
     runtimeStatus: connector.runtime?.status || "unreported",
     operationalStatus: connector.operationalStatus || "unverified",
     canRunReal: connector.canRunReal === true,
+    verifiedOperations: Array.isArray(connector.verifiedOperations) ? connector.verifiedOperations.slice(0, 10) : [],
+    probe: publicProbe(connector.probe),
     reason,
     action,
     relatedTaskIds: relatedTaskIds.slice(0, 5)
@@ -185,11 +242,34 @@ function groupActionTasksByPlatform(tasks) {
     const values = groups.get(platform) || [];
     values.push({
       taskId: task.id,
-      code
+      code,
+      updatedAt: task.updatedAt || ""
     });
     groups.set(platform, values);
   }
   return groups;
+}
+
+function publicProbe(probe) {
+  if (!probe || typeof probe !== "object") return null;
+  return {
+    status: String(probe.status || "not_run"),
+    checkedAt: probe.checkedAt || null,
+    expiresAt: probe.expiresAt || null,
+    issueCode: String(probe.issueCode || ""),
+    operations: Array.isArray(probe.operations)
+      ? probe.operations.slice(0, 10).map((item) => ({
+        operation: String(item.operation || ""),
+        capability: String(item.capability || ""),
+        outcome: String(item.outcome || ""),
+        issueCode: String(item.issueCode || ""),
+        taskId: String(item.taskId || ""),
+        checkedAt: item.checkedAt || null,
+        expiresAt: item.expiresAt || null,
+        freshness: String(item.freshness || "")
+      }))
+      : []
+  };
 }
 
 function actionCode(task) {

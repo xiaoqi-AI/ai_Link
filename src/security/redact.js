@@ -57,16 +57,29 @@ function publicSessionStatus(value) {
 
 export function publicTask(task) {
   if (!task) return null;
+  const { leaseId, leaseExecutorSessionId, leaseHeartbeatRevision, ...publicFields } = task;
+  void leaseId;
+  void leaseExecutorSessionId;
+  void leaseHeartbeatRevision;
   const result = redact(task.result || null);
   if (task.result?.aiLinkAudit && result && typeof result === "object" && !Array.isArray(result)) {
     result.aiLinkAudit = task.result.aiLinkAudit;
   }
   return {
-    ...task,
+    ...publicFields,
     input: redact(task.input),
     options: redact(task.options || {}),
     result,
     error: redact(task.error || null)
+  };
+}
+
+export function publicLeasedTask(task) {
+  const publicValue = publicTask(task);
+  if (!publicValue || !task?.leaseId) return publicValue;
+  return {
+    ...publicValue,
+    leaseId: task.leaseId
   };
 }
 

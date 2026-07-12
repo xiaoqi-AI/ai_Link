@@ -28,7 +28,14 @@ describe("console task detail page", () => {
           mode: "private",
           source: "executor",
           runtime: { status: "online" },
-          canRunReal: false
+          canRunReal: true,
+          verifiedOperations: ["check_session"],
+          probe: {
+            status: "verified",
+            expiresAt: "2026-07-12T12:15:00.000Z",
+            attemptId: "must-not-render",
+            heartbeatRevision: "must-not-render"
+          }
         }]
       },
       authStatus: {
@@ -46,9 +53,11 @@ describe("console task detail page", () => {
     assert.match(html, /连接器契约基线/);
     assert.match(html, /本机执行器状态/);
     assert.match(html, /执行器能力证据/);
-    assert.match(html, /真实可运行/);
-    assert.match(html, /未验证/);
+    assert.match(html, /已验证操作/);
+    assert.match(html, /check_session/);
+    assert.match(html, /2026-07-12T12:15:00.000Z/);
     assert.match(html, /local-executor/);
+    assert.equal(html.includes("must-not-render"), false);
   });
 
   it("renders AI Link audit summaries as scan-friendly tables", () => {

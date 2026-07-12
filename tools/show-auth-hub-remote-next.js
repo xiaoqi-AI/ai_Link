@@ -14,7 +14,9 @@ const requiredRenderRefs = [
   "AI_LINK_SESSION_SECRET",
   "AI_LINK_ADMIN_TOKEN",
   "AI_LINK_EXECUTOR_TOKEN",
+  "AI_LINK_EXECUTOR_ID",
   "AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS",
+  "AI_LINK_CONNECTOR_PROBE_TTL_MS",
   "AI_LINK_CODEX_TOKEN",
   "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
   "AI_LINK_ALLOWED_ACCESS_EMAILS",
@@ -27,6 +29,7 @@ const requiredSmokeEnv = [
   "AI_LINK_BASE_URL",
   "AI_LINK_ADMIN_TOKEN",
   "AI_LINK_EXECUTOR_TOKEN",
+  "AI_LINK_EXECUTOR_ID",
   "AI_LINK_CODEX_TOKEN",
   "AI_LINK_APP_PASSWORD"
 ];
@@ -135,6 +138,7 @@ const report = {
       "$env:AI_LINK_BASE_URL=\"https://auth.xiao-qi-ai.com\"",
       "$env:AI_LINK_ADMIN_TOKEN=\"<admin-token-from-secret-store>\"",
       "$env:AI_LINK_EXECUTOR_TOKEN=\"<executor-token-from-secret-store>\"",
+      "$env:AI_LINK_EXECUTOR_ID=\"local-executor\"",
       "$env:AI_LINK_CODEX_TOKEN=\"<codex-token-from-secret-store>\"",
       "$env:AI_LINK_APP_PASSWORD=\"<app-password-from-secret-store>\"",
       "$env:CF_ACCESS_CLIENT_ID=\"<cloudflare-service-auth-client-id>\"",

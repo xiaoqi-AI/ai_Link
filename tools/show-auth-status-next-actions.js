@@ -5,8 +5,11 @@ const outputJson = args.includes("--json");
 const strict = args.includes("--strict");
 const baseUrl = trimSlash(valueAfter("--base-url") || process.env.AI_LINK_BASE_URL || "http://127.0.0.1:10000");
 const token = valueAfter("--token") || process.env.AI_LINK_CODEX_TOKEN || process.env.AI_LINK_ADMIN_TOKEN || "";
+const rawRequestedPlatforms = valuesAfter("--platform");
+const requestedPlatforms = normalizePlatforms(rawRequestedPlatforms);
+const invalidPlatformFilter = rawRequestedPlatforms.some((value) => !/^[a-z0-9_]{1,80}$/.test(String(value || "").trim()));
 
-const report = await buildReport({ baseUrl, token });
+const report = await buildReport({ baseUrl, token, requestedPlatforms, platformFilterApplied: rawRequestedPlatforms.length > 0, invalidPlatformFilter });
 
 if (outputJson) {
   console.log(JSON.stringify(report, null, 2));
@@ -18,11 +21,18 @@ if (strict && !report.summary.ok) {
   process.exitCode = 1;
 }
 
-async function buildReport({ baseUrl: targetBaseUrl, token: bearerToken }) {
+async function buildReport({
+  baseUrl: targetBaseUrl,
+  token: bearerToken,
+  requestedPlatforms: platformFilter,
+  platformFilterApplied,
+  invalidPlatformFilter
+}) {
   const generatedAt = new Date().toISOString();
   const target = {
     baseUrl: targetBaseUrl,
-    authStatusUrl: `${targetBaseUrl}/api/auth-status`
+    authStatusUrl: `${targetBaseUrl}/api/auth-status`,
+    platforms: platformFilter
   };
 
   if (!bearerToken) {
@@ -65,14 +75,22 @@ async function buildReport({ baseUrl: targetBaseUrl, token: bearerToken }) {
   }
 
   const authStatus = response.data?.authStatus || {};
-  const nextActions = Array.isArray(authStatus.nextActions) ? authStatus.nextActions.map(publicAction) : [];
-  const blockers = nextActions
-    .filter((action) => action.severity === "blocked")
-    .map((action) => `${action.platform}: ${action.reason}`);
-  const unverified = (Array.isArray(authStatus.items) ? authStatus.items : [])
-    .filter((item) => item.status === "unverified")
-    .map((item) => `${item.platform}: ${item.reason || "unverified"}`);
-  blockers.push(...unverified);
+  const allItems = Array.isArray(authStatus.items) ? authStatus.items.map(publicItem) : [];
+  const items = platformFilterApplied
+    ? allItems.filter((item) => platformFilter.includes(item.platform))
+    : allItems;
+  const allActions = Array.isArray(authStatus.nextActions) ? authStatus.nextActions.map(publicAction) : [];
+  const nextActions = platformFilterApplied
+    ? allActions.filter((action) => platformFilter.includes(action.platform))
+    : allActions;
+  const missingPlatforms = platformFilter.filter((platform) => !allItems.some((item) => item.platform === platform));
+  const blockers = unique([
+    ...items
+      .filter((item) => item.status !== "ready")
+      .map((item) => `${item.platform}: ${item.reason || item.status || "unverified"}`),
+    ...missingPlatforms.map((platform) => `${platform}: missing_from_auth_status`),
+    ...(invalidPlatformFilter ? ["invalid_platform_filter"] : [])
+  ]);
   const manualCount = nextActions.filter((action) => action.severity !== "blocked").length;
   return {
     generatedAt,
@@ -87,7 +105,7 @@ async function buildReport({ baseUrl: targetBaseUrl, token: bearerToken }) {
     target,
     authStatus: {
       summary: authStatus.summary || {},
-      items: Array.isArray(authStatus.items) ? authStatus.items.map(publicItem) : []
+      items
     },
     nextActions,
     blockers,
@@ -151,6 +169,8 @@ function publicItem(item) {
     runtimeStatus: stringValue(item.runtimeStatus),
     operationalStatus: stringValue(item.operationalStatus),
     canRunReal: item.canRunReal === true,
+    verifiedOperations: safeStrings(item.verifiedOperations, 10),
+    probe: publicProbe(item.probe),
     reason: stringValue(item.reason),
     action: stringValue(item.action),
     relatedTaskIds: safeTaskIds(item.relatedTaskIds)
@@ -161,6 +181,22 @@ function safeTaskIds(values) {
   return Array.isArray(values)
     ? values.map((value) => stringValue(value)).filter(Boolean).slice(0, 5)
     : [];
+}
+
+function safeStrings(values, limit) {
+  return Array.isArray(values)
+    ? values.map((value) => stringValue(value)).filter(Boolean).slice(0, limit)
+    : [];
+}
+
+function publicProbe(probe) {
+  if (!probe || typeof probe !== "object" || Array.isArray(probe)) return null;
+  return {
+    status: stringValue(probe.status),
+    checkedAt: stringValue(probe.checkedAt),
+    expiresAt: stringValue(probe.expiresAt),
+    issueCode: stringValue(probe.issueCode)
+  };
 }
 
 function stringValue(value) {
@@ -196,6 +232,9 @@ function renderMarkdown(report) {
   lines.push("## Summary");
   lines.push("");
   lines.push(`- Auth Hub: ${report.target.baseUrl}`);
+  if (report.target.platforms.length > 0) {
+    lines.push(`- Platform filter: ${report.target.platforms.join(", ")}`);
+  }
   lines.push(`- Reachable: ${report.summary.reachable ? "yes" : "no"}`);
   lines.push(`- Next actions: ${report.summary.nextActions}`);
   lines.push(`- Blocking count: ${report.summary.blockingCount}`);
@@ -219,10 +258,10 @@ function renderMarkdown(report) {
   if (report.authStatus?.items?.length > 0) {
     lines.push("## Platform Status");
     lines.push("");
-    lines.push("| Platform | Status | Reason | Action | Related tasks |");
-    lines.push("| --- | --- | --- | --- | --- |");
+    lines.push("| Platform | Status | Verified operations | Probe | Reason | Action | Related tasks |");
+    lines.push("| --- | --- | --- | --- | --- | --- | --- |");
     for (const item of report.authStatus.items) {
-      lines.push(`| ${cell(item.platform)} | ${cell(item.status)} | ${cell(item.reason)} | ${cell(item.action)} | ${cell(item.relatedTaskIds.join(", ") || "-")} |`);
+      lines.push(`| ${cell(item.platform)} | ${cell(item.status)} | ${cell(item.verifiedOperations.join(", ") || "-")} | ${cell(item.probe?.status || "-")} | ${cell(item.reason)} | ${cell(item.action)} | ${cell(item.relatedTaskIds.join(", ") || "-")} |`);
     }
     lines.push("");
   }
@@ -248,6 +287,25 @@ function valueAfter(name) {
   const index = args.indexOf(name);
   if (index === -1) return "";
   return args[index + 1] || "";
+}
+
+function valuesAfter(name) {
+  const values = [];
+  for (let index = 0; index < args.length - 1; index += 1) {
+    if (args[index] === name) values.push(args[index + 1]);
+  }
+  return values;
+}
+
+function normalizePlatforms(values) {
+  return [...new Set(values
+    .map((value) => String(value || "").trim())
+    .filter((value) => /^[a-z0-9_]{1,80}$/.test(value)))]
+    .sort();
+}
+
+function unique(values) {
+  return [...new Set(values)];
 }
 
 function trimSlash(value) {

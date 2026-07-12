@@ -44,7 +44,8 @@ while (Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue) {
 
 $logPath = Join-Path $runtimeDir "auth-hub-$Port.log"
 $url = "http://$HostName`:$Port"
-$command = "`$env:PORT='$Port'; npm run auth-hub:start *> '$logPath'"
+$executorId = if ($env:AI_LINK_EXECUTOR_ID) { $env:AI_LINK_EXECUTOR_ID } else { "local-executor" }
+$command = "`$env:PORT='$Port'; `$env:AI_LINK_EXECUTOR_ID='$executorId'; npm run auth-hub:start *> '$logPath'"
 
 $process = Start-Process -FilePath "powershell.exe" `
   -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command) `

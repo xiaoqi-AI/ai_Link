@@ -24,6 +24,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Xiaohongshu P0.2 private command-adapter scaffold with structured JSON transport, strict runtime/private path checks, approval-gated interactive login, bounded concrete-note output, and fail-closed bridge errors.
 - Private connector bundle generator that safely combines the GitHub, WeChat Official and Xiaohongshu adapters while rejecting missing modules and duplicate platform ownership.
 - Auth Hub executor capability heartbeat with strict allowlists, server-side TTL, static-contract/runtime-evidence separation, fail-closed unverified states, and mock-only remote smoke enforcement.
+- Auth Hub explicit connector probe evidence for GitHub, WeChat Official, and Xiaohongshu health operations, with token-bound executor identity, process-session binding, one-time leases, atomic Postgres settlement, server-side TTL, operation-scoped status, and platform-filtered strict checks.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.
@@ -46,6 +47,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Interactive platform login is fail-closed and calls the Xiaohongshu private bridge only after the dedicated Auth Hub approval step; the public repository never performs unattended login or bypasses verification.
 - Exact query-free Xiaohongshu note URLs are preserved by redaction while tokenized URLs, account fields and raw bridge output remain blocked.
 - Executor heartbeats never invoke platform methods or carry hostnames, private paths, credentials, login state, account details, or raw responses; without a separate read-only probe, `canRunReal` remains false.
+- Connector probes are never inferred from mock, heartbeat, status reads, search, login, or historical tasks; replayed/expired/mismatched attempts are rejected, and public API/UI omit executor sessions, lease IDs, heartbeat revisions, client timestamps, raw results, credentials, and platform account details.
 - The Render blueprint no longer hard-codes the existing `voice.xiao-qi-ai.com` application as the Auth Hub target; production deployment requires an explicitly confirmed dedicated hostname.
 - `package:check` uses `npm pack --dry-run` and does not publish.
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.

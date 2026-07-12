@@ -143,11 +143,43 @@ npm run auth-hub:status:json
 - 本地执行器从已加载 registry 构造严格白名单快照，通过 `POST /api/executor/heartbeat` 上报；它不会调用 `checkSession`、`checkHealth`、`checkAuth`、`readContent` 或写操作。
 - 服务端设置 `lastSeenAt` 与 `expiresAt`，只保存每个 executor id 的最新记录；过期记录只显示为 `stale`，不能覆盖服务端 baseline。
 - 合并后的公开视图位于 `executorRuntime.connectors`，并明确给出 `evidence.contract`、`evidence.executor`、`evidence.probe`、`operationalStatus` 和 `canRunReal`。
-- 在真实只读探测结果另行实现并验收前，`evidence.probe=not_run`、`operationalStatus=unverified`、`canRunReal=false`。
+- 没有显式探测结果时，`evidence.probe=not_run`、`operationalStatus=unverified`、`canRunReal=false`；新鲜成功证据只把对应操作加入 `verifiedOperations`。
 
 心跳允许保留 `live-read-only`、`approval-required-local`、`mock` 等 capability mode，但拒绝未知顶层字段、未知平台、重复能力、矛盾状态和越界 issue code。禁止上报 hostname、用户名、私有模块路径、凭据存在性、Cookie、token、Profile、账号详情、原始响应或 connector 异常栈。heartbeat scope 与 lease/result scope 分开；心跳失败是 best-effort，不阻塞执行器继续向兼容的旧 Hub 领取任务。
 
-当前 executor id 只是同一执行器凭据下的公开标签，不构成机器身份认证。因此该证据只服务状态中心和故障判断，不得用于自动选择“有能力的执行器”、授权真实调用或绕过人工审批。能力感知调度必须等 executor credential、executor identity、lease 和 result 形成强绑定后另立迭代。
+生产环境通过 `AI_LINK_EXECUTOR_ID` 把 executor token 绑定到固定执行器身份；本地执行器每次启动生成新的进程 session id。普通心跳仍只是能力声明，但显式 probe 任务只会租给同一绑定身份、同一在线 session 且报告 private capability 的执行器，并由服务端签发一次性 `leaseId`。结果必须在当前租约有效期内由同一身份/session 回传；Postgres 使用条件更新把任务终态、最新 probe 和审计写入同一事务，重复提交或旧租约返回冲突且不能刷新 TTL。
+
+## Explicit Connector Probe Evidence
+
+只有管理调用方同时具有 `tasks:create` / `tasks:approve`，并且任务明确带有以下选项时，结果才可能升级为 probe evidence：
+
+```json
+{
+  "options": {
+    "evidenceIntent": "connector_probe"
+  }
+}
+```
+
+首批 allowlist：
+
+| Platform | Operation | Verified capability |
+| --- | --- | --- |
+| `xiaohongshu` | `check_session` | `check_session` |
+| `wechat_official` | `check_health` | `check_health` |
+| `github` | `check_auth` | `check_auth` |
+
+`begin_login`、`search_content`、普通平台任务、mock 心跳和读取状态页不会生成证据。probe 领取和结算必须同时满足：
+
+1. token 绑定的 executor id 与请求、租约一致。
+2. 进程 session 与当前新鲜 trusted heartbeat 一致。
+3. heartbeat 中目标 connector 为 `private`，目标 capability 可用且不是 `mock/reserved`。
+4. 任务仍为 `running`，一次性 `leaseId` 与 heartbeat revision 一致且尚未过期。
+5. Hub 依据任务原始 platform/operation 重新调用公开结果 normalizer，`items` 必须为空，外层和内层状态必须匹配。
+
+服务端只保留每个 executor + platform + operation 的最新证据；较旧接收时间不能覆盖较新记录。最新 `needs_action` / `blocked` 会立即覆盖旧成功，证据过期后不会回退到更旧成功。客户端 `session.checked_at` 不参与证据时间计算，`checkedAt` 与 `expiresAt` 只由 Hub 服务端生成。
+
+公开 API 仅返回操作、结论、公开问题码、任务 ID 和服务端时间；不返回 `leaseId`、executor session、heartbeat revision、原始结果、diagnostics、账号/仓库详情、路径或私有响应。`canRunReal=true` 只表示 `verifiedOperations` 中列出的只读健康操作，不得据此推导整个平台、写权限或发布能力。
 
 ## Private Connector Injection
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExecutorCapabilityHeartbeat } from "../connectors/executorCapabilities.js";
@@ -6,6 +7,7 @@ import { loadPrivateConnectorRegistry } from "../connectors/privateLoader.js";
 import { runTask } from "./runTask.js";
 
 const args = new Set(process.argv.slice(2));
+const PROCESS_EXECUTOR_SESSION_ID = crypto.randomUUID();
 
 function readEnv(name, fallback = "") {
   return process.env[name] || fallback;
@@ -65,10 +67,11 @@ export async function runExecutorOnce({
   baseUrl,
   token,
   executorId = "local-executor",
+  executorSessionId = PROCESS_EXECUTOR_SESSION_ID,
   statePath = "",
   registry
 }) {
-  const heartbeat = await reportHeartbeat({ baseUrl, token, executorId, registry });
+  const heartbeat = await reportHeartbeat({ baseUrl, token, executorId, executorSessionId, registry });
   await writeState(statePath, {
     executorId,
     baseUrl,
@@ -78,7 +81,7 @@ export async function runExecutorOnce({
   const lease = await requestJson(`${baseUrl}/api/executor/lease`, {
     token,
     method: "POST",
-    body: { executorId }
+    body: { executorId, executorSessionId }
   });
   if (!lease.task) {
     await writeState(statePath, {
@@ -104,7 +107,12 @@ export async function runExecutorOnce({
   await requestJson(`${baseUrl}/api/executor/tasks/${lease.task.id}/result`, {
     token,
     method: "POST",
-    body: result
+    body: {
+      ...result,
+      executorId,
+      executorSessionId,
+      leaseId: lease.task.leaseId || ""
+    }
   });
   await writeState(statePath, {
     executorId,
@@ -118,13 +126,13 @@ export async function runExecutorOnce({
   return { leased: true, taskId: lease.task.id, status: result.status };
 }
 
-async function reportHeartbeat({ baseUrl, token, executorId, registry }) {
+async function reportHeartbeat({ baseUrl, token, executorId, executorSessionId, registry }) {
   if (!registry) {
     return { status: "skipped", error: "connector_registry_unavailable" };
   }
 
   try {
-    const payload = buildExecutorCapabilityHeartbeat({ executorId, registry });
+    const payload = buildExecutorCapabilityHeartbeat({ executorId, executorSessionId, registry });
     const response = await requestJson(`${baseUrl}/api/executor/heartbeat`, {
       token,
       method: "POST",
