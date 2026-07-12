@@ -158,6 +158,18 @@ export async function createPrivateConnectors() {
 
 该模块拥有本机代码执行权，只能配置维护者已审查的文件。模块路径不接受 Auth Hub 任务输入，不能由远端调用方指定。真实代码可以进入私有仓，但 Cookie、Profile、二维码、凭据和原始响应仍不得进入任何 Git 仓库。
 
+GitHub 授权健康检查可以用公开安全脚手架生成本机私有适配器：
+
+```powershell
+npm run auth-hub:github-adapter:print
+npm run auth-hub:github-adapter:new
+$env:GH_TOKEN="<fine-grained-readonly-token-or-session-token>"
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/github-auth-adapter.mjs"
+npm run auth-hub:executor:start
+```
+
+脚手架只允许输出到 `runtime/private/`，不会保存 token。生成的 `github.checkAuth()` 只读 GitHub API 授权健康状态，并把缺少凭据、无效凭据和限流映射为公开错误码。
+
 此边界假设 `runtime/private/` 只允许受信任的本机用户写入。加载器会解析真实路径并拒绝越界，但不承诺抵御一个已经能在加载瞬间替换本机文件的攻击者；该攻击者本身已经拥有等价的本机代码执行能力。生产使用应依靠操作系统账户权限限制目录写入者。
 
 如果模块越出 `runtime/private/`、缺少工厂、导出未知平台或缺少必备方法，执行器以稳定的 `connector_contract_failed` 关闭，不回显文件路径、模块异常或原始响应。

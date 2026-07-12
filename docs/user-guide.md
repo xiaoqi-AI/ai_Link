@@ -164,6 +164,18 @@ GitHub P0.2 的最小任务输入示例：
 
 `scope` 只允许 `repo_read`、`actions_read` 或 `pull_request_read`。该检查只回答“GitHub 授权是否可用/是否需要密钥负责人处理”，不自动修改 GitHub 设置、不合并 PR、不触发 provider-live workflow。
 
+维护者可以生成本机私有 GitHub 授权健康检查适配器：
+
+```powershell
+npm run auth-hub:github-adapter:print
+npm run auth-hub:github-adapter:new
+$env:GH_TOKEN="<fine-grained-readonly-token-or-session-token>"
+$env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/github-auth-adapter.mjs"
+npm run auth-hub:executor:start
+```
+
+生成文件位于 `runtime/private/github-auth-adapter.mjs`，不会进入 Git。适配器只读 GitHub `/user` 或 `/repos/{owner}/{repo}`，用于判断 token 是否可用或是否限流；不会合并 PR、修改仓库设置、写 GitHub Secrets、触发 Actions 或 provider-live。
+
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
 停止本地执行器和控制台：
