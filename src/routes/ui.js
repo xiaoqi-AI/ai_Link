@@ -1,4 +1,5 @@
 import express from "express";
+import { summarizeConnectorAuthStatus } from "../connectors/authStatus.js";
 import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { createSessionCookie, clearSessionCookie } from "../security/session.js";
 import { requireAppSession } from "../security/auth.js";
@@ -42,11 +43,16 @@ export function createUiRouter() {
       req.app.locals.store.listApprovals({ status: "pending" })
     ]);
     const { connectors } = describeConnectorRegistry(req.app.locals.connectorRegistry);
+    const authStatus = summarizeConnectorAuthStatus({
+      connectors,
+      actionTasks: actionTasks.map(publicTask)
+    });
     res.send(dashboardPage({
       tasks: tasks.map(publicTask),
       actionTasks: actionTasks.map(publicTask),
       approvals,
-      connectors
+      connectors,
+      authStatus
     }));
   });
 
@@ -54,8 +60,18 @@ export function createUiRouter() {
     res.send(newTaskPage());
   });
 
-  router.get("/dashboard/connectors", requireAppSession, (req, res) => {
-    res.send(connectorsPage(describeConnectorRegistry(req.app.locals.connectorRegistry)));
+  router.get("/dashboard/connectors", requireAppSession, async (req, res) => {
+    const [connectorDescription, actionTasks] = await Promise.all([
+      describeConnectorRegistry(req.app.locals.connectorRegistry),
+      req.app.locals.store.listTasks({ status: "action_required", limit: 50 })
+    ]);
+    res.send(connectorsPage({
+      ...connectorDescription,
+      authStatus: summarizeConnectorAuthStatus({
+        connectors: connectorDescription.connectors,
+        actionTasks: actionTasks.map(publicTask)
+      })
+    }));
   });
 
   router.get("/dashboard/audit", requireAppSession, async (req, res) => {

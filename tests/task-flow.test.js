@@ -637,6 +637,86 @@ describe("AI Link task flow", () => {
     assert.equal(denied.response.status, 403);
   });
 
+  it("summarizes connector auth status without exposing private state", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "platform_auth_collect",
+        input: {
+          platform: "xiaohongshu",
+          operation: "check_session"
+        }
+      }
+    });
+    assert.equal(created.response.status, 201);
+
+    const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "needs_action",
+        summary: "需要本机续登",
+        error: {
+          code: "login_expired",
+          platform: "xiaohongshu",
+          message: "login_expired",
+          cookie: "private-cookie",
+          profile: "private-profile"
+        },
+        result: {
+          platform: "xiaohongshu",
+          action_required: {
+            code: "login_expired"
+          },
+          token: "private-token"
+        }
+      }
+    });
+    assert.equal(reported.response.status, 200);
+    assert.equal(reported.data.task.status, "action_required");
+
+    const status = await requestJson(server.baseUrl, "/api/auth-status", {
+      token: "codex-token"
+    });
+    assert.equal(status.response.status, 200);
+    const xiaohongshu = status.data.authStatus.items.find((item) => item.platform === "xiaohongshu");
+    assert.equal(xiaohongshu.status, "needs_action");
+    assert.equal(xiaohongshu.reason, "login_expired");
+    assert.deepEqual(xiaohongshu.relatedTaskIds, [created.data.task.id]);
+
+    const serialized = JSON.stringify(status.data);
+    assert.equal(serialized.includes("private-cookie"), false);
+    assert.equal(serialized.includes("private-profile"), false);
+    assert.equal(serialized.includes("private-token"), false);
+
+    const login = await fetch(`${server.baseUrl}/login`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ password: "test-password", next: "/dashboard/connectors" }),
+      redirect: "manual"
+    });
+    const cookie = login.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(cookie);
+
+    const page = await fetch(`${server.baseUrl}/dashboard/connectors`, {
+      headers: { cookie }
+    });
+    const html = await page.text();
+    assert.equal(page.status, 200);
+    assert.match(html, /授权\/登录关注项/);
+    assert.match(html, /需要续登/);
+    assert.match(html, /xiaohongshu/);
+    assert.equal(html.includes("private-cookie"), false);
+    assert.equal(html.includes("private-profile"), false);
+    assert.equal(html.includes("private-token"), false);
+
+    const denied = await requestJson(server.baseUrl, "/api/auth-status", {
+      token: "executor-token"
+    });
+    assert.equal(denied.response.status, 403);
+  });
+
   it("redacts sensitive keys and raw content", () => {
     const value = redact({
       token: "placeholder",
