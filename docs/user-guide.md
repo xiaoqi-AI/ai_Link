@@ -132,6 +132,8 @@ npm run auth-hub:executor:start
 
 控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 也可读取平台能力契约，用来确认微信、朱雀AI和预留平台当前是可用、预留还是配置异常。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
 
+如果要从项目负责人视角判断“现在是否需要人工续登或配置授权”，打开 `/dashboard` 或 `/dashboard/connectors` 的“授权/登录关注项”。其他项目可用只读 API `GET /api/auth-status` 读取同一份摘要：它只返回平台、状态、公开错误码、处理建议和关联任务 ID，不返回 Cookie、Profile、token、账号详情或原始平台响应。ParentingGame、Hermes Agent 等项目应把这个接口当作“是否需要暂停自动化并提醒维护者”的信号，而不是直接读取真实登录态。
+
 `platform_auth_collect` 用于统一处理小红书会话/只读搜索和公众号官方 API 健康检查。公开仓不会携带真实实现；维护者只能把已审查的模块放入 `runtime/private/`，再以 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 指向该文件后启动本地执行器。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
 
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。

@@ -29,10 +29,10 @@ export function layout({ title, body }) {
     code { padding:2px 5px; }
     pre { padding:12px; overflow:auto; white-space:pre-wrap; }
     .status { display:inline-flex; min-width:96px; justify-content:center; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; color:var(--muted); background:#fff; }
-    .status.completed { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
-    .status.failed, .status.cancelled, .status.misconfigured { color:var(--danger); border-color:#fecdca; background:#fef3f2; }
+    .status.completed, .status.ready { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
+    .status.failed, .status.cancelled, .status.misconfigured, .status.blocked { color:var(--danger); border-color:#fecdca; background:#fef3f2; }
     .status.approval_required { color:#9a6700; border-color:#fedf89; background:#fffaeb; }
-    .status.action_required { color:#b54708; border-color:#fed7aa; background:#fff7ed; }
+    .status.action_required, .status.needs_action { color:#b54708; border-color:#fed7aa; background:#fff7ed; }
     .status.available { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
     .status.reserved { color:var(--muted); border-color:var(--line); background:#f8fafc; }
     button, .button { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; padding:9px 12px; font-weight:600; cursor:pointer; }
@@ -74,7 +74,7 @@ export function loginPage({ error = "", next = "/dashboard" } = {}) {
   });
 }
 
-export function dashboardPage({ tasks, actionTasks = [], approvals, connectors = [] }) {
+export function dashboardPage({ tasks, actionTasks = [], approvals, connectors = [], authStatus = null }) {
   const statusCounts = countTaskStatuses(tasks);
   const taskRows = tasks.map((task) => `<tr>
     <td><a href="/dashboard/tasks/${escapeHtml(task.id)}">${escapeHtml(task.id.slice(0, 8))}</a></td>
@@ -99,6 +99,7 @@ export function dashboardPage({ tasks, actionTasks = [], approvals, connectors =
   </tr>`).join("");
 
   const connectorRows = connectorRowsHtml(connectors);
+  const authStatusRows = authStatusRowsHtml(authStatus);
 
   return layout({
     title: "任务",
@@ -121,6 +122,11 @@ export function dashboardPage({ tasks, actionTasks = [], approvals, connectors =
     <section class="panel">
       <h2>待人工处理</h2>
       <table><thead><tr><th>ID</th><th>流程</th><th>事项</th><th>更新时间</th></tr></thead><tbody>${actionRows || "<tr><td colspan=\"4\">暂无待人工处理事项</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>授权/登录关注项</h2>
+      <p class="muted">只展示公开安全状态：平台、处理动作、公开错误码和关联任务；不读取或展示 Cookie、Profile、token、账号详情。</p>
+      <table><thead><tr><th>平台</th><th>状态</th><th>处理建议</th><th>原因</th><th>关联任务</th></tr></thead><tbody>${authStatusRows || "<tr><td colspan=\"5\">暂无授权/登录关注项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>连接器状态</h2>
@@ -149,6 +155,32 @@ function connectorRowsHtml(connectors) {
   </tr>`).join("");
 }
 
+function authStatusRowsHtml(authStatus) {
+  return (authStatus?.items || []).map((item) => `<tr>
+    <td>${escapeHtml(item.platform)}</td>
+    <td><span class="status ${escapeHtml(item.status)}">${escapeHtml(authStatusLabel(item.status))}</span></td>
+    <td>${escapeHtml(item.action || "-")}</td>
+    <td>${escapeHtml(item.reason || "-")}</td>
+    <td>${authTaskLinks(item.relatedTaskIds)}</td>
+  </tr>`).join("");
+}
+
+function authTaskLinks(taskIds = []) {
+  if (!taskIds.length) {
+    return "-";
+  }
+  return taskIds.map((taskId) => `<a href="/dashboard/tasks/${escapeHtml(taskId)}">${escapeHtml(taskId.slice(0, 8))}</a>`).join("<br>");
+}
+
+function authStatusLabel(status) {
+  return {
+    ready: "可用",
+    needs_action: "需要处理",
+    reserved: "预留",
+    blocked: "阻塞"
+  }[status] || status;
+}
+
 function connectorStatusLabel(status) {
   return {
     available: "可用",
@@ -157,7 +189,7 @@ function connectorStatusLabel(status) {
   }[status] || status;
 }
 
-export function connectorsPage({ connectors = [], issues = [] }) {
+export function connectorsPage({ connectors = [], issues = [], authStatus = null }) {
   const issueRows = issues.map((issue) => `<tr>
     <td>${escapeHtml(issue.platform)}</td>
     <td>${escapeHtml(issue.severity)}</td>
@@ -171,6 +203,11 @@ export function connectorsPage({ connectors = [], issues = [] }) {
       <p><a href="/dashboard">返回任务列表</a></p>
       <h1>连接器状态</h1>
       <table><thead><tr><th>平台</th><th>状态</th><th>能力</th><th>问题</th></tr></thead><tbody>${connectorRowsHtml(connectors) || "<tr><td colspan=\"4\">暂无连接器状态</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>授权/登录关注项</h2>
+      <p class="muted">该表只汇总公开安全状态，用来判断是否需要本机续登、验证码、凭据配置或连接器维护。</p>
+      <table><thead><tr><th>平台</th><th>状态</th><th>处理建议</th><th>原因</th><th>关联任务</th></tr></thead><tbody>${authStatusRowsHtml(authStatus) || "<tr><td colspan=\"5\">暂无授权/登录关注项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>契约问题</h2>

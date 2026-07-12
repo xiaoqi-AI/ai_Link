@@ -41,6 +41,24 @@ Authorization: Bearer <token with connectors:read>
 - `codex` token 默认拥有 `connectors:read`。
 - `executor` token 不拥有该权限。
 
+授权/登录状态摘要使用同一个只读权限：
+
+```text
+GET /api/auth-status
+Authorization: Bearer <token with connectors:read>
+```
+
+该接口在 `GET /api/connectors` 的平台能力契约基础上，额外合并当前 `action_required` 任务，生成公开安全的 `authStatus`：
+
+- `summary.ready`：无需人工处理的平台数量。
+- `summary.needs_action`：已有登录、验证码、凭据或连接器维护任务的平台数量。
+- `summary.reserved`：仅预留合同位的平台数量。
+- `summary.blocked`：契约缺失或配置异常的平台数量。
+- `items[].action`：面向维护者的中文处理建议。
+- `items[].relatedTaskIds`：关联任务 ID，便于进入 Auth Hub 控制台处理和 retry。
+
+`authStatus` 只允许使用平台名、公开错误码和任务 ID 推导，不得包含 Cookie、Profile、token、账号详情、二维码、截图、原始响应或本机私有路径。真实平台 connector 如果发现登录过期、验证码、IP 白名单、凭据错误或连接器合同异常，应把问题映射为稳定公开错误码，并通过 `needs_action` / `action_required` 回传。
+
 ## Contract Rules
 
 每个真实 connector 上线前至少需要满足：

@@ -173,3 +173,33 @@ npm audit --audit-level=high
 - 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。
+
+## 授权/登录状态看板
+
+Auth Hub 控制台在任务首页和 `/dashboard/connectors` 提供“授权/登录关注项”摘要，用于项目负责人快速判断哪些平台当前可用，哪些需要本机续登、验证码、凭据配置或连接器维护。
+
+该摘要只读取公开安全信息：
+
+- connector registry 中的平台、状态、模式、能力和稳定问题代码。
+- `action_required` 任务中的公开错误码、平台名和任务 ID。
+- 已脱敏的任务摘要。
+
+该摘要不会读取或展示 Cookie、浏览器 Profile、refresh token、access token、二维码、截图、账号详情、原始平台响应或本机私有路径。真实登录态仍只保存在本机私有边界内，由私有 connector 或本地执行器负责。
+
+机器读取入口：
+
+```text
+GET /api/auth-status
+Authorization: Bearer <token with connectors:read>
+```
+
+返回内容包含 `connectors`、`issues` 和 `authStatus`。`authStatus.summary` 给出 `ready`、`needs_action`、`reserved`、`blocked` 计数；`authStatus.items` 按平台给出状态、处理建议、公开原因码和最多 5 个关联任务 ID。
+
+状态口径：
+
+- `ready`：公开能力契约可用，当前没有相关人工处理任务。
+- `needs_action`：已有关联 `action_required` 任务，例如 `login_expired`、`captcha_required`、`credential_missing`。
+- `reserved`：公开仓仅预留合同位，暂未接入真实账号。
+- `blocked`：connector 契约缺失或配置异常，需要维护者修复。
+
+该入口的目标不是替代真实平台会话探测，而是把“已经被执行器发现、已经脱敏、需要人处理”的事项集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试。

@@ -1,5 +1,6 @@
 import express from "express";
 import { attachAiLinkAudit, extractAiLinkAudit } from "../audit/aiLinkAudit.js";
+import { summarizeConnectorAuthStatus } from "../connectors/authStatus.js";
 import { describeConnectorRegistry } from "../connectors/contracts.js";
 import { requireApiScope } from "../security/auth.js";
 import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
@@ -216,6 +217,20 @@ export function createApiRouter() {
 
   router.get("/connectors", requireApiScope("connectors:read"), async (req, res) => {
     res.json(describeConnectorRegistry(req.app.locals.connectorRegistry));
+  });
+
+  router.get("/auth-status", requireApiScope("connectors:read"), async (req, res) => {
+    const [connectorDescription, actionTasks] = await Promise.all([
+      describeConnectorRegistry(req.app.locals.connectorRegistry),
+      req.app.locals.store.listTasks({ status: "action_required", limit: 50 })
+    ]);
+    res.json({
+      ...connectorDescription,
+      authStatus: summarizeConnectorAuthStatus({
+        connectors: connectorDescription.connectors,
+        actionTasks: actionTasks.map(publicTask)
+      })
+    });
   });
 
   return router;
