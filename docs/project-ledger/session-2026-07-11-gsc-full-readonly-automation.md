@@ -9,7 +9,7 @@ AI Link 的 `google_search_console` connector 已从抽样只读验证推进到 
 - 从 `sitemap.xml` 和 `sitemap-basic.xml` 自动展开同源 URL
 - 本轮共监控 16 个 URL
 - GSC API 只读、公开抓取检查、中文报告和脱敏历史均已跑通
-- Windows 每日计划任务已注册，默认每天本地时间 09:00 运行
+- Windows 每日计划任务已注册，默认每天本地时间 13:00 运行
 
 ## 用户决策
 
@@ -73,7 +73,9 @@ AI Link 的 `google_search_console` connector 已从抽样只读验证推进到 
 
 状态：已注册，`Ready`
 
-计划：每天本地时间 09:00，仅在当前 Windows 用户存在交互会话时运行。
+计划：每天本地时间 13:00，仅在当前 Windows 用户存在交互会话时运行。
+
+Codex heartbeat：每天本地时间 13:15 回看最新脱敏报告，并在当前任务里中文提醒用户：今日结论、是否需要 ParentingGame 修复、是否只是 Google indexing 延迟、以及 AI Link 自动化/OAuth/代理/网络是否异常。
 
 安全边界：
 
@@ -98,7 +100,7 @@ ProxyUrl = http://127.0.0.1:4780
 - `node --test tests/connector-contracts.test.js` 通过：8 项测试。
 - `npm.cmd run security:scan` 通过。
 - `tools/run-gsc-monitor.ps1 -ProxyUrl "http://127.0.0.1:4780"` 真实只读运行通过。
-- Windows 计划任务 `AI Link GSC Readonly Monitor` 已存在且状态为 `Ready`。
+- Windows 计划任务 `AI Link GSC Readonly Monitor` 已存在且状态为 `Ready`，触发时间为本地 13:00。
 
 ## 后续
 

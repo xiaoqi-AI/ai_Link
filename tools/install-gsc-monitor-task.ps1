@@ -1,6 +1,6 @@
 param(
   [ValidatePattern('^([01]\d|2[0-3]):[0-5]\d$')]
-  [string]$At = "09:00",
+  [string]$At = "13:00",
   [ValidatePattern('^[A-Za-z0-9 _.-]{1,80}$')]
   [string]$TaskName = "AI Link GSC Readonly Monitor",
   [string]$ProxyUrl = "",
