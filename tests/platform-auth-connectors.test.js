@@ -65,6 +65,7 @@ describe("platform authorization connector contracts", () => {
   it("publishes required session capabilities without exposing connector instances", () => {
     const summary = describeConnectorRegistry(createConnectorRegistry());
     const xhs = summary.connectors.find((connector) => connector.platform === "xiaohongshu");
+    const github = summary.connectors.find((connector) => connector.platform === "github");
 
     assert.equal(xhs.status, "reserved");
     assert.equal(xhs.mode, "reserved");
@@ -73,6 +74,12 @@ describe("platform authorization connector contracts", () => {
       ["check_session", "begin_login", "read_content"]
     );
     assert.equal(typeof xhs.checkSession, "undefined");
+    assert.equal(github.status, "available");
+    assert.equal(github.mode, "mock");
+    assert.deepEqual(
+      github.capabilities.filter((capability) => capability.required).map((capability) => capability.name),
+      ["check_auth"]
+    );
   });
 
   it("reports a stable contract error when a private connector misses a required method", () => {
@@ -254,6 +261,69 @@ describe("platform authorization connector contracts", () => {
     assert.deepEqual(parsed.targets, ["xiaohongshu"]);
     assert.equal(parsed.input.cookie, undefined);
     assert.equal(denied.error, "unsupported_platform_operation");
+  });
+
+  it("runs a GitHub authorization check through the P0.2 platform auth workflow", async () => {
+    const result = await runTask({
+      workflow: "platform_auth_collect",
+      input: {
+        platform: "github",
+        operation: "check_auth",
+        owner: "xiaoqi-AI",
+        repo: "ai_Link",
+        scope: "repo_read"
+      }
+    }, { registry: createConnectorRegistry() });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.summary, "GitHub 授权检查通过。");
+    assert.equal(result.result.platform, "github");
+    assert.equal(result.result.operation, "check_auth");
+    assert.equal(result.result.session.state, "valid");
+  });
+
+  it("maps GitHub credential issues to public-safe next actions", async () => {
+    const registry = createConnectorRegistry({
+      privateConnectors: {
+        github: {
+          mode: "private",
+          checkAuth: async () => ({
+            status: "needs_action",
+            session: {
+              state: "missing",
+              checked_at: CHECKED_AT,
+              credential: "private-github-marker"
+            },
+            items: [],
+            action_required: {
+              code: "credential_missing",
+              action: "configure GH_TOKEN in private env",
+              retryable: true
+            },
+            diagnostics: {
+              item_count: 0,
+              raw_response: "private-github-response"
+            }
+          })
+        }
+      }
+    });
+    const result = await runTask({
+      workflow: "platform_auth_collect",
+      input: {
+        platform: "github",
+        operation: "check_auth",
+        owner: "xiaoqi-AI",
+        repo: "ai_Link"
+      }
+    }, { registry });
+
+    assert.equal(result.status, "needs_action");
+    assert.equal(result.error.code, "credential_missing");
+    assert.equal(result.error.action, "configure_official_api_credentials");
+    assert.equal(JSON.stringify(result).includes("private-github-marker"), false);
+    assert.equal(JSON.stringify(result).includes("private-github-response"), false);
+    assert.equal(JSON.stringify(result).includes("GH_TOKEN"), false);
   });
 
   it("loads private connectors only from runtime/private", async () => {

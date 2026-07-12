@@ -18,6 +18,9 @@ export const PLATFORM_AUTH_OPERATIONS = Object.freeze({
   }),
   wechat_official: Object.freeze({
     check_health: Object.freeze({ method: "checkHealth", mode: "read_only" })
+  }),
+  github: Object.freeze({
+    check_auth: Object.freeze({ method: "checkAuth", mode: "read_only" })
   })
 });
 
@@ -85,7 +88,7 @@ export function normalizePlatformConnectorResult(value, {
     status = "blocked";
   }
 
-  if (platform === "xiaohongshu" && status === "ready" && session.state !== "valid") {
+  if (["xiaohongshu", "github"].includes(platform) && status === "ready" && session.state !== "valid") {
     throw contractError(platform, "ready_session_not_valid");
   }
 

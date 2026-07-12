@@ -842,6 +842,71 @@ describe("AI Link task flow", () => {
     assert.equal(denied.response.status, 403);
   });
 
+  it("summarizes GitHub authorization issues as secret-owner next actions", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "platform_auth_collect",
+        input: {
+          platform: "github",
+          operation: "check_auth",
+          owner: "xiaoqi-AI",
+          repo: "ai_Link",
+          scope: "repo_read",
+          credential: "private-github-marker"
+        }
+      }
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal(created.data.task.input.credential, undefined);
+    assert.deepEqual(created.data.task.targets, ["github"]);
+
+    const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "needs_action",
+        summary: "平台 API 凭据尚未配置。",
+        error: {
+          code: "credential_missing",
+          platform: "github",
+          message: "credential_missing",
+          credential: "private-github-marker"
+        },
+        result: {
+          schema_version: "1",
+          platform: "github",
+          operation: "check_auth",
+          status: "needs_action",
+          session: {
+            state: "missing",
+            checked_at: "2026-07-11T08:00:00.000Z",
+            credential: "private-github-marker"
+          },
+          action_required: {
+            code: "credential_missing"
+          }
+        }
+      }
+    });
+    assert.equal(reported.response.status, 200);
+    assert.equal(reported.data.task.status, "action_required");
+
+    const status = await requestJson(server.baseUrl, "/api/auth-status", {
+      token: "codex-token"
+    });
+    assert.equal(status.response.status, 200);
+    const github = status.data.authStatus.items.find((item) => item.platform === "github");
+    assert.equal(github.status, "needs_action");
+    assert.equal(github.reason, "credential_missing");
+    const nextAction = status.data.authStatus.nextActions.find((action) => action.platform === "github");
+    assert.equal(nextAction.owner, "secret_owner");
+    assert.equal(nextAction.severity, "blocked");
+    assert.match(nextAction.runbook, /凭据/);
+    assert.equal(JSON.stringify(status.data).includes("private-github-marker"), false);
+  });
+
   it("redacts sensitive keys and raw content", () => {
     const value = redact({
       token: "placeholder",

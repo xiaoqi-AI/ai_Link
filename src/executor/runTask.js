@@ -25,6 +25,7 @@ const SAFE_PLATFORMS = new Set([
   "wechat_official",
   "zhuque_ai",
   "google_search_console",
+  "github",
   "douyin",
   "xiaohongshu",
   "zhihu",
@@ -33,8 +34,8 @@ const SAFE_PLATFORMS = new Set([
 
 const SAFE_ERROR_MESSAGES = Object.freeze({
   captcha_required: "需要在本机浏览器完成人机验证。",
-  credential_invalid: "公众号官方 API 凭据无效，需要重新配置。",
-  credential_missing: "公众号官方 API 凭据尚未配置。",
+  credential_invalid: "平台 API 凭据无效，需要重新配置。",
+  credential_missing: "平台 API 凭据尚未配置。",
   login_required: "平台尚未登录，需要在本机浏览器完成登录。",
   login_expired: "平台登录已过期，需要在本机浏览器续登。",
   manual_action_required: "任务需要人工处理后重试。",
@@ -377,6 +378,9 @@ function platformResultSummary(result) {
     }
     if (result.operation === "check_health") {
       return "公众号官方 API 健康检查通过。";
+    }
+    if (result.operation === "check_auth" && result.platform === "github") {
+      return "GitHub 授权检查通过。";
     }
     return "平台会话检查通过。";
   }

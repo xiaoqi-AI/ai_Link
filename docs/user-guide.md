@@ -145,7 +145,24 @@ npm run auth-hub:status:json
 
 如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应或 `runtime/private` 路径。外部项目的默认处理规则是：`nextActions` 为空时继续自动化；存在 `manual` 或 `approval` 时暂停相关平台任务并提醒对应 owner；存在 `blocked` 时先修 AI Link/平台授权，不要在业务项目里盲目重试。
 
-`platform_auth_collect` 用于统一处理小红书会话/只读搜索和公众号官方 API 健康检查。公开仓不会携带真实实现；维护者只能把已审查的模块放入 `runtime/private/`，再以 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 指向该文件后启动本地执行器。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
+`platform_auth_collect` 用于统一处理小红书会话/只读搜索、公众号官方 API 健康检查和 GitHub 授权健康检查。公开仓不会携带真实实现；维护者只能把已审查的模块放入 `runtime/private/`，再以 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 指向该文件后启动本地执行器。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据、GitHub token 或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
+
+GitHub P0.2 的最小任务输入示例：
+
+```json
+{
+  "workflow": "platform_auth_collect",
+  "input": {
+    "platform": "github",
+    "operation": "check_auth",
+    "owner": "xiaoqi-AI",
+    "repo": "ai_Link",
+    "scope": "repo_read"
+  }
+}
+```
+
+`scope` 只允许 `repo_read`、`actions_read` 或 `pull_request_read`。该检查只回答“GitHub 授权是否可用/是否需要密钥负责人处理”，不自动修改 GitHub 设置、不合并 PR、不触发 provider-live workflow。
 
 远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
