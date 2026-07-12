@@ -9,6 +9,7 @@ const reports = {
   nextActions: runJson([process.execPath, "tools/show-next-actions.js", "--json"]),
   setupHandoff: runJson([process.execPath, "tools/show-setup-handoff.js", "--json"]),
   bwsNext: runJson([process.execPath, "tools/show-bws-next.js", "--json"]),
+  authHubRemoteNext: runJson([process.execPath, "tools/show-auth-hub-remote-next.js", "--json"]),
   githubHardeningNext: runJson([process.execPath, "tools/show-github-hardening-next.js", "--json"]),
   releaseDecisionNext: runJson([process.execPath, "tools/show-release-decision-next.js", "--json"]),
   releaseReadiness: runJson([process.execPath, "tools/check-release-readiness.js", "--json"])
@@ -57,6 +58,56 @@ const sections = [
     secretBoundary: "This section is read-only and does not need credentials."
   },
   {
+    id: "gsc-monitor-operations",
+    title: "GSC monitor operations",
+    status: "ready",
+    owner: "Maintainer or Codex",
+    purpose: "Keep the ParentingGame-facing GSC readonly monitor running, reviewed, and easy to hand off without exposing OAuth credentials.",
+    commands: [
+      "npm run gsc:schedule:plan",
+      "powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1",
+      "powershell -ExecutionPolicy Bypass -File tools/run-gsc-monitor.ps1",
+      "npm run maintainer:pack:json"
+    ],
+    evidence: [
+      "Default schedule is daily 13:00 local time.",
+      "Codex heartbeat reviews the redacted domain report at 13:15 local time.",
+      "Report paths are runtime/tmp/gsc-live-domain-check.json and runtime/tmp/gsc-live-domain-report.md.",
+      "If the report says only Google indexing is delayed, ParentingGame does not need a code fix.",
+      "If the report says OAuth, proxy, network, sitemap, robots, canonical, noindex, or crawlability failed, route the action to AI Link automation or ParentingGame based on the report conclusion."
+    ],
+    stopBefore: [
+      "Do not display OAuth files, refresh tokens, Google account details, raw Google responses, or runtime/private content.",
+      "Do not run Request indexing, GSC Live Test, or sitemap submit automatically."
+    ],
+    secretBoundary: "Only redacted reports under runtime/tmp and public monitor config may be cited; OAuth credentials remain in runtime/private."
+  },
+  {
+    id: "platform-auth-p0-2-interactive-gate",
+    title: "Platform auth P0.2 interactive gate",
+    status: "manual",
+    owner: "Connector owner and account owner",
+    purpose: "Use Auth Hub to coordinate real platform login assistance without letting scheduled jobs or retries open a browser unexpectedly.",
+    commands: [
+      "npm run auth-hub:local:start",
+      "npm run auth-hub:executor:once",
+      "npm run auth-hub:test",
+      "npm run maintainer:pack:json"
+    ],
+    evidence: [
+      "xiaohongshu/begin_login first returns approval_required with interactive_approval_required.",
+      "The private connector is not called before the platform_interactive_login approval is granted.",
+      "After approval, the task advances to platform_interactive_login and may call a trusted local private connector.",
+      "GET /api/auth-status includes approval_required and action_required tasks as platform attention items.",
+      "The public result includes only platform, task id, public error code, and redacted summary."
+    ],
+    stopBefore: [
+      "Do not connect a real Xiaohongshu, WeChat, GitHub, Douyin, Zhihu, or Toutiao account until the account owner confirms the test window and stop conditions.",
+      "Do not save Cookie, browser Profile, QR code, screenshot, account details, raw response, or login state in Git, docs, PRs, issues, chat, or the knowledge mirror."
+    ],
+    secretBoundary: "Real platform credentials and browser state live only in a trusted private connector or local runtime/private boundary."
+  },
+  {
     id: "github-ui-hardening",
     title: "GitHub UI hardening",
     status: "manual",
@@ -99,6 +150,8 @@ const sections = [
       "Remote healthz returns ok.",
       "Remote full_chain mock task completes after approval."
     ],
+    currentBlockers: reports.authHubRemoteNext?.blockers ?? [],
+    recommendedNext: reports.authHubRemoteNext?.summary?.recommendedNext ?? "",
     stopBefore: [
       "Do not treat a local mock smoke as proof that voice.xiao-qi-ai.com is deployed.",
       "Do not store production tokens, Cloudflare credentials, DATABASE_URL, Cookie, browser Profile, QR code, screenshot, or platform content in Git, docs, issue/PR text, knowledge mirror, or chat.",
@@ -225,6 +278,7 @@ const report = {
     nextActions: summarizeSource(reports.nextActions),
     setupHandoff: summarizeSource(reports.setupHandoff),
     bwsNext: summarizeSource(reports.bwsNext),
+    authHubRemoteNext: summarizeSource(reports.authHubRemoteNext),
     githubHardeningNext: summarizeSource(reports.githubHardeningNext),
     releaseDecisionNext: summarizeSource(reports.releaseDecisionNext),
     releaseReadiness: summarizeSource(reports.releaseReadiness)
@@ -353,6 +407,13 @@ function renderMarkdown(actionPack) {
     lines.push("");
     if (section.links?.length > 0) {
       pushList(lines, "Links", section.links);
+    }
+    if (section.recommendedNext) {
+      lines.push(`Recommended next: ${section.recommendedNext}`);
+      lines.push("");
+    }
+    if (section.currentBlockers?.length > 0) {
+      pushList(lines, "Current blockers", section.currentBlockers);
     }
     pushList(lines, "Evidence", section.evidence);
     lines.push("Commands:");
