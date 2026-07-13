@@ -44,6 +44,13 @@ npm run auth-hub:local:stop
 - `AI_LINK_EXECUTOR_ID=local-executor`（或另一个受限公开标识，必须与本地执行器一致）
 - `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS=60000`
 - `AI_LINK_CONNECTOR_PROBE_TTL_MS=900000`
+- `AI_LINK_ARTIFACT_RETENTION_DAYS=7`
+- `AI_LINK_APPROVAL_RETENTION_DAYS=7`
+- `AI_LINK_AUDIT_RETENTION_DAYS=180`
+- `AI_LINK_MAINTENANCE_AUDIT_RETENTION_DAYS=365`
+- `AI_LINK_HEARTBEAT_RETENTION_GRACE_HOURS=24`
+- `AI_LINK_PROBE_RETENTION_GRACE_DAYS=7`
+- `AI_LINK_RETENTION_MAX_ROWS_PER_TABLE=500`
 - `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
 - `AI_LINK_ALLOWED_ACCESS_EMAILS`
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
@@ -140,6 +147,7 @@ npm run auth-hub:executor:start
 - `auth-hub:smoke` 可跑通 mock 全链路。
 - 发布动作仍需要审批。
 - `npm run security:scan` 无敏感发现。
+- `npm run auth-hub:retention:json` 可完成只读预览；首次生产 apply 前已由数据库负责人验证备份或 PITR 恢复点，并单独批准 `--apply --confirm-backup`。
 
 远端部署后可运行：
 

@@ -208,6 +208,8 @@ npm run auth-hub:status:strict -- --platform github
 
 远程 Auth Hub 必须使用独立域名，避免覆盖当前承载其他应用的 `voice.xiao-qi-ai.com`；建议候选为 `auth.xiao-qi-ai.com`，最终地址仍需人工确认。公开 Render 蓝图使用 `basic-256mb` Postgres、`ipAllowList: []` 和 `autoDeployTrigger: checksPass`；region 创建后不可修改，部署前必须由负责人决定。域名确认并部署后，先用 `auth-hub:remote:next` 检查远端 `/healthz`、公开部署蓝图和当前进程的环境变量存在性；再用 `auth-hub:remote:smoke` 通过 `full_chain` mock 任务验收远端闭环。远程 smoke 会显式禁用私有连接器模块，并要求应用密码、Admin token、受限 Codex token 和执行器 token，只验证 mock 链路，不读取真实平台账号、不保存浏览器 Profile、不上传截图或 Cookie。
 
+Auth Hub 的配置托管 token 采用原子对账：轮换后旧 hash 立即失效、配置删除会撤销托管 token、同一 hash 重启不会复活已撤销凭据。长期运行数据使用 `auth-hub:retention` 先做只读预览；真正执行必须加 `--apply --confirm-backup`，每类单批默认最多 500 行，并且不会删除任务、API token、平台账号或私有登录态。中文操作与恢复边界见 `docs/20-architecture/auth-hub-data-lifecycle.md`。
+
 停止本地服务：
 
 ```powershell

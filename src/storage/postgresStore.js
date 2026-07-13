@@ -2,6 +2,15 @@ import crypto from "node:crypto";
 import pg from "pg";
 import { TASK_STATUSES } from "../domain/workflow.js";
 import { normalizeConnectorProbeEvidence } from "../connectors/probeEvidence.js";
+import { normalizeConfiguredApiTokenSnapshot } from "../security/apiTokenLifecycle.js";
+import {
+  emptyRetentionCounts,
+  normalizeRetentionPolicy,
+  normalizeRetentionRequest,
+  retentionCutoffs,
+  retentionResult,
+  TERMINAL_TASK_STATUSES
+} from "./retention.js";
 
 const { Pool } = pg;
 
@@ -153,8 +162,9 @@ function rowConnectorProbeEvidence(row) {
 }
 
 export class PostgresStore {
-  constructor({ connectionString }) {
+  constructor({ connectionString, retention } = {}) {
     this.pool = new Pool({ connectionString });
+    this.retentionPolicy = normalizeRetentionPolicy(retention);
   }
 
   async init() {
@@ -311,8 +321,14 @@ export class PostgresStore {
          token_hash = EXCLUDED.token_hash,
          scopes = EXCLUDED.scopes,
          executor_id = EXCLUDED.executor_id,
-         expires_at = EXCLUDED.expires_at,
-         revoked_at = NULL,
+         expires_at = CASE
+           WHEN api_tokens.token_hash = EXCLUDED.token_hash THEN api_tokens.expires_at
+           ELSE EXCLUDED.expires_at
+         END,
+         revoked_at = CASE
+           WHEN api_tokens.token_hash = EXCLUDED.token_hash THEN api_tokens.revoked_at
+           ELSE NULL
+         END,
          updated_at = now()
        RETURNING *`,
       [id, record.name, record.tokenHash, json(record.scopes), record.executorId || null, record.expiresAt]
@@ -326,6 +342,93 @@ export class PostgresStore {
       expiresAt: rows[0].expires_at,
       revokedAt: rows[0].revoked_at
     };
+  }
+
+  async syncConfiguredApiTokens(snapshot) {
+    const { managedNames, activeTokens } = normalizeConfiguredApiTokenSnapshot(snapshot);
+    const activeNames = activeTokens.map((record) => record.name);
+    const activeHashes = activeTokens.map((record) => record.tokenHash);
+    const client = await this.pool.connect();
+    const summary = { active: activeTokens.length, inserted: 0, rotated: 0, preserved: 0, revoked: 0 };
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtext('ai-link-auth-hub'), hashtext('configured-api-tokens-v1'))"
+      );
+      const existingRows = await client.query(
+        `SELECT * FROM api_tokens
+         WHERE name = ANY($1::text[]) OR token_hash = ANY($2::text[])
+         FOR UPDATE`,
+        [managedNames, activeHashes]
+      );
+      const existingByName = new Map(existingRows.rows.map((row) => [row.name, row]));
+      const existingByHash = new Map(existingRows.rows.map((row) => [row.token_hash, row]));
+
+      for (const record of activeTokens) {
+        const hashOwner = existingByHash.get(record.tokenHash);
+        if (hashOwner && hashOwner.name !== record.name) {
+          throw new Error("Configured API token value is already assigned to another name.");
+        }
+      }
+
+      for (const record of activeTokens) {
+        const existing = existingByName.get(record.name);
+        if (existing?.token_hash === record.tokenHash) {
+          await client.query(
+            `UPDATE api_tokens
+             SET scopes = $1, executor_id = $2, updated_at = now()
+             WHERE name = $3`,
+            [json(record.scopes), record.executorId || null, record.name]
+          );
+          summary.preserved += 1;
+          continue;
+        }
+
+        if (existing) {
+          await client.query(
+            `UPDATE api_tokens
+             SET token_hash = $1, scopes = $2, executor_id = $3, expires_at = $4,
+                 revoked_at = NULL, updated_at = now()
+             WHERE name = $5`,
+            [record.tokenHash, json(record.scopes), record.executorId || null, record.expiresAt, record.name]
+          );
+          summary.rotated += 1;
+          continue;
+        }
+
+        await client.query(
+          `INSERT INTO api_tokens (id, name, token_hash, scopes, executor_id, expires_at)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            crypto.randomUUID(),
+            record.name,
+            record.tokenHash,
+            json(record.scopes),
+            record.executorId || null,
+            record.expiresAt
+          ]
+        );
+        summary.inserted += 1;
+      }
+
+      const revokedRows = await client.query(
+        `UPDATE api_tokens
+         SET revoked_at = COALESCE(revoked_at, now()), updated_at = now()
+         WHERE name = ANY($1::text[])
+           AND NOT (name = ANY($2::text[]))
+           AND revoked_at IS NULL
+         RETURNING name`,
+        [managedNames, activeNames]
+      );
+      summary.revoked = revokedRows.rows.length;
+      await client.query("COMMIT");
+      return summary;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async findApiTokenByHash(tokenHash) {
@@ -700,10 +803,10 @@ export class PostgresStore {
   async createApproval({ taskId, type, title, summary, nextStep, requestedBy }) {
     const id = crypto.randomUUID();
     const { rows } = await this.pool.query(
-      `INSERT INTO approvals (id, task_id, type, title, summary, next_step, status, requested_by)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+      `INSERT INTO approvals (id, task_id, type, title, summary, next_step, status, requested_by, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, now() + ($8::int * interval '1 day'))
        RETURNING *`,
-      [id, taskId, type, title, summary, nextStep, requestedBy]
+      [id, taskId, type, title, summary, nextStep, requestedBy, this.retentionPolicy.approvalDays]
     );
     return rowApproval(rows[0]);
   }
@@ -739,7 +842,47 @@ export class PostgresStore {
       const approval = approvalRows.rows[0];
       if (approval.status !== "pending") {
         await client.query("COMMIT");
-        return { task: rowTask(taskRows.rows[0]), approval: rowApproval(approval), changed: false };
+        return {
+          task: rowTask(taskRows.rows[0]),
+          approval: rowApproval(approval),
+          changed: false,
+          reason: approval.status === "expired" ? "approval_expired" : "approval_already_decided"
+        };
+      }
+      if (approval.expires_at) {
+        const expiredApproval = await client.query(
+          `UPDATE approvals
+           SET status = 'expired', decided_by = $1, decision_note = $2, decided_at = now()
+           WHERE id = $3 AND status = 'pending' AND expires_at <= now()
+           RETURNING *`,
+          [actor, "Expired before decision.", approvalId]
+        );
+        if (expiredApproval.rows[0]) {
+          const expiredTask = await client.query(
+            `UPDATE tasks
+             SET status = $1, error = $2, updated_at = now()
+             WHERE id = $3 AND status = $4
+             RETURNING *`,
+            [
+              TASK_STATUSES.ACTION_REQUIRED,
+              json({ code: "approval_expired" }),
+              taskId,
+              TASK_STATUSES.APPROVAL_REQUIRED
+            ]
+          );
+          await client.query(
+            `INSERT INTO audit_events (id, task_id, actor, event_type, detail)
+             VALUES ($1, $2, $3, 'approval.expired', $4)`,
+            [crypto.randomUUID(), taskId, actor, json({ approvalId })]
+          );
+          await client.query("COMMIT");
+          return {
+            task: rowTask(expiredTask.rows[0] || taskRows.rows[0]),
+            approval: rowApproval(expiredApproval.rows[0]),
+            changed: false,
+            reason: "approval_expired"
+          };
+        }
       }
       const newApprovalStatus = approved ? "approved" : "rejected";
       const newTaskStatus = approved ? TASK_STATUSES.QUEUED : TASK_STATUSES.CANCELLED;
@@ -811,4 +954,222 @@ export class PostgresStore {
     );
     return rows.map(rowAudit);
   }
+
+  async runRetentionMaintenance(options = {}) {
+    const initialRequest = normalizeRetentionRequest({
+      ...options,
+      policy: { ...this.retentionPolicy, ...(options.policy || {}) }
+    });
+    const client = await this.pool.connect();
+    let transactionStarted = false;
+    try {
+      await client.query(initialRequest.apply
+        ? "BEGIN ISOLATION LEVEL SERIALIZABLE"
+        : "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      transactionStarted = true;
+      await client.query("SET LOCAL lock_timeout = '2s'");
+      await client.query("SET LOCAL statement_timeout = '30s'");
+      const lock = await client.query(
+        "SELECT pg_try_advisory_xact_lock(hashtext('ai-link-auth-hub'), hashtext('retention-v1')) AS locked"
+      );
+      if (lock.rows[0]?.locked !== true) {
+        throw new Error("Auth Hub retention maintenance is already running.");
+      }
+      const time = await client.query("SELECT transaction_timestamp() AS as_of");
+      const request = {
+        ...initialRequest,
+        asOf: time.rows[0].as_of?.toISOString?.() || String(time.rows[0].as_of)
+      };
+      const cutoffs = retentionCutoffs(request.asOf, request.policy);
+      const selected = await selectPostgresRetentionCandidates(client, request, cutoffs);
+      const candidates = retentionCounts(selected);
+      const hasMore = Object.values(selected).some((records) => records.hasMore);
+      if (!request.apply) {
+        await client.query("ROLLBACK");
+        transactionStarted = false;
+        return retentionResult({
+          request,
+          candidates,
+          changed: emptyRetentionCounts(),
+          hasMore,
+          cutoffs
+        });
+      }
+
+      const changed = emptyRetentionCounts();
+      const approvalIds = selected.approvals.rows.map((record) => record.id);
+      if (approvalIds.length > 0) {
+        const expired = await client.query(
+          `UPDATE approvals
+           SET status = 'expired', decided_by = $1, decision_note = $2, decided_at = $3
+           WHERE id = ANY($4::uuid[]) AND status = 'pending'
+           RETURNING id, task_id`,
+          [request.actor, "Expired by retention policy.", request.asOf, approvalIds]
+        );
+        changed.approvals = expired.rowCount || 0;
+        const expiredTaskIds = expired.rows.map((record) => record.task_id);
+        if (expiredTaskIds.length > 0) {
+          await client.query(
+            `UPDATE tasks
+             SET status = $1, error = $2, updated_at = $3
+             WHERE id = ANY($4::uuid[]) AND status = $5`,
+            [
+              TASK_STATUSES.ACTION_REQUIRED,
+              json({ code: "approval_expired" }),
+              request.asOf,
+              expiredTaskIds,
+              TASK_STATUSES.APPROVAL_REQUIRED
+            ]
+          );
+          await insertApprovalExpiredAudit(client, expired.rows, request);
+        }
+      }
+
+      changed.artifacts = await deleteByIds(client, "artifacts", selected.artifacts.rows.map((record) => record.id));
+      changed.executorHeartbeats = await deleteByTextIds(
+        client,
+        "executor_heartbeats",
+        "executor_id",
+        selected.executorHeartbeats.rows.map((record) => record.executor_id)
+      );
+      changed.connectorProbes = await deleteConnectorProbes(client, selected.connectorProbes.rows);
+      changed.auditEvents = await deleteByIds(
+        client,
+        "audit_events",
+        selected.auditEvents.rows.map((record) => record.id)
+      );
+      await client.query(
+        `INSERT INTO audit_events (id, task_id, actor, event_type, detail, created_at)
+         VALUES ($1, NULL, $2, 'maintenance.retention_applied', $3, $4)`,
+        [
+          request.runId,
+          request.actor,
+          json({ policyVersion: "1", changed, cutoffs, hasMore }),
+          request.asOf
+        ]
+      );
+      await client.query("COMMIT");
+      transactionStarted = false;
+      return retentionResult({ request, candidates, changed, hasMore, cutoffs });
+    } catch (error) {
+      if (transactionStarted) {
+        await client.query("ROLLBACK");
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+
+async function selectPostgresRetentionCandidates(client, request, cutoffs) {
+  const limit = request.policy.maxRowsPerTable;
+  const rowLimit = limit + 1;
+  const lock = request.apply ? " FOR UPDATE OF target SKIP LOCKED" : "";
+  const approvals = await client.query(
+    `SELECT target.id, target.task_id
+     FROM approvals target
+     WHERE target.status = 'pending'
+       AND ((target.expires_at IS NOT NULL AND target.expires_at <= $1)
+         OR (target.expires_at IS NULL AND target.created_at <= $2))
+     ORDER BY COALESCE(target.expires_at, target.created_at), target.id
+     LIMIT $3${lock}`,
+    [request.asOf, cutoffs.approval, rowLimit]
+  );
+  const artifacts = await client.query(
+    `SELECT target.id
+     FROM artifacts target
+     JOIN tasks task ON task.id = target.task_id
+     WHERE task.status = ANY($1::text[])
+       AND ((target.retention_until IS NOT NULL AND target.retention_until <= $2)
+         OR (target.retention_until IS NULL AND target.created_at <= $3))
+     ORDER BY COALESCE(target.retention_until, target.created_at), target.id
+     LIMIT $4${lock}`,
+    [TERMINAL_TASK_STATUSES, request.asOf, cutoffs.artifact, rowLimit]
+  );
+  const heartbeats = await client.query(
+    `SELECT target.executor_id
+     FROM executor_heartbeats target
+     WHERE target.expires_at <= $1
+     ORDER BY target.expires_at, target.executor_id
+     LIMIT $2${lock}`,
+    [cutoffs.heartbeat, rowLimit]
+  );
+  const probes = await client.query(
+    `SELECT target.executor_id, target.platform, target.operation
+     FROM connector_probe_evidence target
+     WHERE target.expires_at <= $1
+     ORDER BY target.expires_at, target.executor_id, target.platform, target.operation
+     LIMIT $2${lock}`,
+    [cutoffs.probe, rowLimit]
+  );
+  const auditEvents = await client.query(
+    `SELECT target.id
+     FROM audit_events target
+     LEFT JOIN tasks task ON task.id = target.task_id
+     WHERE ((target.event_type LIKE 'maintenance.%' AND target.created_at <= $1)
+       OR (target.event_type NOT LIKE 'maintenance.%' AND target.created_at <= $2))
+       AND (target.task_id IS NULL OR task.status = ANY($3::text[]))
+     ORDER BY target.created_at, target.id
+     LIMIT $4${lock}`,
+    [cutoffs.maintenanceAudit, cutoffs.audit, TERMINAL_TASK_STATUSES, rowLimit]
+  );
+  return {
+    approvals: boundedRows(approvals.rows, limit),
+    artifacts: boundedRows(artifacts.rows, limit),
+    executorHeartbeats: boundedRows(heartbeats.rows, limit),
+    connectorProbes: boundedRows(probes.rows, limit),
+    auditEvents: boundedRows(auditEvents.rows, limit)
+  };
+}
+
+function boundedRows(rows, limit) {
+  return { rows: rows.slice(0, limit), hasMore: rows.length > limit };
+}
+
+function retentionCounts(selected) {
+  return Object.fromEntries(
+    Object.entries(selected).map(([name, selection]) => [name, selection.rows.length])
+  );
+}
+
+async function deleteByIds(client, table, ids) {
+  if (ids.length === 0) return 0;
+  const result = await client.query(`DELETE FROM ${table} WHERE id = ANY($1::uuid[])`, [ids]);
+  return result.rowCount || 0;
+}
+
+async function deleteByTextIds(client, table, column, ids) {
+  if (ids.length === 0) return 0;
+  const result = await client.query(`DELETE FROM ${table} WHERE ${column} = ANY($1::text[])`, [ids]);
+  return result.rowCount || 0;
+}
+
+async function deleteConnectorProbes(client, records) {
+  if (records.length === 0) return 0;
+  const result = await client.query(
+    `DELETE FROM connector_probe_evidence target
+     USING unnest($1::text[], $2::text[], $3::text[]) AS victim(executor_id, platform, operation)
+     WHERE target.executor_id = victim.executor_id
+       AND target.platform = victim.platform
+       AND target.operation = victim.operation`,
+    [
+      records.map((record) => record.executor_id),
+      records.map((record) => record.platform),
+      records.map((record) => record.operation)
+    ]
+  );
+  return result.rowCount || 0;
+}
+
+async function insertApprovalExpiredAudit(client, records, request) {
+  const ids = records.map(() => crypto.randomUUID());
+  const taskIds = records.map((record) => record.task_id);
+  const details = records.map((record) => json({ approvalId: record.id }));
+  await client.query(
+    `INSERT INTO audit_events (id, task_id, actor, event_type, detail, created_at)
+     SELECT victim.id, victim.task_id, $4, 'approval.expired', victim.detail, $5
+     FROM unnest($1::uuid[], $2::uuid[], $3::jsonb[]) AS victim(id, task_id, detail)`,
+    [ids, taskIds, details, request.actor, request.asOf]
+  );
 }

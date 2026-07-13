@@ -211,7 +211,7 @@ export function createUiRouter() {
       return;
     }
     if (!decision.changed) {
-      res.status(409).send("Approval already decided.");
+      res.status(409).send(decision.reason === "approval_expired" ? "Approval expired." : "Approval already decided.");
       return;
     }
     res.redirect(303, `/dashboard/tasks/${req.params.id}`);

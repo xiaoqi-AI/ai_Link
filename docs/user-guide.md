@@ -128,6 +128,8 @@ npm run auth-hub:audit-smoke
 npm run auth-hub:executor:start
 ```
 
+远程 Auth Hub 长期运行后，先用 `npm run auth-hub:retention` 或 `npm run auth-hub:retention:json` 预览审批、artifact、审计、心跳和 probe 的到期数量。预览不写数据库；只有已经验证备份或 PITR 恢复点后，才允许执行 `npm run auth-hub:retention -- --apply --confirm-backup --actor maintenance:operator`。该命令不删除任务、API token、平台账号或本机私有登录态。完整中文手册见 `docs/20-architecture/auth-hub-data-lifecycle.md`。
+
 本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。启用后必须同时配置应用 AUD tag 和 team domain/issuer；应用会验证 JWT 签名、issuer、audience 与用户/服务令牌身份，参数缺失时直接拒绝，不信任可伪造的邮件头。应用内控制台会话默认 8 小时，并由服务端校验签名载荷中的绝对过期时间；可用 `AI_LINK_SESSION_MAX_AGE_SECONDS` 在 5 分钟至 24 小时内调整。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
 
 控制台登录、创建任务、审批、重试和退出均受同源请求与 CSRF 保护。不要通过脚本复用浏览器页面中的 token，也不要把 token 放进 URL、日志或任务输入；页面刷新后按当前会话重新取得即可。默认 CSRF 有效期 15 分钟，可用 `AI_LINK_CSRF_TOKEN_TTL_SECONDS` 在 5 至 60 分钟内调整。登录默认 15 分钟内最多失败 5 次，锁定 15 分钟；对应参数是 `AI_LINK_LOGIN_MAX_FAILURES`、`AI_LINK_LOGIN_WINDOW_SECONDS`、`AI_LINK_LOGIN_BLOCK_SECONDS` 和 `AI_LINK_LOGIN_MAX_KEYS`。当前限流是单进程保护，远程蓝图必须保持一个 Web 实例；扩容前先建设共享限流层。

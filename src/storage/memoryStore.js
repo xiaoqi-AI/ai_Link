@@ -1,6 +1,16 @@
 import crypto from "node:crypto";
 import { APPROVAL_STATUSES, TASK_STATUSES } from "../domain/workflow.js";
 import { normalizeConnectorProbeEvidence } from "../connectors/probeEvidence.js";
+import { normalizeConfiguredApiTokenSnapshot } from "../security/apiTokenLifecycle.js";
+import {
+  approvalExpiresAt,
+  emptyRetentionCounts,
+  normalizeRetentionPolicy,
+  normalizeRetentionRequest,
+  retentionCutoffs,
+  retentionResult,
+  TERMINAL_TASK_STATUSES
+} from "./retention.js";
 
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -11,7 +21,7 @@ function nowIso() {
 }
 
 export class MemoryStore {
-  constructor() {
+  constructor({ retention } = {}) {
     this.tasks = new Map();
     this.approvals = new Map();
     this.artifacts = new Map();
@@ -19,6 +29,7 @@ export class MemoryStore {
     this.apiTokens = new Map();
     this.executorHeartbeats = new Map();
     this.connectorProbeEvidence = new Map();
+    this.retentionPolicy = normalizeRetentionPolicy(retention);
   }
 
   async init() {}
@@ -27,23 +38,92 @@ export class MemoryStore {
 
   async upsertApiToken(record) {
     const existing = [...this.apiTokens.values()].find((item) => item.name === record.name);
+    const hashOwner = this.apiTokens.get(record.tokenHash);
+    if (hashOwner && hashOwner.name !== record.name) {
+      throw new Error("API token value is already assigned to another name.");
+    }
+    const sameCredential = existing?.tokenHash === record.tokenHash;
     const next = {
       id: existing?.id || crypto.randomUUID(),
       name: record.name,
       tokenHash: record.tokenHash,
       scopes: record.scopes,
       executorId: record.executorId || "",
-      expiresAt: record.expiresAt || null,
-      revokedAt: null,
+      expiresAt: sameCredential ? existing.expiresAt : record.expiresAt || null,
+      revokedAt: sameCredential ? existing.revokedAt : null,
       createdAt: existing?.createdAt || nowIso(),
       updatedAt: nowIso()
     };
+    if (existing && existing.tokenHash !== next.tokenHash) {
+      this.apiTokens.delete(existing.tokenHash);
+    }
     this.apiTokens.set(next.tokenHash, next);
     return clone(next);
   }
 
+  async syncConfiguredApiTokens(snapshot) {
+    const { managedNames, activeTokens } = normalizeConfiguredApiTokenSnapshot(snapshot);
+    const nextTokens = new Map(
+      [...this.apiTokens.entries()].map(([tokenHash, record]) => [tokenHash, clone(record)])
+    );
+    const activeNames = new Set(activeTokens.map((record) => record.name));
+    const managedSet = new Set(managedNames);
+    const now = nowIso();
+    const summary = { active: activeTokens.length, inserted: 0, rotated: 0, preserved: 0, revoked: 0 };
+
+    for (const record of activeTokens) {
+      const conflicting = nextTokens.get(record.tokenHash);
+      if (conflicting && conflicting.name !== record.name) {
+        throw new Error("Configured API token value is already assigned to another name.");
+      }
+    }
+
+    for (const record of activeTokens) {
+      const sameName = [...nextTokens.values()].filter((item) => item.name === record.name);
+      const sameCredential = sameName.find((item) => item.tokenHash === record.tokenHash);
+      for (const existing of sameName) nextTokens.delete(existing.tokenHash);
+
+      if (sameCredential) {
+        nextTokens.set(record.tokenHash, {
+          ...sameCredential,
+          scopes: record.scopes,
+          executorId: record.executorId,
+          updatedAt: now
+        });
+        summary.preserved += 1;
+        continue;
+      }
+
+      const previous = sameName
+        .sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")))[0];
+      nextTokens.set(record.tokenHash, {
+        id: previous?.id || crypto.randomUUID(),
+        name: record.name,
+        tokenHash: record.tokenHash,
+        scopes: record.scopes,
+        executorId: record.executorId,
+        expiresAt: record.expiresAt,
+        revokedAt: null,
+        createdAt: previous?.createdAt || now,
+        updatedAt: now
+      });
+      if (previous) summary.rotated += 1;
+      else summary.inserted += 1;
+    }
+
+    for (const [tokenHash, record] of nextTokens) {
+      if (!managedSet.has(record.name) || activeNames.has(record.name) || record.revokedAt) continue;
+      nextTokens.set(tokenHash, { ...record, revokedAt: now, updatedAt: now });
+      summary.revoked += 1;
+    }
+
+    this.apiTokens = nextTokens;
+    return summary;
+  }
+
   async findApiTokenByHash(tokenHash) {
-    return clone(this.apiTokens.get(tokenHash));
+    const record = this.apiTokens.get(tokenHash);
+    return record ? clone(record) : null;
   }
 
   async upsertExecutorHeartbeat({ executorId, executorSessionId = "", actor, schemaVersion, connectors, ttlMs, trusted = false }) {
@@ -324,6 +404,7 @@ export class MemoryStore {
 
   async createApproval({ taskId, type, title, summary, nextStep, requestedBy }) {
     const id = crypto.randomUUID();
+    const createdAt = nowIso();
     const approval = {
       id,
       taskId,
@@ -335,9 +416,9 @@ export class MemoryStore {
       requestedBy,
       decidedBy: null,
       decisionNote: "",
-      createdAt: nowIso(),
+      createdAt,
       decidedAt: null,
-      expiresAt: null
+      expiresAt: approvalExpiresAt(createdAt, this.retentionPolicy)
     };
     this.approvals.set(id, approval);
     return clone(approval);
@@ -359,7 +440,35 @@ export class MemoryStore {
     const task = this.tasks.get(taskId);
     if (!approval || !task || approval.taskId !== taskId) return null;
     if (approval.status !== APPROVAL_STATUSES.PENDING) {
-      return { task: clone(task), approval: clone(approval), changed: false };
+      return {
+        task: clone(task),
+        approval: clone(approval),
+        changed: false,
+        reason: approval.status === APPROVAL_STATUSES.EXPIRED ? "approval_expired" : "approval_already_decided"
+      };
+    }
+    if (approval.expiresAt && new Date(approval.expiresAt).getTime() <= Date.now()) {
+      approval.status = APPROVAL_STATUSES.EXPIRED;
+      approval.decidedBy = actor;
+      approval.decisionNote = "Expired before decision.";
+      approval.decidedAt = nowIso();
+      if (task.status === TASK_STATUSES.APPROVAL_REQUIRED) {
+        task.status = TASK_STATUSES.ACTION_REQUIRED;
+        task.error = { code: "approval_expired" };
+        task.updatedAt = nowIso();
+      }
+      await this.appendAudit({
+        taskId,
+        actor,
+        eventType: "approval.expired",
+        detail: { approvalId }
+      });
+      return {
+        task: clone(task),
+        approval: clone(approval),
+        changed: false,
+        reason: "approval_expired"
+      };
     }
 
     approval.status = approved ? APPROVAL_STATUSES.APPROVED : APPROVAL_STATUSES.REJECTED;
@@ -429,6 +538,135 @@ export class MemoryStore {
       .slice(0, limit)
       .map(clone);
   }
+
+  async runRetentionMaintenance(options = {}) {
+    const request = normalizeRetentionRequest({
+      ...options,
+      policy: { ...this.retentionPolicy, ...(options.policy || {}) }
+    });
+    const cutoffs = retentionCutoffs(request.asOf, request.policy);
+    const selected = collectMemoryRetentionCandidates(this, request, cutoffs);
+    const candidates = retentionCounts(selected);
+    const hasMore = Object.values(selected).some((records) => records.hasMore);
+    if (!request.apply) {
+      return retentionResult({
+        request,
+        candidates,
+        changed: emptyRetentionCounts(),
+        hasMore,
+        cutoffs
+      });
+    }
+
+    const nextTasks = cloneMap(this.tasks);
+    const nextApprovals = cloneMap(this.approvals);
+    const nextArtifacts = cloneMap(this.artifacts);
+    const nextHeartbeats = cloneMap(this.executorHeartbeats);
+    const nextProbes = cloneMap(this.connectorProbeEvidence);
+    const deletedAuditIds = new Set(selected.auditEvents.records.map((record) => record.id));
+    const nextAuditEvents = this.auditEvents
+      .filter((record) => !deletedAuditIds.has(record.id))
+      .map(clone);
+
+    for (const record of selected.approvals.records) {
+      const approval = nextApprovals.get(record.id);
+      if (!approval || approval.status !== APPROVAL_STATUSES.PENDING) continue;
+      approval.status = APPROVAL_STATUSES.EXPIRED;
+      approval.decidedBy = request.actor;
+      approval.decisionNote = "Expired by retention policy.";
+      approval.decidedAt = request.asOf;
+      const task = nextTasks.get(approval.taskId);
+      if (task?.status === TASK_STATUSES.APPROVAL_REQUIRED) {
+        task.status = TASK_STATUSES.ACTION_REQUIRED;
+        task.error = { code: "approval_expired" };
+        task.updatedAt = request.asOf;
+      }
+      nextAuditEvents.push({
+        id: crypto.randomUUID(),
+        taskId: approval.taskId,
+        actor: request.actor,
+        eventType: "approval.expired",
+        detail: { approvalId: approval.id },
+        createdAt: request.asOf
+      });
+    }
+    for (const record of selected.artifacts.records) nextArtifacts.delete(record.id);
+    for (const record of selected.executorHeartbeats.records) nextHeartbeats.delete(record.executorId);
+    for (const record of selected.connectorProbes.records) nextProbes.delete(record.key);
+
+    const changed = { ...candidates };
+    nextAuditEvents.push({
+      id: request.runId,
+      taskId: null,
+      actor: request.actor,
+      eventType: "maintenance.retention_applied",
+      detail: { policyVersion: "1", changed, cutoffs, hasMore },
+      createdAt: request.asOf
+    });
+
+    this.tasks = nextTasks;
+    this.approvals = nextApprovals;
+    this.artifacts = nextArtifacts;
+    this.executorHeartbeats = nextHeartbeats;
+    this.connectorProbeEvidence = nextProbes;
+    this.auditEvents = nextAuditEvents;
+    return retentionResult({ request, candidates, changed, hasMore, cutoffs });
+  }
+}
+
+function collectMemoryRetentionCandidates(store, request, cutoffs) {
+  const limit = request.policy.maxRowsPerTable;
+  const terminal = new Set(TERMINAL_TASK_STATUSES);
+  const approvals = [...store.approvals.values()]
+    .filter((record) => record.status === APPROVAL_STATUSES.PENDING)
+    .filter((record) => (record.expiresAt || record.createdAt) <= (record.expiresAt ? request.asOf : cutoffs.approval))
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const artifacts = [...store.artifacts.values()]
+    .filter((record) => {
+      const task = store.tasks.get(record.taskId);
+      if (!task || !terminal.has(task.status)) return false;
+      return record.retentionUntil
+        ? record.retentionUntil <= request.asOf
+        : record.createdAt <= cutoffs.artifact;
+    })
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const executorHeartbeats = [...store.executorHeartbeats.values()]
+    .filter((record) => record.expiresAt <= cutoffs.heartbeat)
+    .sort((left, right) => left.expiresAt.localeCompare(right.expiresAt));
+  const connectorProbes = [...store.connectorProbeEvidence.entries()]
+    .map(([key, record]) => ({ key, ...record }))
+    .filter((record) => record.expiresAt <= cutoffs.probe)
+    .sort((left, right) => left.expiresAt.localeCompare(right.expiresAt));
+  const auditEvents = store.auditEvents
+    .filter((record) => {
+      const cutoff = record.eventType.startsWith("maintenance.") ? cutoffs.maintenanceAudit : cutoffs.audit;
+      if (record.createdAt > cutoff) return false;
+      if (!record.taskId) return true;
+      const task = store.tasks.get(record.taskId);
+      return Boolean(task && terminal.has(task.status));
+    })
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  return {
+    approvals: boundedSelection(approvals, limit),
+    artifacts: boundedSelection(artifacts, limit),
+    executorHeartbeats: boundedSelection(executorHeartbeats, limit),
+    connectorProbes: boundedSelection(connectorProbes, limit),
+    auditEvents: boundedSelection(auditEvents, limit)
+  };
+}
+
+function boundedSelection(records, limit) {
+  return { records: records.slice(0, limit), hasMore: records.length > limit };
+}
+
+function retentionCounts(selected) {
+  return Object.fromEntries(
+    Object.entries(selected).map(([name, selection]) => [name, selection.records.length])
+  );
+}
+
+function cloneMap(map) {
+  return new Map([...map.entries()].map(([key, value]) => [key, clone(value)]));
 }
 
 function taskEventType(status) {
