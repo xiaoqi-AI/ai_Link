@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { cloudflareServiceHeaders, validateAuthHubTarget } from "../src/security/authHubOutbound.js";
@@ -15,6 +15,8 @@ const token = valueAfter("--token") || process.env.AI_LINK_CODEX_TOKEN || proces
 const rawRequestedPlatforms = valuesAfter("--platform");
 const rawRequiredOperations = valuesAfter("--require-operation");
 const requiredOperationInput = normalizeRequiredOperations(rawRequiredOperations);
+const githubTargetInput = normalizeGithubTargetConfiguration(valuesAfter("--github-target-env"), process.env, token);
+const exactGithubTargetRequested = requiredOperationInput.values.some(isExactGithubTargetRequirement);
 const requestedPlatforms = normalizePlatforms([
   ...rawRequestedPlatforms,
   ...requiredOperationInput.values.map((item) => item.platform)
@@ -25,7 +27,10 @@ const scopeFingerprint = buildScopeFingerprint({
   baseUrl,
   requestedPlatforms,
   platformFilterApplied,
-  requiredOperations: requiredOperationInput.values
+  requiredOperations: requiredOperationInput.values,
+  githubTargetScope: exactGithubTargetRequested || githubTargetInput.explicit
+    ? githubTargetInput.scopeKey
+    : ""
 });
 let stateFile = "";
 
@@ -47,7 +52,8 @@ const report = {
     platformFilterApplied,
     invalidPlatformFilter,
     requiredOperations: requiredOperationInput.values,
-    invalidOperationRequirement: requiredOperationInput.invalid
+    invalidOperationRequirement: requiredOperationInput.invalid,
+    githubTargetInput
   })
 };
 
@@ -78,7 +84,8 @@ async function buildReport({
   platformFilterApplied,
   invalidPlatformFilter,
   requiredOperations,
-  invalidOperationRequirement
+  invalidOperationRequirement,
+  githubTargetInput
 }) {
   const generatedAt = new Date().toISOString();
   const target = {
@@ -141,6 +148,26 @@ async function buildReport({
     ? allActions.filter((action) => platformFilter.includes(action.platform))
     : allActions;
   const missingPlatforms = platformFilter.filter((platform) => !allItems.some((item) => item.platform === platform));
+  const exactTargetRequirements = requiredOperations.filter(isExactGithubTargetRequirement);
+  const targetConfigurationIssue = githubTargetIssue({
+    githubTargetInput,
+    exactTargetRequired: exactTargetRequirements.length > 0
+  });
+  const targetVerificationCandidates = actionCoverageIssue
+    ? []
+    : exactTargetRequirements.filter((requirement) => {
+      const item = items.find((candidate) => candidate.platform === requirement.platform);
+      return item?.status === "ready" && exactTargetCandidateAvailable(item, requirement);
+    });
+  let targetVerification = { ok: true, issueCode: "", results: [] };
+  if (targetVerificationCandidates.length > 0 && !targetConfigurationIssue) {
+    targetVerification = await fetchTargetVerification({
+      baseUrl: targetBaseUrl,
+      bearerToken,
+      requirements: targetVerificationCandidates,
+      githubTarget: githubTargetInput.target
+    });
+  }
   const operationRequirements = requiredOperations.map((requirement) => {
     const item = items.find((candidate) => candidate.platform === requirement.platform);
     if (!item) {
@@ -152,23 +179,56 @@ async function buildReport({
     if (item.status !== "ready") {
       return { ...requirement, status: "platform_not_ready", reason: item.reason || item.status || "unverified" };
     }
-    if (!item.verifiedOperations.includes(requirement.operation)) {
+    if (!requiredOperationCandidateAvailable(item, requirement)) {
       return { ...requirement, status: "operation_unverified", reason: "required_operation_unverified" };
     }
-    return { ...requirement, status: "verified", reason: "probe_verified" };
+    if (!isTargetBoundRequirement(requirement)) {
+      return { ...requirement, status: "verified", reason: "probe_verified" };
+    }
+    if (!isExactGithubTargetRequirement(requirement)) {
+      return { ...requirement, status: "target_unsupported", reason: "target_verification_unsupported" };
+    }
+    if (targetConfigurationIssue) {
+      return {
+        ...requirement,
+        status: githubTargetInput.explicit ? "target_invalid" : "target_missing",
+        reason: targetConfigurationIssue
+      };
+    }
+    if (!targetVerification.ok) {
+      return {
+        ...requirement,
+        status: "target_coverage_unverified",
+        reason: targetVerification.issueCode
+      };
+    }
+    const exactResult = targetVerification.results.find((item) =>
+      item.platform === requirement.platform && item.operation === requirement.operation
+    );
+    if (exactResult?.status !== "verified") {
+      return {
+        ...requirement,
+        status: "target_unverified",
+        reason: exactResult?.reason || "target_probe_unverified"
+      };
+    }
+    return { ...requirement, status: "verified", reason: exactResult.reason };
   });
   const failedOperationRequirements = operationRequirements.filter((item) => item.status !== "verified");
+  const targetConfigurationCovered = targetConfigurationIssue
+    && failedOperationRequirements.some((item) => item.reason === targetConfigurationIssue);
   const blockers = unique([
     ...items
       .filter((item) => item.status !== "ready")
       .map((item) => `${item.platform}: ${item.reason || item.status || "unverified"}`),
     ...missingPlatforms.map((platform) => `${platform}: missing_from_auth_status`),
     ...failedOperationRequirements
-      .filter((item) => item.status === "operation_unverified")
+      .filter((item) => !["coverage_unverified", "platform_missing", "platform_not_ready"].includes(item.status))
       .map((item) => `${item.platform}: ${item.reason}:${item.operation}`),
     ...(actionCoverageIssue ? [`auth_hub: ${actionCoverageIssue}`] : []),
     ...(invalidPlatformFilter ? ["invalid_platform_filter"] : []),
-    ...(invalidOperationRequirement ? ["invalid_operation_requirement"] : [])
+    ...(invalidOperationRequirement ? ["invalid_operation_requirement"] : []),
+    ...(targetConfigurationIssue && !targetConfigurationCovered ? [`github: ${targetConfigurationIssue}`] : [])
   ]);
   const manualCount = nextActions.filter((action) => action.severity !== "blocked").length;
   const filteredSummary = summarizeItems(items, nextActions);
@@ -180,7 +240,7 @@ async function buildReport({
       nextActions: nextActions.length,
       blockingCount: blockers.length,
       manualCount,
-      monitoringIssue: "",
+      monitoringIssue: targetConfigurationIssue || (targetVerification.ok ? "" : targetVerification.issueCode),
       recommendedNext: recommendedNext({ nextActions, blockers, failedOperationRequirements })
     },
     target,
@@ -272,6 +332,51 @@ async function fetchAuthStatus({ target, bearerToken }) {
   }
 }
 
+async function fetchTargetVerification({ baseUrl: targetBaseUrl, bearerToken, requirements, githubTarget }) {
+  const url = `${targetBaseUrl}/api/auth-status/verify-targets`;
+  try {
+    const outboundTarget = validateAuthHubTarget(url);
+    if (!outboundTarget.ok) {
+      return { ok: false, issueCode: "auth_hub_target_rejected", results: [] };
+    }
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${bearerToken}`,
+        accept: "application/json",
+        "content-type": "application/json",
+        ...cloudflareServiceHeaders(outboundTarget)
+      },
+      body: JSON.stringify({
+        schemaVersion: "1",
+        requirements: requirements.map((requirement) => ({
+          platform: "github",
+          operation: "check_auth",
+          qualifier: exactGithubQualifier(requirement.operation),
+          target: githubTarget
+        }))
+      }),
+      redirect: "manual",
+      signal: AbortSignal.timeout(Number(process.env.AI_LINK_AUTH_STATUS_TIMEOUT_MS || 20000))
+    });
+    if (!response.ok) {
+      return { ok: false, issueCode: "target_verification_http_error", results: [] };
+    }
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return { ok: false, issueCode: "target_verification_invalid_response", results: [] };
+    }
+    if (!validTargetVerificationEnvelope(data, requirements)) {
+      return { ok: false, issueCode: "target_verification_invalid_response", results: [] };
+    }
+    return { ok: true, issueCode: "", results: data.targetVerification.results };
+  } catch {
+    return { ok: false, issueCode: "target_verification_unreachable", results: [] };
+  }
+}
+
 function validAuthStatusEnvelope(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return false;
   const authStatus = data.authStatus;
@@ -285,6 +390,37 @@ function validAuthStatusEnvelope(data) {
     && Array.isArray(authStatus.items)
     && Array.isArray(authStatus.nextActions)
   );
+}
+
+function validTargetVerificationEnvelope(data, requirements) {
+  if (!plainObject(data) || !onlyKeys(data, ["targetVerification"])) return false;
+  const verification = data.targetVerification;
+  if (
+    !plainObject(verification)
+    || !onlyKeys(verification, ["schemaVersion", "results"])
+    || verification.schemaVersion !== "1"
+    || !Array.isArray(verification.results)
+    || verification.results.length !== requirements.length
+  ) {
+    return false;
+  }
+  const expected = new Set(requirements.map((item) => `${item.platform}=${item.operation}`));
+  const seen = new Set();
+  for (const result of verification.results) {
+    if (!plainObject(result) || !onlyKeys(result, ["platform", "operation", "status", "reason"])) return false;
+    const key = `${result.platform}=${result.operation}`;
+    if (
+      !expected.has(key)
+      || seen.has(key)
+      || !["verified", "unverified"].includes(result.status)
+      || (result.status === "verified" && result.reason !== "target_probe_verified")
+      || (result.status === "unverified" && result.reason !== "target_probe_unverified")
+    ) {
+      return false;
+    }
+    seen.add(key);
+  }
+  return seen.size === expected.size;
 }
 
 function publicAction(action) {
@@ -346,6 +482,12 @@ function stringValue(value) {
 }
 
 function recommendedNext({ nextActions, blockers, failedOperationRequirements = [] }) {
+  if (failedOperationRequirements.some((item) => ["github_target_required", "github_target_configuration_invalid"].includes(item.reason))) {
+    return "Configure one private GitHub owner/repository environment variable and pass its name with --github-target-env, then rerun the exact target check.";
+  }
+  if (failedOperationRequirements.some((item) => item.status === "target_coverage_unverified")) {
+    return "Repair or upgrade the Auth Hub exact-target verification endpoint before the dependent project continues automation.";
+  }
   if (failedOperationRequirements.length > 0) {
     return "Obtain fresh evidence for every required operation before the dependent project continues real-platform automation.";
   }
@@ -360,7 +502,8 @@ function recommendedNext({ nextActions, blockers, failedOperationRequirements = 
 
 function safetyNotes() {
   return [
-    "This command only calls GET /api/auth-status and prints public-safe fields.",
+    "This command calls GET /api/auth-status and, only for exact target-bound requirements, POST /api/auth-status/verify-targets.",
+    "GitHub owner/repository is read from the named environment variable, sent only in the authenticated POST body, and never printed or stored.",
     "It never prints API tokens, Cloudflare service tokens, Cookie, Profile, QR codes, screenshots, account details, raw platform responses, or runtime/private paths.",
     "Dependent projects should use this report as a pause/remind/retry signal, not as a source of login state."
   ];
@@ -565,6 +708,7 @@ function monitoringFailureReason(report) {
   if ((report.blockers || []).includes("auth_hub: action_task_list_truncated")) return "action_task_list_truncated";
   if ((report.blockers || []).includes("auth_hub: action_task_coverage_unverified")) return "action_task_coverage_unverified";
   if ((report.blockers || []).some((blocker) => blocker.endsWith(": missing_from_auth_status"))) return "missing_platform";
+  if (report.summary.monitoringIssue) return report.summary.monitoringIssue;
   return "";
 }
 
@@ -797,13 +941,15 @@ function buildScopeFingerprint({
   baseUrl: targetBaseUrl,
   requestedPlatforms: platforms,
   platformFilterApplied: filterApplied,
-  requiredOperations
+  requiredOperations,
+  githubTargetScope
 }) {
   return createHash("sha256")
     .update(JSON.stringify({
       targetBaseUrl,
       platforms: filterApplied ? platforms : ["*"],
-      requiredOperations
+      requiredOperations,
+      ...(githubTargetScope ? { githubTargetScope } : {})
     }))
     .digest("hex");
 }
@@ -855,6 +1001,13 @@ function normalizeRequiredOperations(values) {
       invalid = true;
       continue;
     }
+    if (
+      platform === "github"
+      && /^check_auth:(repo_read|actions_read|pull_request_read):target_verification_required:v1$/.test(operation)
+    ) {
+      invalid = true;
+      continue;
+    }
     const key = `${platform}=${operation}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -866,6 +1019,79 @@ function normalizeRequiredOperations(values) {
       left.platform.localeCompare(right.platform) || left.operation.localeCompare(right.operation)
     ))
   };
+}
+
+function normalizeGithubTargetConfiguration(values, env, scopeSecret) {
+  const explicit = values.length > 0;
+  if (!explicit) {
+    return { explicit: false, status: "not_configured", issueCode: "github_target_required", scopeKey: "github_target_required", target: null };
+  }
+  if (values.length !== 1) {
+    return { explicit: true, status: "invalid", issueCode: "github_target_configuration_invalid", scopeKey: "github_target_configuration_invalid", target: null };
+  }
+  const name = String(values[0] || "").trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name)) {
+    return { explicit: true, status: "invalid", issueCode: "github_target_configuration_invalid", scopeKey: "github_target_configuration_invalid", target: null };
+  }
+  const rawTarget = String(env[name] || "").trim();
+  const parts = rawTarget.split("/");
+  if (
+    parts.length !== 2
+    || !/^[A-Za-z0-9_.-]{1,100}$/.test(parts[0])
+    || !/^[A-Za-z0-9_.-]{1,100}$/.test(parts[1])
+  ) {
+    return { explicit: true, status: "invalid", issueCode: "github_target_configuration_invalid", scopeKey: "github_target_configuration_invalid", target: null };
+  }
+  const target = { owner: parts[0].toLowerCase(), repo: parts[1].toLowerCase() };
+  return {
+    explicit: true,
+    status: "configured",
+    issueCode: "",
+    scopeKey: scopeSecret
+      ? createHmac("sha256", scopeSecret).update(`github:${target.owner}/${target.repo}`).digest("hex")
+      : "github_target_configured_without_token",
+    target
+  };
+}
+
+function githubTargetIssue({ githubTargetInput, exactTargetRequired }) {
+  if (githubTargetInput.status === "configured") return "";
+  if (githubTargetInput.explicit) return githubTargetInput.issueCode;
+  return exactTargetRequired ? "github_target_required" : "";
+}
+
+function isTargetBoundRequirement(requirement) {
+  return String(requirement?.operation || "").endsWith(":target_bound");
+}
+
+function isExactGithubTargetRequirement(requirement) {
+  return requirement?.platform === "github"
+    && /^check_auth:(repo_read|actions_read|pull_request_read):target_bound$/.test(String(requirement.operation || ""));
+}
+
+function requiredOperationCandidateAvailable(item, requirement) {
+  if (!isExactGithubTargetRequirement(requirement)) {
+    return item.verifiedOperations.includes(requirement.operation);
+  }
+  return exactTargetCandidateAvailable(item, requirement);
+}
+
+function exactTargetCandidateAvailable(item, requirement) {
+  const qualifier = exactGithubQualifier(requirement.operation);
+  return item.verifiedOperations.includes(requirement.operation)
+    || item.verifiedOperations.includes(`check_auth:${qualifier}:target_verification_required:v1`);
+}
+
+function exactGithubQualifier(operation) {
+  return String(operation).split(":")[1] || "";
+}
+
+function onlyKeys(value, allowed) {
+  return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function plainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function unique(values) {

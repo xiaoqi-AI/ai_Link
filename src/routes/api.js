@@ -3,7 +3,9 @@ import { attachAiLinkAudit, extractAiLinkAudit } from "../audit/aiLinkAudit.js";
 import { summarizeConnectorAuthStatus } from "../connectors/authStatus.js";
 import {
   describeConnectorRuntime,
-  normalizeExecutorCapabilityHeartbeat
+  normalizeExecutorCapabilityHeartbeat,
+  normalizeTargetVerificationRequest,
+  verifyConnectorTargetRequirements
 } from "../connectors/executorCapabilities.js";
 import {
   buildConnectorProbeSettlement,
@@ -354,6 +356,33 @@ export function createApiRouter() {
       })
     });
   });
+
+  router.post(
+    "/auth-status/verify-targets",
+    requireApiScope("connectors:read"),
+    requireApiScope("connectors:verify-target"),
+    async (req, res) => {
+      const parsed = normalizeTargetVerificationRequest(req.body || {});
+      if (parsed.error) {
+        res.status(400).json({ error: parsed.error });
+        return;
+      }
+      const [heartbeats, probes] = await Promise.all([
+        req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
+        req.app.locals.store.listConnectorProbeEvidence({ limit: 100 })
+      ]);
+      res.set("cache-control", "no-store");
+      res.json({
+        targetVerification: verifyConnectorTargetRequirements({
+          registry: req.app.locals.connectorRegistry,
+          heartbeats,
+          probes,
+          subjectSecret: req.app.locals.config.sessionSecret,
+          requirements: parsed.value.requirements
+        })
+      });
+    }
+  );
 
   return router;
 }

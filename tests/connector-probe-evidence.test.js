@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
-import { describeConnectorRuntime } from "../src/connectors/executorCapabilities.js";
+import {
+  describeConnectorRuntime,
+  verifyConnectorTargetRequirements
+} from "../src/connectors/executorCapabilities.js";
+import { buildConnectorProbeBinding } from "../src/connectors/probeEvidence.js";
 import { createConnectorRegistry } from "../src/connectors/registry.js";
 import { hashToken } from "../src/security/auth.js";
 import { MemoryStore } from "../src/storage/memoryStore.js";
@@ -20,6 +24,7 @@ const UNBOUND_SESSION_ID = "33333333-3333-4333-8333-333333333333";
 const FUTURE_CHECKED_AT = "2999-01-01T00:00:00.000Z";
 const TOKEN_MARKER = "connector-probe-token-marker";
 const RAW_MARKER = "connector-probe-raw-marker";
+const SESSION_SECRET = "probe-test-session-secret";
 
 describe("connector probe evidence security", () => {
   let server;
@@ -126,7 +131,8 @@ describe("connector probe evidence security", () => {
     const connectors = await requestJson(server.baseUrl, "/api/connectors", { token: CODEX_TOKEN });
     const github = runtimeGithub(connectors.data);
     assert.equal(github.probe.status, "verified");
-    assert.deepEqual(github.verifiedOperations, ["check_auth:repo_read:target_bound"]);
+    assert.deepEqual(github.verifiedOperations, ["check_auth:repo_read:target_verification_required:v1"]);
+    assert.equal(github.verifiedOperations.includes("check_auth:repo_read:target_bound"), false);
     assert.equal(github.probe.operations[0].outcome, "verified");
     assert.equal(github.probe.operations[0].qualifier, "repo_read");
     assert.equal(github.probe.operations[0].subjectBound, true);
@@ -135,7 +141,7 @@ describe("connector probe evidence security", () => {
     const authGithub = authStatus.data.authStatus.items.find((item) => item.platform === "github");
     assert.equal(authGithub.status, "ready");
     assert.equal(authGithub.reason, "probe_verified");
-    assert.deepEqual(authGithub.verifiedOperations, ["check_auth:repo_read:target_bound"]);
+    assert.deepEqual(authGithub.verifiedOperations, ["check_auth:repo_read:target_verification_required:v1"]);
   });
 
   it("keeps GitHub scope and target evidence isolated without exposing repository names", async () => {
@@ -162,12 +168,149 @@ describe("connector probe evidence security", () => {
     const connectors = await requestJson(server.baseUrl, "/api/connectors", { token: CODEX_TOKEN });
     const github = runtimeGithub(connectors.data);
     assert.deepEqual(github.verifiedOperations, [
-      "check_auth:actions_read:target_bound",
-      "check_auth:repo_read:target_bound"
+      "check_auth:actions_read:target_verification_required:v1",
+      "check_auth:repo_read:target_verification_required:v1"
     ]);
     assert.ok(github.probe.operations.every((item) => item.subjectBound === true));
     assert.equal(JSON.stringify(connectors.data).includes(evidence[0].subjectKey), false);
     assert.equal(JSON.stringify(connectors.data).includes(evidence[1].subjectKey), false);
+
+    const verified = await verifyTargets(server, [
+      githubTargetRequirement({ repo: "private-repo-one", qualifier: "repo_read" }),
+      githubTargetRequirement({ repo: "private-repo-two", qualifier: "actions_read" })
+    ]);
+    assert.equal(verified.response.status, 200);
+    assert.equal(verified.response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(verified.data, {
+      targetVerification: {
+        schemaVersion: "1",
+        results: [
+          {
+            platform: "github",
+            operation: "check_auth:repo_read:target_bound",
+            status: "verified",
+            reason: "target_probe_verified"
+          },
+          {
+            platform: "github",
+            operation: "check_auth:actions_read:target_bound",
+            status: "verified",
+            reason: "target_probe_verified"
+          }
+        ]
+      }
+    });
+
+    const mismatched = await verifyTargets(server, [
+      githubTargetRequirement({ repo: "private-repo-two", qualifier: "repo_read" }),
+      githubTargetRequirement({ repo: "private-repo-one", qualifier: "actions_read" })
+    ]);
+    assert.deepEqual(mismatched.data.targetVerification.results.map((item) => item.status), [
+      "unverified",
+      "unverified"
+    ]);
+    const serialized = JSON.stringify([verified.data, mismatched.data]);
+    assert.equal(serialized.includes("private-repo-one"), false);
+    assert.equal(serialized.includes("private-repo-two"), false);
+    assert.equal(serialized.includes(evidence[0].subjectKey), false);
+    assert.equal(serialized.includes(evidence[1].subjectKey), false);
+  });
+
+  it("validates exact-target requests strictly and requires both read and target-verification scopes", async () => {
+    const denied = await verifyTargets(server, [githubTargetRequirement()], { token: EXECUTOR_TOKEN });
+    assert.equal(denied.response.status, 403);
+
+    const statusOnlyToken = "test-status-only-token";
+    await server.store.upsertApiToken({
+      name: "status-only",
+      tokenHash: hashToken(statusOnlyToken),
+      scopes: ["connectors:read"]
+    });
+    const targetScopeDenied = await verifyTargets(server, [githubTargetRequirement()], { token: statusOnlyToken });
+    assert.equal(targetScopeDenied.response.status, 403);
+    assert.equal(targetScopeDenied.data.scope, "connectors:verify-target");
+
+    const invalidBodies = [
+      {},
+      { schemaVersion: "2", requirements: [githubTargetRequirement()] },
+      { schemaVersion: "1", requirements: [] },
+      {
+        schemaVersion: "1",
+        requirements: [{ ...githubTargetRequirement(), unexpected: "private-repo" }]
+      },
+      {
+        schemaVersion: "1",
+        requirements: [githubTargetRequirement({ repo: "owner/repo" })]
+      },
+      {
+        schemaVersion: "1",
+        requirements: [githubTargetRequirement(), githubTargetRequirement()]
+      },
+      {
+        schemaVersion: "1",
+        requirements: [
+          githubTargetRequirement({ repo: "private-repo-one" }),
+          githubTargetRequirement({ repo: "private-repo-two" })
+        ]
+      }
+    ];
+    for (const body of invalidBodies) {
+      const response = await requestJson(server.baseUrl, "/api/auth-status/verify-targets", {
+        token: CODEX_TOKEN,
+        method: "POST",
+        body
+      });
+      assert.equal(response.response.status, 400);
+      assert.match(response.data.error, /target_verification/);
+      assert.equal(JSON.stringify(response.data).includes("private-repo"), false);
+    }
+  });
+
+  it("redacts malformed JSON parse failures before authentication", async () => {
+    const marker = "private-owner/private-repo-log-marker";
+    const captured = [];
+    const originalConsoleError = console.error;
+    console.error = (...values) => captured.push(values);
+    try {
+      const response = await fetch(`${server.baseUrl}/api/auth-status/verify-targets`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${CODEX_TOKEN}`,
+          "content-type": "application/json"
+        },
+        body: `{"schemaVersion":"1","requirements":[{"target":"${marker}"}`
+      });
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), { error: "invalid_json_body" });
+    } finally {
+      console.error = originalConsoleError;
+    }
+    const logOutput = JSON.stringify(captured);
+    assert.equal(logOutput.includes(marker), false);
+    assert.equal(logOutput.includes("requirements"), false);
+    assert.match(logOutput, /invalid_json_body/);
+  });
+
+  it("fails closed when the current connector is misconfigured despite an older verified probe", async () => {
+    await reportHeartbeat(server, { token: EXECUTOR_TOKEN, heartbeat: githubHeartbeat() });
+    await runTrustedProbe(server, {
+      status: "completed",
+      result: githubResult({ status: "ready" })
+    });
+
+    await reportHeartbeat(server, {
+      token: EXECUTOR_TOKEN,
+      heartbeat: githubHeartbeat({ status: "misconfigured" })
+    });
+
+    const connectors = await requestJson(server.baseUrl, "/api/connectors", { token: CODEX_TOKEN });
+    const github = runtimeGithub(connectors.data);
+    assert.equal(github.probe.status, "unverified");
+    assert.deepEqual(github.verifiedOperations, []);
+
+    const exact = await verifyTargets(server, [githubTargetRequirement()]);
+    assert.equal(exact.response.status, 200);
+    assert.equal(exact.data.targetVerification.results[0].status, "unverified");
   });
 
   it("rejects missing or mismatched session, wrong lease, and replay without refreshing evidence", async () => {
@@ -264,6 +407,13 @@ describe("connector probe evidence security", () => {
     assert.equal(authGithub.status, "blocked");
     assert.equal(authGithub.reason, "credential_invalid");
     assert.deepEqual(authGithub.verifiedOperations, []);
+
+    const exactTarget = await verifyTargets(server, [githubTargetRequirement({
+      owner: "xiaoqi-AI",
+      repo: "ai_Link"
+    })]);
+    assert.equal(exactTarget.data.targetVerification.results[0].status, "unverified");
+    assert.equal(exactTarget.data.targetVerification.results[0].reason, "target_probe_unverified");
   });
 
   it("uses server evidence time and hides internal bindings plus private markers from API and UI", async () => {
@@ -340,7 +490,12 @@ describe("connector probe evidence persistence and expiry", () => {
       platform: "github",
       operation: "check_auth",
       qualifier: "repo_read",
-      subjectKey: "a".repeat(64),
+      subjectKey: buildConnectorProbeBinding({
+        platform: "github",
+        operation: "check_auth",
+        input: { owner: "xiaoqi-AI", repo: "ai_Link", scope: "repo_read" },
+        subjectSecret: SESSION_SECRET
+      }).subjectKey,
       capability: "check_auth",
       outcome: "verified",
       issueCode: "",
@@ -359,6 +514,7 @@ describe("connector probe evidence persistence and expiry", () => {
     });
     assert.equal(runtimeGithub(expired).probe.status, "stale");
     assert.equal(runtimeGithub(expired).canRunReal, false);
+    assert.equal(exactTargetStatus({ heartbeat, evidence: baseEvidence, now }), "unverified");
 
     const fresh = describeConnectorRuntime({
       registry: createConnectorRegistry(),
@@ -367,7 +523,12 @@ describe("connector probe evidence persistence and expiry", () => {
       now
     });
     assert.equal(runtimeGithub(fresh).probe.status, "verified");
-    assert.deepEqual(runtimeGithub(fresh).verifiedOperations, ["check_auth:repo_read:target_bound"]);
+    assert.deepEqual(runtimeGithub(fresh).verifiedOperations, ["check_auth:repo_read:target_verification_required:v1"]);
+    assert.equal(exactTargetStatus({
+      heartbeat,
+      evidence: { ...baseEvidence, expiresAt: "2026-07-13T04:00:00.001Z" },
+      now
+    }), "verified");
 
     const restarted = describeConnectorRuntime({
       registry: createConnectorRegistry(),
@@ -377,6 +538,11 @@ describe("connector probe evidence persistence and expiry", () => {
     });
     assert.equal(runtimeGithub(restarted).probe.status, "not_run");
     assert.equal(runtimeGithub(restarted).canRunReal, false);
+    assert.equal(exactTargetStatus({
+      heartbeat: { ...heartbeat, executorSessionId: WRONG_SESSION_ID },
+      evidence: { ...baseEvidence, expiresAt: "2026-07-13T04:00:00.001Z" },
+      now
+    }), "unverified");
   });
 
   it("keeps Postgres probe settlement conditional, atomic, and latest-only", async () => {
@@ -396,7 +562,7 @@ async function startTestServer() {
   const config = loadConfig({
     NODE_ENV: "test",
     AI_LINK_APP_PASSWORD: "test-probe-password",
-    AI_LINK_SESSION_SECRET: "probe-test-session-secret",
+    AI_LINK_SESSION_SECRET: SESSION_SECRET,
     AI_LINK_ADMIN_TOKEN: ADMIN_TOKEN,
     AI_LINK_EXECUTOR_TOKEN: EXECUTOR_TOKEN,
     AI_LINK_EXECUTOR_ID: EXECUTOR_ID,
@@ -435,7 +601,8 @@ async function addUnboundExecutorToken(store) {
 function githubHeartbeat({
   executorId = EXECUTOR_ID,
   executorSessionId = EXECUTOR_SESSION_ID,
-  mode = "private"
+  mode = "private",
+  status = "available"
 } = {}) {
   return {
     schemaVersion: "1",
@@ -443,7 +610,7 @@ function githubHeartbeat({
     ...(executorSessionId ? { executorSessionId } : {}),
     connectors: [{
       platform: "github",
-      status: "available",
+      status,
       mode,
       capabilities: [{
         name: "check_auth",
@@ -577,6 +744,41 @@ async function githubAuthItem(server) {
   const status = await requestJson(server.baseUrl, "/api/auth-status", { token: CODEX_TOKEN });
   assert.equal(status.response.status, 200);
   return status.data.authStatus.items.find((item) => item.platform === "github");
+}
+
+function githubTargetRequirement({
+  owner = "example-owner",
+  repo = "private-repo-one",
+  qualifier = "repo_read"
+} = {}) {
+  return {
+    platform: "github",
+    operation: "check_auth",
+    qualifier,
+    target: { owner, repo }
+  };
+}
+
+async function verifyTargets(server, requirements, { token = CODEX_TOKEN } = {}) {
+  return requestJson(server.baseUrl, "/api/auth-status/verify-targets", {
+    token,
+    method: "POST",
+    body: {
+      schemaVersion: "1",
+      requirements
+    }
+  });
+}
+
+function exactTargetStatus({ heartbeat, evidence, now }) {
+  return verifyConnectorTargetRequirements({
+    registry: createConnectorRegistry(),
+    heartbeats: [heartbeat],
+    probes: [evidence],
+    subjectSecret: SESSION_SECRET,
+    requirements: [githubTargetRequirement({ owner: "xiaoqi-AI", repo: "ai_Link" })],
+    now
+  }).results[0].status;
 }
 
 function runtimeGithub(value) {

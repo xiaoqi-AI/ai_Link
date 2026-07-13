@@ -4,9 +4,15 @@ import {
   PLATFORM_REQUIRED_CAPABILITIES,
   describeConnectorRegistry
 } from "./contracts.js";
-import { normalizeConnectorProbeEvidence } from "./probeEvidence.js";
+import {
+  buildConnectorProbeBinding,
+  connectorProbeSubjectMatches,
+  normalizeGitHubProbeTarget,
+  normalizeConnectorProbeEvidence
+} from "./probeEvidence.js";
 
 export const EXECUTOR_CAPABILITY_SCHEMA_VERSION = "1";
+export const TARGET_VERIFICATION_SCHEMA_VERSION = "1";
 
 const EXECUTOR_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 const EXECUTOR_SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
@@ -22,6 +28,7 @@ const CONNECTOR_MODES = new Set([
 const ISSUE_SEVERITIES = new Set(["error", "warning"]);
 const ISSUE_CODES = new Set(["connector_missing", "connector_contract_failed"]);
 const ISSUE_REASONS = new Set(["capability_missing"]);
+const TARGET_VERIFICATION_LIMIT = 10;
 
 export function buildExecutorCapabilityHeartbeat({ executorId, executorSessionId = "", registry }) {
   if (!validExecutorId(executorId)) {
@@ -92,6 +99,101 @@ export function describeConnectorRuntime({ registry, heartbeats = [], probes = [
         total: executors.length
       }
     }
+  };
+}
+
+export function normalizeTargetVerificationRequest(input) {
+  if (
+    !plainObject(input)
+    || !onlyKeys(input, ["schemaVersion", "requirements"])
+    || input.schemaVersion !== TARGET_VERIFICATION_SCHEMA_VERSION
+    || !Array.isArray(input.requirements)
+    || input.requirements.length < 1
+    || input.requirements.length > TARGET_VERIFICATION_LIMIT
+  ) {
+    return { error: "invalid_target_verification_request" };
+  }
+
+  const requirements = [];
+  const seen = new Set();
+  for (const value of input.requirements) {
+    const requirement = normalizeTargetVerificationRequirement(value);
+    if (!requirement) return { error: "invalid_target_verification_request" };
+    const key = [
+      requirement.platform,
+      requirement.operation,
+      requirement.qualifier
+    ].join(":");
+    if (seen.has(key)) return { error: "duplicate_target_verification_requirement" };
+    seen.add(key);
+    requirements.push(requirement);
+  }
+
+  return {
+    value: {
+      schemaVersion: TARGET_VERIFICATION_SCHEMA_VERSION,
+      requirements
+    }
+  };
+}
+
+export function verifyConnectorTargetRequirements({
+  registry,
+  heartbeats = [],
+  probes = [],
+  subjectSecret,
+  requirements = [],
+  now = Date.now()
+}) {
+  const serverDescription = describeConnectorRegistry(registry);
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  const executors = heartbeats
+    .map((heartbeat) => publicExecutorHeartbeat(heartbeat, nowMs))
+    .filter(Boolean);
+  const normalizedProbes = probes.map(normalizeConnectorProbeEvidence).filter(Boolean);
+
+  return {
+    schemaVersion: TARGET_VERIFICATION_SCHEMA_VERSION,
+    results: requirements.map((requirement) => {
+      const serverConnector = serverDescription.connectors.find((item) => item.platform === requirement.platform);
+      const selected = serverConnector
+        ? selectConnectorReport(connectorReports(serverConnector, executors))
+        : null;
+      const binding = buildConnectorProbeBinding({
+        platform: requirement.platform,
+        operation: requirement.operation,
+        input: {
+          owner: requirement.target.owner,
+          repo: requirement.target.repo,
+          scope: requirement.qualifier
+        },
+        subjectSecret
+      });
+      const targetProbe = selected && binding
+        ? latestTargetProbe({
+          probes: normalizedProbes,
+          selected,
+          requirement,
+          subjectKey: binding.subjectKey
+        })
+        : null;
+      const verified = Boolean(
+        selected
+        && binding
+        && selected.executor.trusted === true
+        && selected.connector.status === "available"
+        && selected.connector.mode === "private"
+        && privateCapabilityAvailable(selected.connector, requirement.operation)
+        && targetProbe?.outcome === "verified"
+        && new Date(targetProbe.expiresAt).getTime() > nowMs
+      );
+      return {
+        platform: requirement.platform,
+        operation: publicTargetOperation(requirement),
+        status: verified ? "verified" : "unverified",
+        reason: verified ? "target_probe_verified" : "target_probe_unverified"
+      };
+    })
   };
 }
 
@@ -243,16 +345,9 @@ function publicExecutorHeartbeat(heartbeat, nowMs) {
 }
 
 function mergeConnectorRuntime(serverConnector, executors, probes, nowMs) {
-  const reports = executors
-    .flatMap((executor) => {
-      const connector = executor.connectors.find((item) => item.platform === serverConnector.platform);
-      return connector ? [{ executor, connector }] : [];
-    });
+  const reports = connectorReports(serverConnector, executors);
   const onlineReports = reports.filter((report) => report.executor.status === "online");
-  const selected = [...onlineReports].sort((left, right) =>
-    connectorScore(right.connector) - connectorScore(left.connector)
-      || right.executor.lastSeenAt.localeCompare(left.executor.lastSeenAt)
-  )[0];
+  const selected = selectConnectorReport(reports);
   const visibleReports = onlineReports.length > 0 ? onlineReports : reports;
   const runtimeStatus = onlineReports.length > 0 ? "online" : (reports.length > 0 ? "stale" : "unreported");
   const runtime = {
@@ -313,6 +408,63 @@ function mergeConnectorRuntime(serverConnector, executors, probes, nowMs) {
   };
 }
 
+function connectorReports(serverConnector, executors) {
+  return executors.flatMap((executor) => {
+    const connector = executor.connectors.find((item) => item.platform === serverConnector.platform);
+    return connector ? [{ executor, connector }] : [];
+  });
+}
+
+function selectConnectorReport(reports) {
+  return reports
+    .filter((report) => report.executor.status === "online")
+    .sort((left, right) =>
+      connectorScore(right.connector) - connectorScore(left.connector)
+        || right.executor.lastSeenAt.localeCompare(left.executor.lastSeenAt)
+    )[0] || null;
+}
+
+function normalizeTargetVerificationRequirement(value) {
+  if (
+    !plainObject(value)
+    || !onlyKeys(value, ["platform", "operation", "qualifier", "target"])
+    || value.platform !== "github"
+    || value.operation !== "check_auth"
+    || !plainObject(value.target)
+    || !onlyKeys(value.target, ["owner", "repo"])
+  ) {
+    return null;
+  }
+  const target = normalizeGitHubProbeTarget({
+    owner: value.target.owner,
+    repo: value.target.repo,
+    scope: value.qualifier
+  });
+  if (!target) return null;
+  return {
+    platform: "github",
+    operation: "check_auth",
+    qualifier: target.scope,
+    target: { owner: target.owner, repo: target.repo }
+  };
+}
+
+function latestTargetProbe({ probes, selected, requirement, subjectKey }) {
+  const matches = probes.filter((item) =>
+    item.executorId === selected.executor.executorId
+    && item.executorSessionId === selected.executor.executorSessionId
+    && item.platform === requirement.platform
+    && item.operation === requirement.operation
+    && item.qualifier === requirement.qualifier
+    && connectorProbeSubjectMatches(item.subjectKey, subjectKey)
+  );
+  return matches.sort((left, right) => right.checkedAt.localeCompare(left.checkedAt))[0] || null;
+}
+
+function publicTargetOperation(requirement) {
+  return `${requirement.operation}:${requirement.qualifier}:target_bound`;
+}
+
 function describeProbeRuntime({ selected, reports, probes, platform, nowMs }) {
   const valid = probes
     .map(normalizeConnectorProbeEvidence)
@@ -360,6 +512,7 @@ function describeProbeRuntime({ selected, reports, probes, platform, nowMs }) {
   }
 
   const currentPrivate = selected.executor.trusted === true
+    && selected.connector.status === "available"
     && selected.connector.mode === "private";
   const verifiedOperations = currentPrivate
     ? fresh
@@ -405,7 +558,7 @@ function latestProbePerOperation(values) {
 
 function publicVerifiedOperation(evidence) {
   if (!evidence.qualifier) return evidence.operation;
-  return `${evidence.operation}:${evidence.qualifier}:target_bound`;
+  return `${evidence.operation}:${evidence.qualifier}:target_verification_required:v1`;
 }
 
 function privateCapabilityAvailable(connector, capability) {

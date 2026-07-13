@@ -79,7 +79,7 @@ AI Link 建立统一合同后，上游只消费有限的公开状态和具体内
 - 真实健康操作必须等待显式、低频、带 `evidenceIntent=connector_probe` 的只读探测证据；普通任务和状态页不会自动触发。
 - 生产 token 绑定 `AI_LINK_EXECUTOR_ID`，每个执行器进程使用随机 session；probe 使用一次性租约并由服务端重新校验和设置 TTL。
 - 所有执行器结果都必须绑定领取任务时的 executor/session/一次性 lease；未领取、错误绑定、过期租约或终态重放不能改写任务。
-- GitHub probe 按 `scope + 目标仓库` 隔离，目标只保存服务端 HMAC 摘要；成功以 `check_auth:<scope>:target_bound` 进入 `verifiedOperations`，不能跨仓库或跨 scope 复用。
+- GitHub probe 按 `scope + 目标仓库` 隔离，目标只保存服务端 HMAC 摘要；成功以 `check_auth:<scope>:target_verification_required:v1` 候选标记进入 GET 的 `verifiedOperations`，精确通过仍需 POST，不能跨仓库或跨 scope 复用。
 - 只有 `xiaohongshu/search_content` 可返回非空条目；其他健康或登录操作返回条目一律合同失败。
 - 成功只进入 `verifiedOperations`，不能扩大为整个平台、写权限或发布能力；默认 15 分钟后失败关闭。
 
@@ -130,9 +130,9 @@ Hermes 创建 `platform_auth_collect` 任务，AI Link 返回脱敏结果。Herm
 - `acquisition_provider` 如实标记。
 - 平台覆盖门禁不因单个 `ready` 字符串而自动放行。
 
-AI Link 提供消费前精确门禁：Hermes 在确实需要平台能力时运行 `auth-hub:status:strict -- --require-operation "<platform>=<verified-operation>"`，并只在客户端 `schemaVersion="1"`、`summary.ok=true`、服务端 `authStatus.schemaVersion="2"`、`action_tasks_complete=true` 且对应 `operationRequirements[].status=verified` 时继续。GitHub 的 `repo_read`、`actions_read`、`pull_request_read` 分别形成不同的 `check_auth:<scope>:target_bound`，不能相互替代。该门禁不触发 probe，也不查询真实登录态；证据缺失时由任务负责人另行申请低频真实只读验收。
+AI Link 提供消费前精确门禁：Hermes 在确实需要平台能力时运行 `auth-hub:status:strict -- --require-operation "<platform>=<verified-operation>"`，并只在客户端 `schemaVersion="1"`、`summary.ok=true`、服务端 `authStatus.schemaVersion="2"`、`action_tasks_complete=true` 且对应 `operationRequirements[].status=verified` 时继续。GitHub 的 `repo_read`、`actions_read`、`pull_request_read` 分别形成不同的 `check_auth:<scope>:target_bound`，不能相互替代；仓库级要求还必须用 `--github-target-env <ENV_NAME>` 指向值为 `owner/repo` 的环境变量。该门禁不触发 probe，也不查询真实登录态；证据缺失时由任务负责人另行申请低频真实只读验收。
 
-该门禁目前精确到 operation + scope，不精确到消费方当前仓库：`target_bound` 只表示服务端证据绑定了某个不公开目标。同 scope 不同仓库仍需后续服务端目标核验合同，Hermes 在此之前不得把 operation gate 当成任意仓库的通行证。未解决人工任务、审批过期、未知人工错误、旧版/不完整覆盖和人工事项列表截断都会失败关闭，较新的无关 probe 不能清除这些事项；同一平台的多个 operation 与人工动作也必须分别保留，不能折叠成一个平台信号。
+GitHub GET 状态只发布 `check_auth:<scope>:target_verification_required:v1` 候选标记；精确目标通过 `POST /api/auth-status/verify-targets` 在 Auth Hub 服务端完成。该接口要求受限 token 额外具有 `connectors:verify-target` scope；服务端规范化 owner/repo、计算目标 HMAC，并用完整定长比较匹配同 executor/session、当前 available/private connector、scope 且仍有效的最新 probe；响应只给出通用 `verified` / `unverified`，不回显仓库或摘要。缺目标、畸形目标、错误 scope、错误仓库、旧服务端或核验响应异常都失败关闭，通用 `target_bound` 字符串不能单独作为通行证。未解决人工任务、审批过期、未知人工错误、旧版/不完整覆盖和人工事项列表截断也都会失败关闭，较新的无关 probe 不能清除这些事项；同一平台的多个 operation 与人工动作必须分别保留，不能折叠成一个平台信号。
 
 ## P0.1 迭代边界卡
 

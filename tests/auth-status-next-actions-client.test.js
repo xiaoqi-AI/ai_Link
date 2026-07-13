@@ -58,6 +58,12 @@ function completeAuthStatus(authStatus) {
   };
 }
 
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
 describe("Auth status next action client", () => {
   it("renders public-safe next actions from Auth Hub", async () => {
     await withServer((req, res) => {
@@ -314,42 +320,71 @@ describe("Auth status next action client", () => {
   });
 
   it("fails closed unless every dependent-project operation is exactly verified", async () => {
-    await withServer((req, res) => {
-      if (req.url !== "/api/auth-status") {
-        res.statusCode = 404;
-        res.end("not found");
+    const exactTarget = "xiaoqi-AI/ai_Link";
+    let targetVerificationRequests = 0;
+    await withServer(async (req, res) => {
+      if (req.url === "/api/auth-status") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          authStatus: completeAuthStatus({
+            summary: { total: 2, ready: 1, unverified: 1, next_actions: 0 },
+            items: [
+              {
+                platform: "github",
+                status: "ready",
+                verifiedOperations: ["check_auth:repo_read:target_verification_required:v1"],
+                reason: "probe_verified"
+              },
+              {
+                platform: "xiaohongshu",
+                status: "unverified",
+                verifiedOperations: [],
+                reason: "probe_not_run"
+              }
+            ],
+            nextActions: []
+          })
+        }));
         return;
       }
-      res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify({
-        authStatus: completeAuthStatus({
-          summary: { total: 2, ready: 1, unverified: 1, next_actions: 0 },
-          items: [
-            {
+      if (req.url === "/api/auth-status/verify-targets") {
+        targetVerificationRequests += 1;
+        assert.equal(req.method, "POST");
+        assert.equal(req.headers.authorization, "Bearer secret-codex-token");
+        const body = await readJsonBody(req);
+        const requirement = body.requirements[0];
+        const suppliedTarget = `${requirement.target.owner}/${requirement.target.repo}`.toLowerCase();
+        const verified = suppliedTarget === exactTarget.toLowerCase();
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          targetVerification: {
+            schemaVersion: "1",
+            results: [{
               platform: "github",
-              status: "ready",
-              verifiedOperations: ["check_auth:repo_read:target_bound"],
-              reason: "probe_verified"
-            },
-            {
-              platform: "xiaohongshu",
-              status: "unverified",
-              verifiedOperations: [],
-              reason: "probe_not_run"
-            }
-          ],
-          nextActions: []
-        })
-      }));
+              operation: `check_auth:${requirement.qualifier}:target_bound`,
+              status: verified ? "verified" : "unverified",
+              reason: verified ? "target_probe_verified" : "target_probe_unverified"
+            }]
+          }
+        }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
     }, async (baseUrl) => {
       const verified = await runStatus({
         baseUrl,
-        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        env: {
+          AI_LINK_CODEX_TOKEN: "secret-codex-token",
+          AI_LINK_GITHUB_REPOSITORY: exactTarget
+        },
         args: [
           "--json",
           "--strict",
           "--require-operation",
-          "github=check_auth:repo_read:target_bound"
+          "github=check_auth:repo_read:target_bound",
+          "--github-target-env",
+          "AI_LINK_GITHUB_REPOSITORY"
         ]
       });
       const verifiedReport = JSON.parse(verified.stdout);
@@ -364,17 +399,84 @@ describe("Auth status next action client", () => {
         platform: "github",
         operation: "check_auth:repo_read:target_bound",
         status: "verified",
-        reason: "probe_verified"
+        reason: "target_probe_verified"
       }]);
+      assert.equal(targetVerificationRequests, 1);
 
-      const wrongScope = await runStatus({
+      const wrongTarget = await runStatus({
+        baseUrl,
+        env: {
+          AI_LINK_CODEX_TOKEN: "secret-codex-token",
+          AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/other-private-repo"
+        },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:repo_read:target_bound",
+          "--github-target-env",
+          "AI_LINK_GITHUB_REPOSITORY"
+        ]
+      });
+      const wrongTargetReport = JSON.parse(wrongTarget.stdout);
+      assert.equal(wrongTarget.status, 1, wrongTarget.stderr);
+      assert.equal(wrongTargetReport.operationRequirements[0].status, "target_unverified");
+      assert.deepEqual(wrongTargetReport.blockers, [
+        "github: target_probe_unverified:check_auth:repo_read:target_bound"
+      ]);
+      assert.equal(wrongTarget.stdout.includes("other-private-repo"), false);
+
+      const missingTarget = await runStatus({
         baseUrl,
         env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
         args: [
           "--json",
           "--strict",
           "--require-operation",
-          "github=check_auth:actions_read:target_bound"
+          "github=check_auth:repo_read:target_bound"
+        ]
+      });
+      const missingTargetReport = JSON.parse(missingTarget.stdout);
+      assert.equal(missingTarget.status, 1, missingTarget.stderr);
+      assert.equal(missingTargetReport.operationRequirements[0].status, "target_missing");
+      assert.equal(missingTargetReport.operationRequirements[0].reason, "github_target_required");
+      assert.equal(targetVerificationRequests, 2);
+
+      const invalidTarget = await runStatus({
+        baseUrl,
+        env: {
+          AI_LINK_CODEX_TOKEN: "secret-codex-token",
+          AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/ai_Link/extra"
+        },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:repo_read:target_bound",
+          "--github-target-env",
+          "AI_LINK_GITHUB_REPOSITORY"
+        ]
+      });
+      const invalidTargetReport = JSON.parse(invalidTarget.stdout);
+      assert.equal(invalidTarget.status, 1, invalidTarget.stderr);
+      assert.equal(invalidTargetReport.operationRequirements[0].status, "target_invalid");
+      assert.equal(invalidTargetReport.operationRequirements[0].reason, "github_target_configuration_invalid");
+      assert.equal(invalidTarget.stdout.includes("ai_Link/extra"), false);
+      assert.equal(targetVerificationRequests, 2);
+
+      const wrongScope = await runStatus({
+        baseUrl,
+        env: {
+          AI_LINK_CODEX_TOKEN: "secret-codex-token",
+          AI_LINK_GITHUB_REPOSITORY: exactTarget
+        },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:actions_read:target_bound",
+          "--github-target-env",
+          "AI_LINK_GITHUB_REPOSITORY"
         ]
       });
       const wrongScopeReport = JSON.parse(wrongScope.stdout);
@@ -385,6 +487,75 @@ describe("Auth status next action client", () => {
       ]);
       assert.equal(wrongScopeReport.operationRequirements[0].status, "operation_unverified");
       assert.match(wrongScopeReport.summary.recommendedNext, /every required operation/);
+    });
+  });
+
+  it("does not trust an old or malformed exact-target verification endpoint", async () => {
+    let mode = "missing";
+    await withServer((req, res) => {
+      if (req.url === "/api/auth-status") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          authStatus: completeAuthStatus({
+            summary: { total: 1, ready: 1, next_actions: 0 },
+            items: [{
+              platform: "github",
+              status: "ready",
+              verifiedOperations: ["check_auth:repo_read:target_bound"],
+              reason: "probe_verified"
+            }],
+            nextActions: []
+          })
+        }));
+        return;
+      }
+      if (req.url === "/api/auth-status/verify-targets" && mode === "malformed") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          targetVerification: {
+            schemaVersion: "1",
+            results: [{
+              platform: "github",
+              operation: "check_auth:repo_read:target_bound",
+              status: "verified",
+              reason: "target_probe_verified",
+              target: "private-target-must-not-leak"
+            }]
+          }
+        }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
+    }, async (baseUrl) => {
+      const runExact = () => runStatus({
+        baseUrl,
+        env: {
+          AI_LINK_CODEX_TOKEN: "secret-codex-token",
+          AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/ai_Link"
+        },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:repo_read:target_bound",
+          "--github-target-env",
+          "AI_LINK_GITHUB_REPOSITORY"
+        ]
+      });
+
+      const oldServer = await runExact();
+      const oldReport = JSON.parse(oldServer.stdout);
+      assert.equal(oldServer.status, 1, oldServer.stderr);
+      assert.equal(oldReport.operationRequirements[0].status, "target_coverage_unverified");
+      assert.equal(oldReport.operationRequirements[0].reason, "target_verification_http_error");
+
+      mode = "malformed";
+      const malformed = await runExact();
+      const malformedReport = JSON.parse(malformed.stdout);
+      assert.equal(malformed.status, 1, malformed.stderr);
+      assert.equal(malformedReport.operationRequirements[0].reason, "target_verification_invalid_response");
+      assert.equal(malformed.stdout.includes("private-target-must-not-leak"), false);
     });
   });
 
@@ -399,14 +570,19 @@ describe("Auth status next action client", () => {
         })
       }));
     }, async (baseUrl) => {
-      const result = await runStatus({
-        baseUrl,
-        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
-        args: ["--json", "--strict", "--require-operation", "github/check_auth"]
-      });
-      const report = JSON.parse(result.stdout);
-      assert.equal(result.status, 1, result.stderr);
-      assert.deepEqual(report.blockers, ["invalid_operation_requirement"]);
+      for (const requirement of [
+        "github/check_auth",
+        "github=check_auth:repo_read:target_verification_required:v1"
+      ]) {
+        const result = await runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: ["--json", "--strict", "--require-operation", requirement]
+        });
+        const report = JSON.parse(result.stdout);
+        assert.equal(result.status, 1, result.stderr);
+        assert.deepEqual(report.blockers, ["invalid_operation_requirement"]);
+      }
     });
   });
 
@@ -503,12 +679,17 @@ describe("Auth status next action client", () => {
     }, async (baseUrl) => {
       const result = await runStatus({
         baseUrl,
-        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        env: {
+          AI_LINK_CODEX_TOKEN: "secret-codex-token",
+          AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/ai_Link"
+        },
         args: [
           "--json",
           "--strict",
           "--require-operation",
-          "github=check_auth:repo_read:target_bound"
+          "github=check_auth:repo_read:target_bound",
+          "--github-target-env",
+          "AI_LINK_GITHUB_REPOSITORY"
         ]
       });
       const report = JSON.parse(result.stdout);
@@ -603,9 +784,12 @@ describe("Auth status next action client", () => {
     ]);
 
     assert.match(guide, /--require-operation/);
+    assert.match(guide, /--github-target-env AI_LINK_GITHUB_REPOSITORY/);
+    assert.match(guide, /POST \/api\/auth-status\/verify-targets/);
     assert.match(guide, /operationRequirements\[\]\.status=verified/);
     assert.match(handoff, /npm\.cmd --prefix \$env:AI_LINK_HOME/);
     assert.match(handoff, /<approved-auth-hub-url>/);
+    assert.match(handoff, /--github-target-env AI_LINK_GITHUB_REPOSITORY/);
     assert.doesNotMatch(handoff, /AI_LINK_BASE_URL="https:\/\/voice\.xiao-qi-ai\.com"/);
   });
 
@@ -636,7 +820,10 @@ describe("Auth status next action client", () => {
       }, async (baseUrl) => {
         const runWatch = () => runStatus({
           baseUrl,
-          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          env: {
+            AI_LINK_CODEX_TOKEN: "secret-codex-token",
+            AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/ai_Link"
+          },
           args: ["--watch", "--json", "--state-file", stateFile]
         });
 
@@ -751,7 +938,10 @@ describe("Auth status next action client", () => {
       }, async (baseUrl) => {
         const runWatch = () => runStatus({
           baseUrl,
-          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          env: {
+            AI_LINK_CODEX_TOKEN: "secret-codex-token",
+            AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/ai_Link"
+          },
           args: [
             "--watch",
             "--json",
@@ -760,7 +950,9 @@ describe("Auth status next action client", () => {
             "--require-operation",
             "github=check_auth:repo_read:target_bound",
             "--require-operation",
-            "github=check_auth:actions_read:target_bound"
+            "github=check_auth:actions_read:target_bound",
+            "--github-target-env",
+            "AI_LINK_GITHUB_REPOSITORY"
           ]
         });
 
@@ -950,6 +1142,91 @@ describe("Auth status next action client", () => {
     }
   });
 
+  it("keeps watcher baselines isolated by the normalized private GitHub target", async () => {
+    const stateFile = path.join("runtime", "tmp", `auth-status-target-scope-${process.pid}-${Date.now()}.json`);
+    const requestUrls = [];
+    try {
+      await withServer(async (req, res) => {
+        requestUrls.push(req.url);
+        if (req.url === "/api/auth-status") {
+          res.setHeader("content-type", "application/json");
+          res.end(JSON.stringify({
+            authStatus: completeAuthStatus({
+              summary: { total: 1, ready: 1, next_actions: 0 },
+              items: [{
+                platform: "github",
+                status: "ready",
+                verifiedOperations: ["check_auth:repo_read:target_verification_required:v1"],
+                reason: "probe_verified"
+              }],
+              nextActions: []
+            })
+          }));
+          return;
+        }
+        if (req.url === "/api/auth-status/verify-targets") {
+          const body = await readJsonBody(req);
+          const qualifier = body.requirements[0].qualifier;
+          res.setHeader("content-type", "application/json");
+          res.end(JSON.stringify({
+            targetVerification: {
+              schemaVersion: "1",
+              results: [{
+                platform: "github",
+                operation: `check_auth:${qualifier}:target_bound`,
+                status: "verified",
+                reason: "target_probe_verified"
+              }]
+            }
+          }));
+          return;
+        }
+        res.statusCode = 404;
+        res.end("not found");
+      }, async (baseUrl) => {
+        const runTargetWatch = (target) => runStatus({
+          baseUrl,
+          env: {
+            AI_LINK_CODEX_TOKEN: "secret-codex-token",
+            AI_LINK_GITHUB_REPOSITORY: target
+          },
+          args: [
+            "--watch",
+            "--json",
+            "--state-file",
+            stateFile,
+            "--require-operation",
+            "github=check_auth:repo_read:target_bound",
+            "--github-target-env",
+            "AI_LINK_GITHUB_REPOSITORY"
+          ]
+        });
+
+        const first = JSON.parse((await runTargetWatch("xiaoqi-AI/ai_Link")).stdout);
+        assert.equal(first.baseline, true);
+        const baseline = await readFile(stateFile, "utf8");
+        assert.equal(baseline.toLowerCase().includes("xiaoqi-ai"), false);
+        assert.equal(baseline.toLowerCase().includes("ai_link"), false);
+
+        const sameNormalized = JSON.parse((await runTargetWatch("XIAOQI-ai/AI_link")).stdout);
+        assert.equal(sameNormalized.monitoringOk, true);
+        assert.equal(sameNormalized.baseline, false);
+        const currentBaseline = await readFile(stateFile, "utf8");
+
+        const changedTargetResult = await runTargetWatch("xiaoqi-AI/another-private-repo");
+        const changedTarget = JSON.parse(changedTargetResult.stdout);
+        assert.equal(changedTargetResult.status, 1);
+        assert.equal(changedTarget.monitoringOk, false);
+        assert.equal(changedTarget.reason, "state_scope_mismatch");
+        assert.equal(await readFile(stateFile, "utf8"), currentBaseline);
+        assert.ok(requestUrls.every((url) => !url.toLowerCase().includes("xiaoqi-ai")));
+        assert.ok(requestUrls.every((url) => !url.toLowerCase().includes("private-repo")));
+      });
+    } finally {
+      await rm(stateFile, { force: true });
+    }
+  });
+
   it("rejects public paths, scope reuse, corrupt snapshots, and unexpected fields", async () => {
     const outside = `auth-status-public-${process.pid}.json`;
     const rejected = await runStatus({
@@ -994,8 +1271,20 @@ describe("Auth status next action client", () => {
 
         const runOperationWatch = (operation) => runStatus({
           baseUrl,
-          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
-          args: ["--watch", "--json", "--state-file", operationStateFile, "--require-operation", `github=${operation}`]
+          env: {
+            AI_LINK_CODEX_TOKEN: "secret-codex-token",
+            AI_LINK_GITHUB_REPOSITORY: "xiaoqi-AI/ai_Link"
+          },
+          args: [
+            "--watch",
+            "--json",
+            "--state-file",
+            operationStateFile,
+            "--require-operation",
+            `github=${operation}`,
+            "--github-target-env",
+            "AI_LINK_GITHUB_REPOSITORY"
+          ]
         });
         const operationBaseline = JSON.parse((await runOperationWatch("check_auth:repo_read:target_bound")).stdout);
         assert.equal(operationBaseline.baseline, true);

@@ -81,7 +81,7 @@ npm run auth-hub:status
 npm run auth-hub:status:json
 ```
 
-该命令只读取 `GET /api/auth-status`，并把返回结果重新收敛为公开安全的 `summary`、`authStatus.items` 和 `nextActions`。如果远程 Auth Hub 使用 Cloudflare Access Service Auth，可以在当前终端临时设置 `CF_ACCESS_CLIENT_ID` 与 `CF_ACCESS_CLIENT_SECRET`；命令只报告是否可达和行动清单，不打印这些值。
+该命令总是先读取 `GET /api/auth-status`，并把返回结果重新收敛为公开安全的 `summary`、`authStatus.items` 和 `nextActions`；只有显式要求 GitHub 精确目标时才按需调用 `POST /api/auth-status/verify-targets`。如果远程 Auth Hub 使用 Cloudflare Access Service Auth，可以在当前终端临时设置 `CF_ACCESS_CLIENT_ID` 与 `CF_ACCESS_CLIENT_SECRET`；命令只报告是否可达和行动清单，不打印这些值、目标值或原始响应。
 
 `authStatus` 只允许使用平台名、公开错误码和任务 ID 推导，不得包含 Cookie、Profile、token、账号详情、二维码、截图、原始响应或本机私有路径。真实平台 connector 如果发现登录过期、验证码、IP 白名单、凭据错误或连接器合同异常，应把问题映射为稳定公开错误码，并通过 `needs_action` / `action_required` 回传。需要打开本机浏览器或进入扫码/验证码的 `begin_login` 会先映射为 `interactive_approval_required`，并通过 `approval_required` 进入人工审批。
 
@@ -167,7 +167,7 @@ npm run auth-hub:status:json
 | --- | --- | --- |
 | `xiaohongshu` | `check_session` | `check_session` |
 | `wechat_official` | `check_health` | `check_health` |
-| `github` | `check_auth` | `check_auth:<scope>:target_bound` |
+| `github` | `check_auth` | `check_auth:<scope>:target_verification_required:v1`（公开候选；精确通过仍需 POST） |
 
 `begin_login`、`search_content`、普通平台任务、mock 心跳和读取状态页不会生成证据。probe 领取和结算必须同时满足：
 
@@ -180,7 +180,37 @@ npm run auth-hub:status:json
 
 服务端只保留每个 executor + platform + operation + qualifier + subject 的最新证据；非 GitHub 操作的 qualifier/subject 为空，GitHub qualifier 为 scope、subject 为目标 HMAC 摘要。较旧接收时间不能覆盖较新记录。最新 `needs_action` / `blocked` 会立即覆盖同一限定项的旧成功，证据过期后不会回退到更旧成功。客户端 `session.checked_at` 不参与证据时间计算，`checkedAt` 与 `expiresAt` 只由 Hub 服务端生成。
 
-公开 API 仅返回操作、公开 qualifier、`subjectBound`、结论、公开问题码、任务 ID 和服务端时间；不返回目标 HMAC、`leaseId`、executor session、heartbeat revision、原始结果、diagnostics、账号/仓库详情、路径或私有响应。`canRunReal=true` 只表示 `verifiedOperations` 中列出的精确只读健康操作；GitHub 项显示 scope 与 `target_bound`，不得据此推导其他目标、整个平台、写权限或发布能力。
+公开 API 仅返回操作、公开 qualifier、`subjectBound`、结论、公开问题码、任务 ID 和服务端时间；不返回目标 HMAC、`leaseId`、executor session、heartbeat revision、原始结果、diagnostics、账号/仓库详情、路径或私有响应。`canRunReal=true` 只表示当前存在可继续核验的只读健康证据；GitHub `verifiedOperations` 只发布 scope 与 `target_verification_required:v1` 候选标记，故意不发布旧客户端会直接信任的 `target_bound`。不得据此推导目标已匹配、整个平台、写权限或发布能力。
+
+`target_verification_required:v1` 是服务端内部候选标记，不能作为调用方的 `--require-operation`；客户端会把这种输入判为 `invalid_operation_requirement`。调用方仍应要求 `check_auth:<scope>:target_bound`，由客户端在候选状态后继续执行精确目标 POST。
+
+### Exact Target Verification
+
+公开 `target_verification_required:v1` 只说明存在可继续核验的目标绑定证据。依赖项目需要仓库级放行时，必须以 `target_bound` 作为客户端要求并使用只读精确核验接口：
+
+```http
+POST /api/auth-status/verify-targets
+Authorization: Bearer <token with connectors:read and connectors:verify-target>
+Content-Type: application/json
+```
+
+```json
+{
+  "schemaVersion": "1",
+  "requirements": [
+    {
+      "platform": "github",
+      "operation": "check_auth",
+      "qualifier": "repo_read",
+      "target": { "owner": "<owner>", "repo": "<repo>" }
+    }
+  ]
+}
+```
+
+请求是严格版本化合同：当前只接受 GitHub `check_auth`、三个只读 scope 和最多 10 项要求，同一 operation/scope 在一批中只能出现一次；未知字段、重复 operation/scope 或畸形 owner/repo 直接返回 `400`。服务端以同一规范化函数和当前 session secret 重建目标 HMAC，再与同一受信执行器/session、当前 available/private connector、精确 scope、最新且未过期的 probe subject 做完整定长比较。只有全部匹配且最新结论为成功时才返回 `status=verified`；其余可解析请求统一返回 `status=unverified` 与通用原因，不泄露哪一层不匹配。
+
+响应只包含合同版本、平台、公开 operation、`verified` / `unverified` 和通用原因；不回显 owner、repo、HMAC、任务 ID、lease、executor/session、证据时间或原始响应，并设置 `Cache-Control: no-store`。独立 `connectors:verify-target` scope 只授予可信项目门禁 token，不授予普通状态查看者。该接口不写审计、不创建任务、不执行 probe、不访问 GitHub。客户端必须先读取完整的 `GET /api/auth-status` 控制面状态，并将目标值放在私有环境变量中；命令行只传 `--github-target-env <ENV_NAME>`，不得直接传目标值。
 
 ## Private Connector Injection
 
