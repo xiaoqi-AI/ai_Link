@@ -28,6 +28,7 @@ async function runStatus({ baseUrl = "http://127.0.0.1:1", env = {}, args = ["--
       AI_LINK_ADMIN_TOKEN: "",
       CF_ACCESS_CLIENT_ID: "",
       CF_ACCESS_CLIENT_SECRET: "",
+      AI_LINK_AUTH_HUB_ALLOWED_HOSTS: "",
       ...env
     },
     stdio: ["ignore", "pipe", "pipe"]
@@ -121,6 +122,69 @@ describe("Auth status next action client", () => {
     assert.equal(report.summary.reachable, false);
     assert.ok(report.blockers.some((blocker) => blocker.includes("Missing read-only Auth Hub API token")));
     assert.match(report.summary.recommendedNext, /AI_LINK_CODEX_TOKEN/);
+  });
+
+  it("never attaches Service Auth credentials to loopback status checks", async () => {
+    await withServer((req, res) => {
+      assert.equal(req.headers["cf-access-client-id"], undefined);
+      assert.equal(req.headers["cf-access-client-secret"], undefined);
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({
+        authStatus: {
+          summary: { total: 0, ready: 0, next_actions: 0 },
+          items: [],
+          nextActions: []
+        }
+      }));
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: {
+          AI_LINK_CODEX_TOKEN: "loopback-token",
+          CF_ACCESS_CLIENT_ID: "must-not-forward",
+          CF_ACCESS_CLIENT_SECRET: "must-not-forward"
+        }
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(JSON.parse(result.stdout).summary.reachable, true);
+    });
+  });
+
+  it("rejects unapproved remote targets before sending bearer or Service Auth credentials", async () => {
+    const result = await runStatus({
+      baseUrl: "https://unapproved.example.invalid",
+      env: {
+        AI_LINK_CODEX_TOKEN: "must-not-send",
+        CF_ACCESS_CLIENT_ID: "must-not-send",
+        CF_ACCESS_CLIENT_SECRET: "must-not-send"
+      }
+    });
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.summary.reachable, false);
+    assert.equal(report.summary.monitoringIssue, "auth_hub_target_rejected");
+    assert.match(report.blockers[0], /explicitly approved HTTPS Auth Hub hostname/);
+  });
+
+  it("does not follow Auth Hub redirects", async () => {
+    let redirectedRequests = 0;
+    await withServer((req, res) => {
+      if (req.url === "/redirected") {
+        redirectedRequests += 1;
+        res.end("unexpected");
+        return;
+      }
+      res.statusCode = 302;
+      res.setHeader("location", "/redirected");
+      res.end();
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "redirect-token" }
+      });
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.summary.monitoringIssue, "auth_status_http_error");
+      assert.equal(redirectedRequests, 0);
+    });
   });
 
   it("fails closed in strict mode when executor or probe evidence is unverified", async () => {
@@ -220,6 +284,15 @@ describe("Auth status next action client", () => {
       assert.equal(report.summary.ok, true);
       assert.deepEqual(report.target.platforms, ["github"]);
       assert.deepEqual(report.authStatus.items.map((item) => item.platform), ["github"]);
+      assert.deepEqual(report.authStatus.summary, {
+        total: 1,
+        ready: 1,
+        unverified: 0,
+        needs_action: 0,
+        reserved: 0,
+        blocked: 0,
+        next_actions: 0
+      });
       assert.deepEqual(report.authStatus.items[0].verifiedOperations, ["check_auth"]);
       assert.equal(report.authStatus.items[0].probe.status, "verified");
       assert.equal(result.stdout.includes("must-not-leak"), false);

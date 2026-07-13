@@ -326,6 +326,8 @@ function describeProbeRuntime({ selected, reports, probes, platform, nowMs }) {
   const latest = latestProbePerOperation(related);
   const publicOperations = latest.map((item) => ({
     operation: item.operation,
+    ...(item.qualifier ? { qualifier: item.qualifier } : {}),
+    subjectBound: Boolean(item.subjectKey),
     capability: item.capability,
     outcome: item.outcome,
     issueCode: item.issueCode,
@@ -362,7 +364,8 @@ function describeProbeRuntime({ selected, reports, probes, platform, nowMs }) {
   const verifiedOperations = currentPrivate
     ? fresh
       .filter((item) => item.outcome === "verified" && privateCapabilityAvailable(selected.connector, item.capability))
-      .map((item) => item.operation)
+      .map(publicVerifiedOperation)
+      .filter((value, index, values) => values.indexOf(value) === index)
       .sort()
     : [];
   const status = fresh.some((item) => item.outcome === "blocked")
@@ -391,10 +394,18 @@ function describeProbeRuntime({ selected, reports, probes, platform, nowMs }) {
 function latestProbePerOperation(values) {
   const latest = new Map();
   for (const item of values) {
-    const existing = latest.get(item.operation);
-    if (!existing || existing.checkedAt <= item.checkedAt) latest.set(item.operation, item);
+    const key = [item.operation, item.qualifier, item.subjectKey].join(":");
+    const existing = latest.get(key);
+    if (!existing || existing.checkedAt <= item.checkedAt) latest.set(key, item);
   }
-  return [...latest.values()].sort((left, right) => left.operation.localeCompare(right.operation));
+  return [...latest.values()].sort((left, right) =>
+    publicVerifiedOperation(left).localeCompare(publicVerifiedOperation(right))
+  );
+}
+
+function publicVerifiedOperation(evidence) {
+  if (!evidence.qualifier) return evidence.operation;
+  return `${evidence.operation}:${evidence.qualifier}:target_bound`;
 }
 
 function privateCapabilityAvailable(connector, capability) {

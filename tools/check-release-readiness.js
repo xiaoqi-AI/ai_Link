@@ -104,6 +104,7 @@ for (const file of [
   "tools/show-next-actions.js",
   "tools/show-auth-hub-remote-next.js",
   "tools/test-auth-hub-remote.ps1",
+  "src/security/authHubOutbound.js",
   "src/executor/localExecutor.js",
   "docs/quickstart.md",
   "docs/user-guide.md",
@@ -303,13 +304,21 @@ checkContains("tools/show-auth-hub-remote-next.js", "Auth Hub remote next report
   "A local fallback smoke is useful evidence for code health, but it does not prove the dedicated remote Auth Hub hostname is deployed"
 ]);
 
-checkContains("src/executor/localExecutor.js", "Auth Hub executor Access test headers", [
+checkContains("src/security/authHubOutbound.js", "Auth Hub shared outbound credential guard", [
   "CF_ACCESS_CLIENT_ID",
   "CF_ACCESS_CLIENT_SECRET",
+  "AI_LINK_AUTH_HUB_ALLOWED_HOSTS",
+  "attachServiceHeaders"
+]);
+
+checkContains("src/executor/localExecutor.js", "Auth Hub executor Access test headers", [
+  "validateAuthHubTarget",
+  "cloudflareServiceHeaders",
   "AI_LINK_CF_ACCESS_TEST_JWT",
   "AI_LINK_CF_ACCESS_TEST_EMAIL",
   "cf-access-jwt-assertion",
-  "cf-access-authenticated-user-email"
+  "cf-access-authenticated-user-email",
+  'redirect: "manual"'
 ]);
 
 checkContains("docs/20-architecture/auth-hub.md", "Auth Hub remote mock dry-run docs", [

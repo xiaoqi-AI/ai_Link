@@ -1,16 +1,19 @@
+import { createHmac } from "node:crypto";
 import {
   getPlatformAuthOperation,
   normalizePlatformConnectorResult,
   publicIssueForCode
 } from "./platformAuthContracts.js";
 
-export const CONNECTOR_PROBE_SCHEMA_VERSION = "1";
+export const CONNECTOR_PROBE_SCHEMA_VERSION = "2";
 export const CONNECTOR_PROBE_INTENT = "connector_probe";
 
 const EXECUTOR_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 const OPAQUE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const PROBE_OUTCOMES = new Set(["verified", "action_required", "blocked", "unverified"]);
 const INTERNAL_ISSUE_CODES = new Set(["probe_result_invalid", "probe_source_untrusted"]);
+const GITHUB_SCOPES = new Set(["repo_read", "actions_read", "pull_request_read"]);
+const SUBJECT_KEY_PATTERN = /^[a-f0-9]{64}$/;
 const PRIVATE_CAPABILITY_MODES = new Set([
   "private",
   "live-read-only",
@@ -67,7 +70,14 @@ export function eligibleConnectorProbeKeys({ heartbeat, now = Date.now() } = {})
   return keys.sort();
 }
 
-export function buildConnectorProbeSettlement({ task, envelope, producerExecutorId, ttlMs, now = Date.now() } = {}) {
+export function buildConnectorProbeSettlement({
+  task,
+  envelope,
+  producerExecutorId,
+  subjectSecret,
+  ttlMs,
+  now = Date.now()
+} = {}) {
   if (!isConnectorProbeTask(task)) return null;
 
   const nowMs = now instanceof Date ? now.getTime() : Number(now);
@@ -93,6 +103,8 @@ export function buildConnectorProbeSettlement({ task, envelope, producerExecutor
   const capability = PROBE_OPERATIONS[platform]?.[operation];
   const operationContract = getPlatformAuthOperation(platform, operation);
   if (!capability || operationContract?.mode !== "read_only") return null;
+  const binding = probeBinding({ platform, operation, input: task.input, subjectSecret });
+  if (!binding) return null;
 
   let normalizedResult = null;
   try {
@@ -118,6 +130,8 @@ export function buildConnectorProbeSettlement({ task, envelope, producerExecutor
     executorSessionId: task.leaseExecutorSessionId,
     platform,
     operation,
+    qualifier: binding.qualifier,
+    subjectKey: binding.subjectKey,
     capability,
     outcome,
     issueCode,
@@ -175,6 +189,8 @@ export function normalizeConnectorProbeEvidence(value) {
     "executorSessionId",
     "platform",
     "operation",
+    "qualifier",
+    "subjectKey",
     "capability",
     "outcome",
     "issueCode",
@@ -198,10 +214,13 @@ export function normalizeConnectorProbeEvidence(value) {
   }
 
   const capability = PROBE_OPERATIONS[value.platform]?.[value.operation];
+  const qualifier = String(value.qualifier || "");
+  const subjectKey = String(value.subjectKey || "");
   if (
     !capability
     || capability !== value.capability
     || getPlatformAuthOperation(value.platform, value.operation)?.mode !== "read_only"
+    || !validProbeBinding({ platform: value.platform, operation: value.operation, qualifier, subjectKey })
     || !PROBE_OUTCOMES.has(value.outcome)
     || !validIso(value.checkedAt)
     || !validIso(value.expiresAt)
@@ -224,6 +243,8 @@ export function normalizeConnectorProbeEvidence(value) {
     executorSessionId: value.executorSessionId,
     platform: value.platform,
     operation: value.operation,
+    qualifier,
+    subjectKey,
     capability,
     outcome: value.outcome,
     issueCode,
@@ -233,6 +254,28 @@ export function normalizeConnectorProbeEvidence(value) {
     checkedAt: value.checkedAt,
     expiresAt: value.expiresAt
   };
+}
+
+function probeBinding({ platform, operation, input, subjectSecret }) {
+  if (platform !== "github" || operation !== "check_auth") {
+    return { qualifier: "", subjectKey: "" };
+  }
+  const qualifier = String(input?.scope || "");
+  const owner = String(input?.owner || "").trim().toLowerCase();
+  const repo = String(input?.repo || "").trim().toLowerCase();
+  const secret = String(subjectSecret || "");
+  if (!GITHUB_SCOPES.has(qualifier) || !owner || !repo || secret.length < 16) return null;
+  return {
+    qualifier,
+    subjectKey: createHmac("sha256", secret).update(`github:${owner}/${repo}`).digest("hex")
+  };
+}
+
+function validProbeBinding({ platform, operation, qualifier, subjectKey }) {
+  if (platform === "github" && operation === "check_auth") {
+    return GITHUB_SCOPES.has(qualifier) && SUBJECT_KEY_PATTERN.test(subjectKey);
+  }
+  return qualifier === "" && subjectKey === "";
 }
 
 function outcomeForEnvelope(envelopeStatus, resultStatus) {

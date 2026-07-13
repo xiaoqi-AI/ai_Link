@@ -133,7 +133,7 @@ npm run auth-hub:status:json
 
 `begin_login` 是 interactive 方法。执行器不会在普通任务、定时任务或未审批 retry 中直接调用它；首次运行会返回 `approval_required/interactive_approval_required`，只有审批通过并把任务推进到 `platform_interactive_login` 步骤后，才允许调用受信任私有连接器。
 
-公开合同使用 allowlist 重建结果：小红书只接受 `xiaohongshu.com` 的具体笔记路径，移除查询参数和 fragment；每条素材必须声明 `source_reachability.status=verified` 和 `acquisition_provider=ai_link_xhs_readonly`。额外字段不会进入 Auth Hub。
+公开合同使用 allowlist 重建结果：只有 `xiaohongshu/search_content` 允许非空 `items`，并且只接受 `xiaohongshu.com` 的具体笔记路径，移除查询参数和 fragment；每条素材必须声明 `source_reachability.status=verified` 和 `acquisition_provider=ai_link_xhs_readonly`。`check_session`、`begin_login`、`wechat_official/check_health`、`github/check_auth` 或任何其他操作返回非空条目时，合同验证失败关闭。额外字段不会进入 Auth Hub。
 
 ## Executor Capability Evidence
 
@@ -147,7 +147,7 @@ npm run auth-hub:status:json
 
 心跳允许保留 `live-read-only`、`approval-required-local`、`mock` 等 capability mode，但拒绝未知顶层字段、未知平台、重复能力、矛盾状态和越界 issue code。禁止上报 hostname、用户名、私有模块路径、凭据存在性、Cookie、token、Profile、账号详情、原始响应或 connector 异常栈。heartbeat scope 与 lease/result scope 分开；心跳失败是 best-effort，不阻塞执行器继续向兼容的旧 Hub 领取任务。
 
-生产环境通过 `AI_LINK_EXECUTOR_ID` 把 executor token 绑定到固定执行器身份；本地执行器每次启动生成新的进程 session id。普通心跳仍只是能力声明，但显式 probe 任务只会租给同一绑定身份、同一在线 session 且报告 private capability 的执行器，并由服务端签发一次性 `leaseId`。结果必须在当前租约有效期内由同一身份/session 回传；Postgres 使用条件更新把任务终态、最新 probe 和审计写入同一事务，重复提交或旧租约返回冲突且不能刷新 TTL。
+生产环境通过 `AI_LINK_EXECUTOR_ID` 把 executor token 绑定到固定执行器身份；本地执行器每次启动生成新的进程 session id。所有任务结果都必须由领取任务的同一身份/session 携带当前一次性 `leaseId`，并在租约有效期内提交一次。Postgres 使用条件更新把任务终态、artifact、审批和审计写入同一事务；未领取、错误绑定、重复提交、终态改写或旧租约返回冲突。显式 probe 还只会租给同一在线 session 且报告 private capability 的执行器，并把最新证据纳入同一事务。
 
 ## Explicit Connector Probe Evidence
 
@@ -167,7 +167,7 @@ npm run auth-hub:status:json
 | --- | --- | --- |
 | `xiaohongshu` | `check_session` | `check_session` |
 | `wechat_official` | `check_health` | `check_health` |
-| `github` | `check_auth` | `check_auth` |
+| `github` | `check_auth` | `check_auth:<scope>:target_bound` |
 
 `begin_login`、`search_content`、普通平台任务、mock 心跳和读取状态页不会生成证据。probe 领取和结算必须同时满足：
 
@@ -176,10 +176,11 @@ npm run auth-hub:status:json
 3. heartbeat 中目标 connector 为 `private`，目标 capability 可用且不是 `mock/reserved`。
 4. 任务仍为 `running`，一次性 `leaseId` 与 heartbeat revision 一致且尚未过期。
 5. Hub 依据任务原始 platform/operation 重新调用公开结果 normalizer，`items` 必须为空，外层和内层状态必须匹配。
+6. GitHub `check_auth` 必须携带批准的 `repo_read`、`actions_read` 或 `pull_request_read` scope，并把规范化 owner/repo 绑定为服务端 HMAC 摘要；不同 scope 或目标的证据不能互用。
 
-服务端只保留每个 executor + platform + operation 的最新证据；较旧接收时间不能覆盖较新记录。最新 `needs_action` / `blocked` 会立即覆盖旧成功，证据过期后不会回退到更旧成功。客户端 `session.checked_at` 不参与证据时间计算，`checkedAt` 与 `expiresAt` 只由 Hub 服务端生成。
+服务端只保留每个 executor + platform + operation + qualifier + subject 的最新证据；非 GitHub 操作的 qualifier/subject 为空，GitHub qualifier 为 scope、subject 为目标 HMAC 摘要。较旧接收时间不能覆盖较新记录。最新 `needs_action` / `blocked` 会立即覆盖同一限定项的旧成功，证据过期后不会回退到更旧成功。客户端 `session.checked_at` 不参与证据时间计算，`checkedAt` 与 `expiresAt` 只由 Hub 服务端生成。
 
-公开 API 仅返回操作、结论、公开问题码、任务 ID 和服务端时间；不返回 `leaseId`、executor session、heartbeat revision、原始结果、diagnostics、账号/仓库详情、路径或私有响应。`canRunReal=true` 只表示 `verifiedOperations` 中列出的只读健康操作，不得据此推导整个平台、写权限或发布能力。
+公开 API 仅返回操作、公开 qualifier、`subjectBound`、结论、公开问题码、任务 ID 和服务端时间；不返回目标 HMAC、`leaseId`、executor session、heartbeat revision、原始结果、diagnostics、账号/仓库详情、路径或私有响应。`canRunReal=true` 只表示 `verifiedOperations` 中列出的精确只读健康操作；GitHub 项显示 scope 与 `target_bound`，不得据此推导其他目标、整个平台、写权限或发布能力。
 
 ## Private Connector Injection
 

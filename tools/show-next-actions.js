@@ -6,29 +6,6 @@ const outputJson = args.has("--json");
 
 const actions = [
   {
-    id: "merge-auth-hub-program-stack",
-    title: "Merge Auth Hub program stack in dependency order",
-    status: "manual",
-    owner: "Repository maintainer",
-    intent: "Move modules 2, 5, and 6 into main without flattening stacked ancestry or bypassing protected-branch checks.",
-    background: "PR #21 is merged. PR #22 and #23 are ready, PR #26 is an independent GitHub-scope branch, and PR #24/#25/#27/#28 form the remaining remote Auth Hub stack.",
-    recommendation: "Authorize one merge at a time in the order #22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28, using merge commits and rerunning checks after each retarget.",
-    value: "Makes the status center, precise connector evidence, remote security, and lifecycle controls land in a reviewable order.",
-    risk: "Merging out of order can duplicate ancestry, hide conflicting changes, or make later PR checks prove a different diff than the one merged.",
-    commands: [
-      "gh pr view 22 --repo xiaoqi-AI/ai_Link --json state,isDraft,mergeable,statusCheckRollup",
-      "gh pr checks 22 --repo xiaoqi-AI/ai_Link",
-      "npm run auth-hub:test"
-    ],
-    evidence: [
-      "PR #21 is merged into main.",
-      "PR #22 is open, Ready, mergeable, and Verify passes.",
-      "Every later stacked PR remains open until its parent is merged and its base is retargeted.",
-      "No merge is performed by this report; each merge requires explicit maintainer authorization."
-    ],
-    secretBoundary: "PR metadata and public CI checks only; no token value, platform login state, or runtime/private content is read or printed."
-  },
-  {
     id: "keep-local-baseline-green",
     title: "Keep local baseline green",
     status: "ready",
@@ -57,18 +34,18 @@ const actions = [
     status: "manual",
     owner: "Connector owner and account owner",
     intent: "Move the merged GitHub, WeChat, and Xiaohongshu scaffolds from public engineering confidence to operation-specific real-account evidence.",
-    background: "Contracts, interactive approval, private adapter generators, and the combined executor entry are merged; no public artifact proves the real accounts are currently usable.",
-    recommendation: "Merge and review PR #26, then approve GitHub read-only first, Xiaohongshu read-only second, and WeChat health third. Keep draft creation and publish outside this acceptance.",
+    background: "Contracts, interactive approval, private adapter generators, combined executor entry, and operation-bound evidence checks are merged; no public artifact proves the real accounts are currently usable.",
+    recommendation: "Approve GitHub read-only first, Xiaohongshu read-only second, and WeChat health third. Keep draft creation and publish outside this acceptance.",
     value: "Validates the least interactive and easiest-to-revoke platform first, then reuses the same Auth Hub evidence boundary for higher-friction accounts.",
     risk: "Real calls can consume quota, trigger platform controls, or expose account state if the local private boundary is bypassed.",
     commands: [
       "npm run auth-status:next:json",
       "npm run auth-hub:private-bundle:print",
-      "gh pr view 26 --repo xiaoqi-AI/ai_Link --json state,isDraft,mergeable,statusCheckRollup"
+      "npm run auth-hub:test"
     ],
     evidence: [
-      "PR #9, #13, and #18-#21 are merged.",
-      "PR #26 contains operation-specific GitHub read-scope probes and remains a separate review item.",
+      "The platform contract and private connector scaffold chain is merged into main.",
+      "GitHub read-scope evidence is bound to the approved operation, scope, and target repository.",
       "The account owner approves platform, account, scope, frequency, time window, and stop conditions before any real call.",
       "A successful result records only stable operation evidence and redacted next actions."
     ],
@@ -100,10 +77,10 @@ const actions = [
     status: "gated",
     owner: "Infrastructure maintainer and secret owner",
     intent: "Deploy the private console behind Cloudflare Access and verify the full mock task loop without real platform accounts.",
-    background: "The deployment code and handoff are implemented, but PR #22/#23/#24/#25/#27/#28 have not all entered main and the ten deployment decisions are not approved.",
-    recommendation: "Keep deployment NO-GO until the complete stack is merged. Then approve the decision card and replace the URL placeholder in a temporary terminal.",
-    value: "Prevents paid resources, DNS, and secrets from being created against code that is not yet the protected main baseline.",
-    risk: "Starting early can deploy an incomplete identity or lifecycle chain and make later rollback harder.",
+    background: "The deployment code, handoff, identity controls, lifecycle controls, and outbound credential guard are implemented; the deployment decisions are not approved and no remote resource or smoke evidence exists.",
+    recommendation: "Keep deployment NO-GO until the owner approves the complete decision card. Then replace the URL placeholder in a temporary terminal and run preflight before creating resources.",
+    value: "Prevents paid resources, DNS, and production secrets from being created before cost, identity, origin, retention, and recovery ownership are explicit.",
+    risk: "Starting before the decision card is complete can expose the console, lock out the operator, create recurring cost, or leave database recovery unowned.",
     commands: [
       "$env:AI_LINK_BASE_URL=\"<confirmed-auth-hub-url>\"",
       "npm run auth-hub:remote:next",

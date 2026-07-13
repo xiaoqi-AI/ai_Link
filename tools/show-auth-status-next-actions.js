@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { cloudflareServiceHeaders, validateAuthHubTarget } from "../src/security/authHubOutbound.js";
 
 const args = process.argv.slice(2);
 const maxStateBytes = 64 * 1024;
@@ -122,6 +123,7 @@ async function buildReport({
     ...(invalidPlatformFilter ? ["invalid_platform_filter"] : [])
   ]);
   const manualCount = nextActions.filter((action) => action.severity !== "blocked").length;
+  const filteredSummary = summarizeItems(items, nextActions);
   return {
     generatedAt,
     summary: {
@@ -135,7 +137,7 @@ async function buildReport({
     },
     target,
     authStatus: {
-      summary: authStatus.summary || {},
+      summary: filteredSummary,
       items
     },
     nextActions,
@@ -144,18 +146,38 @@ async function buildReport({
   };
 }
 
+function summarizeItems(items, nextActions) {
+  const count = (status) => items.filter((item) => item.status === status).length;
+  return {
+    total: items.length,
+    ready: count("ready"),
+    unverified: count("unverified"),
+    needs_action: count("needs_action"),
+    reserved: count("reserved"),
+    blocked: count("blocked"),
+    next_actions: nextActions.length
+  };
+}
+
 async function fetchAuthStatus({ target, bearerToken }) {
   try {
+    const outboundTarget = validateAuthHubTarget(target.authStatusUrl);
+    if (!outboundTarget.ok) {
+      return {
+        ok: false,
+        reachable: false,
+        issueCode: "auth_hub_target_rejected",
+        detail: outboundTarget.detail
+      };
+    }
     const headers = {
       authorization: `Bearer ${bearerToken}`,
-      accept: "application/json"
+      accept: "application/json",
+      ...cloudflareServiceHeaders(outboundTarget)
     };
-    if (process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET) {
-      headers["CF-Access-Client-Id"] = process.env.CF_ACCESS_CLIENT_ID;
-      headers["CF-Access-Client-Secret"] = process.env.CF_ACCESS_CLIENT_SECRET;
-    }
     const response = await fetch(target.authStatusUrl, {
       headers,
+      redirect: "manual",
       signal: AbortSignal.timeout(Number(process.env.AI_LINK_AUTH_STATUS_TIMEOUT_MS || 20000))
     });
     if (!response.ok) {

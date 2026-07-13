@@ -120,18 +120,54 @@ describe("connector probe evidence security", () => {
     assert.equal(evidence[0].attemptId, leased.data.task.leaseId);
     assert.equal(evidence[0].heartbeatRevision, internalLease.leaseHeartbeatRevision);
     assert.equal(evidence[0].outcome, "verified");
+    assert.equal(evidence[0].qualifier, "repo_read");
+    assert.match(evidence[0].subjectKey, /^[a-f0-9]{64}$/);
 
     const connectors = await requestJson(server.baseUrl, "/api/connectors", { token: CODEX_TOKEN });
     const github = runtimeGithub(connectors.data);
     assert.equal(github.probe.status, "verified");
-    assert.deepEqual(github.verifiedOperations, ["check_auth"]);
+    assert.deepEqual(github.verifiedOperations, ["check_auth:repo_read:target_bound"]);
     assert.equal(github.probe.operations[0].outcome, "verified");
+    assert.equal(github.probe.operations[0].qualifier, "repo_read");
+    assert.equal(github.probe.operations[0].subjectBound, true);
 
     const authStatus = await requestJson(server.baseUrl, "/api/auth-status", { token: CODEX_TOKEN });
     const authGithub = authStatus.data.authStatus.items.find((item) => item.platform === "github");
     assert.equal(authGithub.status, "ready");
     assert.equal(authGithub.reason, "probe_verified");
-    assert.deepEqual(authGithub.verifiedOperations, ["check_auth"]);
+    assert.deepEqual(authGithub.verifiedOperations, ["check_auth:repo_read:target_bound"]);
+  });
+
+  it("keeps GitHub scope and target evidence isolated without exposing repository names", async () => {
+    await reportHeartbeat(server, { token: EXECUTOR_TOKEN, heartbeat: githubHeartbeat() });
+
+    await runTrustedProbe(server, {
+      status: "completed",
+      result: githubResult({ status: "ready" }),
+      probe: { owner: "example-owner", repo: "private-repo-one", scope: "repo_read" }
+    });
+    await runTrustedProbe(server, {
+      status: "completed",
+      result: githubResult({ status: "ready" }),
+      probe: { owner: "example-owner", repo: "private-repo-two", scope: "actions_read" }
+    });
+
+    const evidence = await server.store.listConnectorProbeEvidence({ limit: 10 });
+    assert.equal(evidence.length, 2);
+    assert.deepEqual(evidence.map((item) => item.qualifier).sort(), ["actions_read", "repo_read"]);
+    assert.equal(new Set(evidence.map((item) => item.subjectKey)).size, 2);
+    assert.equal(JSON.stringify(evidence).includes("private-repo-one"), false);
+    assert.equal(JSON.stringify(evidence).includes("private-repo-two"), false);
+
+    const connectors = await requestJson(server.baseUrl, "/api/connectors", { token: CODEX_TOKEN });
+    const github = runtimeGithub(connectors.data);
+    assert.deepEqual(github.verifiedOperations, [
+      "check_auth:actions_read:target_bound",
+      "check_auth:repo_read:target_bound"
+    ]);
+    assert.ok(github.probe.operations.every((item) => item.subjectBound === true));
+    assert.equal(JSON.stringify(connectors.data).includes(evidence[0].subjectKey), false);
+    assert.equal(JSON.stringify(connectors.data).includes(evidence[1].subjectKey), false);
   });
 
   it("rejects missing or mismatched session, wrong lease, and replay without refreshing evidence", async () => {
@@ -298,11 +334,13 @@ describe("connector probe evidence persistence and expiry", () => {
       expiresAt: "2026-07-13T04:01:00.000Z"
     };
     const baseEvidence = {
-      schemaVersion: "1",
+      schemaVersion: "2",
       executorId: EXECUTOR_ID,
       executorSessionId: EXECUTOR_SESSION_ID,
       platform: "github",
       operation: "check_auth",
+      qualifier: "repo_read",
+      subjectKey: "a".repeat(64),
       capability: "check_auth",
       outcome: "verified",
       issueCode: "",
@@ -329,7 +367,7 @@ describe("connector probe evidence persistence and expiry", () => {
       now
     });
     assert.equal(runtimeGithub(fresh).probe.status, "verified");
-    assert.deepEqual(runtimeGithub(fresh).verifiedOperations, ["check_auth"]);
+    assert.deepEqual(runtimeGithub(fresh).verifiedOperations, ["check_auth:repo_read:target_bound"]);
 
     const restarted = describeConnectorRuntime({
       registry: createConnectorRegistry(),
@@ -344,6 +382,8 @@ describe("connector probe evidence persistence and expiry", () => {
   it("keeps Postgres probe settlement conditional, atomic, and latest-only", async () => {
     const source = await readFile(new URL("../src/storage/postgresStore.js", import.meta.url), "utf8");
     assert.match(source, /CREATE TABLE IF NOT EXISTS connector_probe_evidence/);
+    assert.match(source, /PRIMARY KEY \(executor_id, platform, operation, qualifier, subject_key\)/);
+    assert.match(source, /ON CONFLICT \(executor_id, platform, operation, qualifier, subject_key\)/);
     assert.match(source, /lease_executor_session_id/);
     assert.match(source, /AND lease_id = \$8/);
     assert.match(source, /AND lease_expires_at > now\(\)/);
@@ -448,7 +488,13 @@ function githubResult({
   };
 }
 
-async function createProbeTask(server, { token = ADMIN_TOKEN, expectedStatus = 201 } = {}) {
+async function createProbeTask(server, {
+  token = ADMIN_TOKEN,
+  expectedStatus = 201,
+  owner = "xiaoqi-AI",
+  repo = "ai_Link",
+  scope = "repo_read"
+} = {}) {
   const created = await requestJson(server.baseUrl, "/api/tasks", {
     token,
     method: "POST",
@@ -457,9 +503,9 @@ async function createProbeTask(server, { token = ADMIN_TOKEN, expectedStatus = 2
       input: {
         platform: "github",
         operation: "check_auth",
-        owner: "xiaoqi-AI",
-        repo: "ai_Link",
-        scope: "repo_read"
+        owner,
+        repo,
+        scope
       },
       options: { evidenceIntent: "connector_probe" }
     }
@@ -514,8 +560,8 @@ async function submitProbeResult(server, taskId, {
   });
 }
 
-async function runTrustedProbe(server, { status, result }) {
-  const task = await createProbeTask(server);
+async function runTrustedProbe(server, { status, result, probe = {} }) {
+  const task = await createProbeTask(server, probe);
   const leased = await leaseProbe(server);
   assert.equal(leased.data.task.id, task.id);
   const reported = await submitProbeResult(server, task.id, {
@@ -596,6 +642,7 @@ function assertNoInternalProbeFields(value, additionalMarkers = []) {
     "leaseHeartbeatRevision",
     "executorSessionId",
     "leaseExecutorSessionId",
+    "subjectKey",
     EXECUTOR_SESSION_ID,
     TOKEN_MARKER,
     RAW_MARKER,

@@ -239,6 +239,7 @@ export function createApiRouter() {
         task,
         envelope: body,
         producerExecutorId: req.actor?.executorId || "",
+        subjectSecret: req.app.locals.config.sessionSecret,
         ttlMs: req.app.locals.config.connectorProbeTtlMs
       });
       if (!settlement) {
@@ -264,61 +265,58 @@ export function createApiRouter() {
       return;
     }
 
-    if (body.status === "needs_approval") {
-      const outcome = await req.app.locals.store.markTaskNeedsApproval({
-        taskId: task.id,
-        summary: body.summary || "",
-        result: sanitizedExecutorResult(body, aiLinkAudit),
-        approval: body.approval || {},
-        artifacts: redact(body.artifacts || []),
-        actor
-      });
-      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
+    const taskStatus = executorResultTaskStatus(body.status);
+    if (!taskStatus) {
+      res.status(400).json({ error: "unsupported_result_status" });
+      return;
+    }
+
+    const executorId = String(body.executorId || "");
+    const executorSessionId = String(body.executorSessionId || "");
+    const leaseId = String(body.leaseId || "");
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(executorId)
+      || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(executorSessionId)
+      || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(leaseId)
+    ) {
+      res.status(409).json({ error: "executor_result_binding_mismatch" });
+      return;
+    }
+    if (req.actor?.executorId && req.actor.executorId !== executorId) {
+      res.status(403).json({ error: "executor_id_mismatch" });
+      return;
+    }
+
+    const outcome = await req.app.locals.store.settleTaskResult({
+      taskId: task.id,
+      executorId,
+      executorSessionId,
+      leaseId,
+      taskStatus,
+      resultStatus: body.status,
+      summary: body.summary || "",
+      result: sanitizedExecutorResult(body, aiLinkAudit),
+      error: taskStatus === "action_required"
+        ? redact(body.error || { message: "Manual action required" })
+        : taskStatus === "failed"
+          ? redact(body.error || { message: "Unknown executor failure" })
+          : null,
+      approval: body.approval || {},
+      artifacts: redact(body.artifacts || []),
+      actor,
+      aiLinkAudit
+    });
+    if (!outcome) {
+      res.status(409).json({ error: "executor_result_attempt_stale" });
+      return;
+    }
+    if (outcome.approval) {
       await req.app.locals.notifier.approvalRequested(outcome);
-      res.json({ task: publicTask(outcome.task), approval: outcome.approval });
-      return;
     }
-
-    if (body.status === "completed") {
-      const completed = await req.app.locals.store.completeTask({
-        taskId: task.id,
-        summary: body.summary || "",
-        result: sanitizedExecutorResult(body, aiLinkAudit),
-        artifacts: redact(body.artifacts || []),
-        actor
-      });
-      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
-      res.json({ task: publicTask(completed) });
-      return;
-    }
-
-    if (body.status === "needs_action") {
-      const actionRequired = await req.app.locals.store.markTaskNeedsAction({
-        taskId: task.id,
-        summary: body.summary || "",
-        result: sanitizedExecutorResult(body, aiLinkAudit),
-        error: redact(body.error || { message: "Manual action required" }),
-        artifacts: redact(body.artifacts || []),
-        actor
-      });
-      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
-      res.json({ task: publicTask(actionRequired) });
-      return;
-    }
-
-    if (body.status === "failed") {
-      const failed = await req.app.locals.store.failTask({
-        taskId: task.id,
-        error: redact(body.error || { message: "Unknown executor failure" }),
-        result: sanitizedExecutorResult(body, aiLinkAudit),
-        actor
-      });
-      await appendAiLinkAuditEvent(req, { taskId: task.id, actor, status: body.status, aiLinkAudit });
-      res.status(200).json({ task: publicTask(failed) });
-      return;
-    }
-
-    res.status(400).json({ error: "unsupported_result_status" });
+    res.json({
+      task: publicTask(outcome.task),
+      ...(outcome.approval ? { approval: outcome.approval } : {})
+    });
   });
 
   router.get("/audit", requireApiScope("audit:read"), async (req, res) => {
@@ -364,24 +362,17 @@ async function runtimeConnectorDescription(req) {
   });
 }
 
-async function appendAiLinkAuditEvent(req, { taskId, actor, status, aiLinkAudit }) {
-  if (!aiLinkAudit) {
-    return;
-  }
-
-  await req.app.locals.store.appendAudit({
-    taskId,
-    actor,
-    eventType: "ai_link.audit",
-    detail: {
-      status,
-      audit: aiLinkAudit
-    }
-  });
-}
-
 function sanitizedExecutorResult(body, aiLinkAudit) {
   return attachAiLinkAudit(redact(withoutInlineAiLinkAudit(body.result || {})), aiLinkAudit);
+}
+
+function executorResultTaskStatus(status) {
+  return {
+    needs_approval: "approval_required",
+    completed: "completed",
+    needs_action: "action_required",
+    failed: "failed"
+  }[status] || "";
 }
 
 function withoutInlineAiLinkAudit(value) {

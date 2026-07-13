@@ -78,6 +78,9 @@ AI Link 建立统一合同后，上游只消费有限的公开状态和具体内
 - `GET /api/connectors` 同时保留服务端静态合同和独立的 `executorRuntime`，避免消费者混淆。
 - 真实健康操作必须等待显式、低频、带 `evidenceIntent=connector_probe` 的只读探测证据；普通任务和状态页不会自动触发。
 - 生产 token 绑定 `AI_LINK_EXECUTOR_ID`，每个执行器进程使用随机 session；probe 使用一次性租约并由服务端重新校验和设置 TTL。
+- 所有执行器结果都必须绑定领取任务时的 executor/session/一次性 lease；未领取、错误绑定、过期租约或终态重放不能改写任务。
+- GitHub probe 按 `scope + 目标仓库` 隔离，目标只保存服务端 HMAC 摘要；成功以 `check_auth:<scope>:target_bound` 进入 `verifiedOperations`，不能跨仓库或跨 scope 复用。
+- 只有 `xiaohongshu/search_content` 可返回非空条目；其他健康或登录操作返回条目一律合同失败。
 - 成功只进入 `verifiedOperations`，不能扩大为整个平台、写权限或发布能力；默认 15 分钟后失败关闭。
 
 证据基础设施和 mock 安全验证可以自动推进，不需要真实账号授权。真正运行 `check_session`、`check_health` 或 `check_auth` 仍属于外部调用门禁：必须先确认平台、调用频率、费用/配额、停止条件和测试账号/凭据边界。本轮没有自动执行任何真实平台 probe。

@@ -134,7 +134,7 @@ npm run auth-hub:executor:start
 
 控制台登录、创建任务、审批、重试和退出均受同源请求与 CSRF 保护。不要通过脚本复用浏览器页面中的 token，也不要把 token 放进 URL、日志或任务输入；页面刷新后按当前会话重新取得即可。默认 CSRF 有效期 15 分钟，可用 `AI_LINK_CSRF_TOKEN_TTL_SECONDS` 在 5 至 60 分钟内调整。登录默认 15 分钟内最多失败 5 次，锁定 15 分钟；对应参数是 `AI_LINK_LOGIN_MAX_FAILURES`、`AI_LINK_LOGIN_WINDOW_SECONDS`、`AI_LINK_LOGIN_BLOCK_SECONDS` 和 `AI_LINK_LOGIN_MAX_KEYS`。当前限流是单进程保护，远程蓝图必须保持一个 Web 实例；扩容前先建设共享限流层。
 
-控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 的顶层 `connectors` 是服务端静态能力契约，`executorRuntime` 是本地执行器带过期时间的能力与探测证据。静态契约只能说明代码合同存在，执行器心跳只能说明进程在线且方法已加载；只有显式 `connector_probe` 任务在绑定 executor/session/lease 下成功完成后，对应操作才会进入 `verifiedOperations`。这仍不代表整个平台、写权限或发布能力可用。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
+控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 的顶层 `connectors` 是服务端静态能力契约，`executorRuntime` 是本地执行器带过期时间的能力与探测证据。静态契约只能说明代码合同存在，执行器心跳只能说明进程在线且方法已加载；只有显式 `connector_probe` 任务在绑定 executor/session/lease 下成功完成后，对应操作才会进入 `verifiedOperations`。GitHub 的验证项还会绑定批准的 scope 和目标仓库，因此一个仓库或一个只读 scope 的成功不能证明其他仓库或 scope 可用。所有执行器任务结果都只能由当前租约绑定的 executor/session 在租约有效期内提交一次；未领取、错误租约、错误 session、过期租约和终态重放都会失败关闭。这仍不代表整个平台、写权限或发布能力可用。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
 
 如果要从项目负责人视角判断“现在是否需要人工续登或配置授权”，打开 `/dashboard` 或 `/dashboard/connectors` 的“授权/登录关注项”。其他项目可用只读 API `GET /api/auth-status` 读取同一份摘要：它只返回平台、状态、公开错误码、处理建议、行动负责人、处理说明和关联任务 ID，不返回 Cookie、Profile、token、账号详情或原始平台响应。ParentingGame、Hermes Agent 等项目应把这个接口当作“是否需要暂停自动化并提醒维护者”的信号，而不是直接读取真实登录态。`unverified` 表示缺少新鲜执行器心跳或真实只读探测证据，此时不能继续需要真实平台的自动化；`authStatus.nextActions` 则列出已经明确需要人处理的事项。
 
@@ -149,7 +149,7 @@ npm run auth-hub:status:strict -- --platform github
 npm run auth-hub:status:watch:json -- --platform github
 ```
 
-如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应、内部 lease/session/revision 或 `runtime/private` 路径。外部项目需要真实平台能力时应使用 `npm run auth-hub:status:strict -- --platform <platform>`：只有目标平台为 `ready` 才继续；`unverified`、`needs_action`、`reserved`、`blocked`、过期 probe 或缺失平台都会非零退出。不要无差别检查所有平台；普通代码、文档、UI 和本地测试无需调用该状态接口。
+如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。远程 hostname 必须同时显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`；项目没有任何隐式批准域名，不支持通配符，带凭据请求也不会自动跟随重定向。loopback 可用于本地开发，但永远不附加 Cloudflare Service Auth 头。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应、内部 lease/session/revision 或 `runtime/private` 路径。外部项目需要真实平台能力时应使用 `npm run auth-hub:status:strict -- --platform <platform>`：只有目标平台为 `ready` 才继续；`unverified`、`needs_action`、`reserved`、`blocked`、过期 probe 或缺失平台都会非零退出。不要无差别检查所有平台；普通代码、文档、UI 和本地测试无需调用该状态接口。
 
 `auth-hub:status:watch` / `auth-hub:status:watch:json` 用于低频计划任务或 Codex 自动化，不用于每个项目任务的冷启动。首次成功运行只在 `runtime/private/auth-status-notifier/` 下建立按 Auth Hub 地址和平台过滤范围哈希隔离的脱敏基线，并返回 `notify=false`；之后只比较服务端规范化的 `authStatus.nextActions`。新人工事项或严重度恶化返回 `notify=true`；事项恢复、改善或同级原因变化只更新基线并返回 `resolved_without_alert` / `changed_without_alert`，避免误报。快照只包含哈希作用域、平台代码、状态、严重度、公开原因、最近成功检查时间和指纹，不保存 token、Cookie、Profile、二维码、截图、账号、任务 ID、目标 URL、标题、runbook 或原始响应。可用 `--state-file` 改到 `runtime/private/` 或 `runtime/tmp/` 下的其他文件，公共路径会被拒绝。缺 token、接口不可达、HTTP 200 非 JSON/缺字段/字段类型错误、平台范围缺失、作用域不匹配、快照损坏或无法写入时，命令返回非零、`monitoringOk=false`、`monitoringAlert=true` 和 `notify=false`，并且不会建立或推进业务基线。该命令只生成提醒信号，不自行发送邮件、不执行 probe、不续登，也不调用真实平台。
 
@@ -193,7 +193,7 @@ npm run auth-hub:executor:start
 }
 ```
 
-首批只允许 `xiaohongshu/check_session`、`wechat_official/check_health`、`github/check_auth`；`begin_login` 和 `search_content` 不能生成 probe。创建 probe 还要求管理 token 的 `tasks:approve` 权限，默认受限 Codex token 不能自行触发真实探测。Hub 只保存服务端时间与公开结论，默认 15 分钟过期，重复结果不能延长有效期。
+首批只允许 `xiaohongshu/check_session`、`wechat_official/check_health`、`github/check_auth`；`begin_login` 和 `search_content` 不能生成 probe。创建 probe 还要求管理 token 的 `tasks:approve` 权限，默认受限 Codex token 不能自行触发真实探测。Hub 只保存服务端时间与公开结论，默认 15 分钟过期，重复结果不能延长有效期。公开结果中只有 `xiaohongshu/search_content` 可以包含非空 `items`；会话检查、公众号健康检查、GitHub 授权检查和交互登录返回任意条目都会以合同错误失败关闭。
 
 GitHub P0.2 的最小任务输入示例：
 
@@ -214,7 +214,7 @@ GitHub P0.2 的最小任务输入示例：
 
 官方权限说明：[List branches](https://docs.github.com/en/rest/branches/branches#list-branches)、[List workflow runs for a repository](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-repository)、[List pull requests](https://docs.github.com/en/rest/pulls/pulls#list-pull-requests)。
 
-该检查只回答“指定目标与 GitHub 只读授权是否可用/是否需要密钥负责人处理”，不自动修改 GitHub 设置、不合并 PR、不触发 provider-live workflow。GitHub 的公开资源端点可能无需认证即可读取，因此正式 scope 验收应选择经审查的非关键私有仓，并逐个 scope 验证；公开仓结果只能作为连通性证据，不能单独证明 fine-grained token 权限完整。
+该检查只回答“指定目标与 GitHub 只读授权是否可用/是否需要密钥负责人处理”，不自动修改 GitHub 设置、不合并 PR、不触发 provider-live workflow。probe 证据按 `scope + 目标仓库` 隔离；目标只以服务端密钥 HMAC 摘要保存，公开 API 仅显示 scope 和 `target_bound`，不返回 owner、repo 或内部摘要。GitHub 的公开资源端点可能无需认证即可读取，因此正式 scope 验收应选择经审查的非关键私有仓，并逐个 scope 验证；公开仓结果只能作为连通性证据，不能单独证明 fine-grained token 权限完整。
 
 维护者可以生成本机私有 GitHub 授权健康检查适配器：
 
@@ -256,7 +256,7 @@ npm run auth-hub:executor:start
 
 远程 Auth Hub 必须使用独立域名；当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖。建议候选是 `auth.xiao-qi-ai.com`，最终地址、授权邮箱范围、不可变 region 和 Cloudflare Access 配置需要负责人确认。生产必须使用 Postgres；缺少 `DATABASE_URL` 时应用拒绝启动，不会静默退回内存存储。公开 Render 蓝图使用当前 `basic-256mb` 数据库规格、`ipAllowList: []` 私网入口和 `checksPass` 自动部署策略，service-token 许可保留为人工填写项。
 
-部署后可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，只加载公开 mock 连接器，并要求应用密码、Admin token、受限 Codex token 以及未跳过执行器时的 Executor token；缺少关键凭据会失败，不再把跳过检查当作成功。它只验证执行器在线心跳、任务闭环、审批、权限边界和脱敏审计，不会探测真实账号。生产 token、Cloudflare Access Service Auth 凭据、数据库连接串和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
+部署后可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，只加载公开 mock 连接器，并要求应用密码、Admin token、受限 Codex token 以及未跳过执行器时的 Executor token；缺少关键凭据会失败，不再把跳过检查当作成功。远程目标必须是 HTTPS，且 hostname 必须显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`；状态客户端、执行器和 smoke 均拒绝自动重定向，避免 Bearer 或 Service Auth 凭据离开批准目标。它只验证执行器在线心跳、任务闭环、审批、权限边界和脱敏审计，不会探测真实账号。生产 token、Cloudflare Access Service Auth 凭据、数据库连接串和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
 停止本地执行器和控制台：
 

@@ -72,7 +72,7 @@ npm run auth-hub:local:stop
 - `POST /api/tasks/:id/audit`：Codex 追加 AI Link run record 审计摘要，不改变任务状态。
 - `POST /api/executor/heartbeat`：本地执行器上报严格白名单化的能力快照，由服务端写入接收时间和过期时间。
 - `POST /api/executor/lease`：本地执行器领取任务。
-- `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果。
+- `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果；所有结果必须绑定当前 executor/session/一次性 lease，任务进入终态后不能重放或改写。
 - `GET /api/audit`：读取审计日志，支持 `taskId`、`eventType` 和 `limit` 查询参数。
 
 执行器回传结果时可以带顶层 `audit` 字段，或在 `result.audit` / `result.aiLinkAudit` 中带 AI Link 审计摘要。服务端会按白名单规范化为 `task.result.aiLinkAudit`，同时追加一条 `ai_link.audit` 审计事件。Codex 也可以通过 `POST /api/tasks/:id/audit` 或 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 把本地 run record 的审计摘要追加到任务审计日志。控制台任务详情和 `/dashboard/audit` 会把 AI Link 审计摘要渲染为 provider/model/policy/预算/用量表格，审计页支持按 task id、event type 和数量筛选；`GET /api/audit?eventType=ai_link.audit` 可只读取这类事件。本地可用 `npm run auth-hub:audit-smoke` 验证 dry-run record、审计提交和脱敏读取整条链路。该摘要只保留 provider、model、policy、审批状态、数据分类、审计标签、预算和 usage estimate，不保存原始输入、原始输出、密钥或 token。
@@ -85,15 +85,15 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 
 1. `contract`：服务端公开 registry 的静态合同，只说明平台和方法在当前版本中被声明为已实现、预留或异常。
 2. `executor`：本地执行器心跳，只说明某个执行器进程在线，并且启动时加载了哪些方法和 capability mode。
-3. `probe`：绑定执行器身份、进程会话和一次性租约的显式只读健康探测，例如 `checkSession`、`checkHealth` 或 `checkAuth`。它不会由状态页、定时刷新或普通任务自动触发。
+3. `probe`：绑定执行器身份、进程会话和一次性租约的显式只读健康探测，例如 `checkSession`、`checkHealth` 或 `checkAuth`。GitHub 证据还绑定批准的 scope 与目标仓库。它不会由状态页、定时刷新或普通任务自动触发。
 
 `GET /api/connectors` 顶层 `connectors` 与 `issues` 保留服务端静态合同；`executorRuntime` 单独返回执行器证据、在线/过期计数和合并后的平台视图。没有新鲜执行器心跳时，不能用静态合同补成在线；没有新鲜成功探测时，`operationalStatus` 必须为 `unverified`，`canRunReal` 必须为 `false`。即使 `canRunReal=true`，它也只适用于 `verifiedOperations` 中列出的健康操作，不代表整个平台、写权限或发布能力可用。
 
 执行器心跳是 best-effort：它在每轮 lease 前发送，失败不会阻塞普通任务领取，也不会调用任何 connector 方法。心跳只允许 schema version、受限 executor id、进程级随机 session id、平台、合同状态、模式、能力名、可用布尔值、capability mode 和稳定问题码；拒绝额外字段。服务端只保留每个 executor id 的最新快照，并用服务端时间设置 TTL。
 
-显式 probe 使用更严格的可信链：生产环境把 `AI_LINK_EXECUTOR_TOKEN` 绑定到 `AI_LINK_EXECUTOR_ID`；执行器每次启动生成新的 session id；服务端仅把 probe 任务租给同一身份、同一在线 session 且已报告目标 private capability 的执行器，并签发一次性 `leaseId`。结果必须在租约过期前由相同身份和 session 回传，Hub 再按任务原始 platform/operation 重新规范化结果，并在同一存储事务中结算任务、写入最新证据和审计。重复提交、旧租约、错误 session、mock 心跳和未绑定 token 都不能刷新证据。
+所有普通执行器结果都使用同一条一次性结算边界：生产环境把 `AI_LINK_EXECUTOR_TOKEN` 绑定到 `AI_LINK_EXECUTOR_ID`；执行器每次启动生成新的 session id；服务端签发一次性 `leaseId`。结果必须在租约过期前由相同身份和 session 回传，并在同一存储事务中结算任务、artifact、审批和审计。未领取、重复提交、旧租约、错误 session、过期租约和已进入终态的任务都返回冲突，不能改写结果。显式 probe 在此基础上还要求同一在线 session 已报告目标 private capability，Hub 会按任务原始 platform/operation 重新规范化结果并写入最新证据；mock 心跳和未绑定 token 不能刷新证据。
 
-首批允许生成证据的操作只有：`xiaohongshu/check_session`、`wechat_official/check_health`、`github/check_auth`。`begin_login`、`search_content`、普通 `platform_auth_collect` 任务、mock 远端烟测和历史任务均不会生成证据。证据只保存平台、操作、公开结论、公开问题码、任务 ID 和服务端有效期；内部租约、session/revision、客户端时间、结果载荷、账号信息与原始响应不进入 API 或 UI。默认 TTL 为 15 分钟；最新失败覆盖同操作旧成功，过期后不会回退到更旧成功。
+首批允许生成证据的操作只有：`xiaohongshu/check_session`、`wechat_official/check_health`、`github/check_auth`。`begin_login`、`search_content`、普通 `platform_auth_collect` 任务、mock 远端烟测和历史任务均不会生成证据。证据只保存平台、操作、公开结论、公开问题码、任务 ID 和服务端有效期；GitHub 额外保存批准 scope 与由服务端密钥生成的目标 HMAC 摘要，用于隔离仓库而不保存或公开 owner/repo。内部租约、session/revision、目标摘要、客户端时间、结果载荷、账号信息与原始响应不进入 API 或 UI。默认 TTL 为 15 分钟；同一 scope 与目标的最新失败覆盖旧成功，过期后不会回退到更旧成功。
 
 创建显式 probe 的请求示例：
 
@@ -103,6 +103,8 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
   "input": {
     "platform": "github",
     "operation": "check_auth",
+    "owner": "example-owner",
+    "repo": "example-repo",
     "scope": "repo_read"
   },
   "options": {
@@ -179,6 +181,8 @@ npm run auth-hub:remote:smoke
 `auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、执行器在线心跳、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。应用密码、Admin token 和受限 Codex token 缺失会直接失败；Executor token 只有在显式 `-SkipExecutor` 时可省略。脚本会在 smoke 进程中显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，确保不接入真实微信、小红书、公众号、GitHub 或其他平台账号。
 `auth-hub:remote:next` 是更轻量的 go/no-go 检查，只读取 `/healthz`、公开 `render.yaml` 和当前进程环境变量是否存在，不打印任何 secret 值；它会告诉维护者下一步应先修域名/Render、补 secret，还是可以进入 `auth-hub:remote:smoke`。
 
+状态客户端、本地执行器和远程 smoke 共享同一出站目标规则：远程目标必须使用 HTTPS，hostname 必须显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`，不提供任何隐式批准域名或通配符；loopback 仅用于本地开发且永不携带 Cloudflare Service Auth；所有携带 Bearer 或 Service Auth 的请求都使用手动重定向并把 3xx 视为失败。批准邮箱的浏览器登录仍是独立人工验收，不能由 Service Auth 代替。
+
 生产验收时建议在当前终端临时注入真实值，值本身不要写入文件或聊天记录：
 
 ```powershell
@@ -223,8 +227,10 @@ npm audit --audit-level=high
 - 待人工审批状态：执行器可回传 `needs_approval`，控制台会创建 `approval_required` 任务；`platform_interactive_login` 审批通过后，才允许本机执行器进入交互式登录步骤。
 - 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
 - 执行器心跳：严格字段白名单、TTL 过期、缺失/过期失败关闭、旧版 Hub 兼容和心跳失败不阻塞 lease。
-- 显式 probe：token/executor/session/lease 全链绑定、mock 不可领取、服务端重验、结果重放拒绝、最新失败覆盖、TTL 失败关闭和敏感内部字段不外泄。
+- 执行器结算：所有普通结果必须绑定 token/executor/session/lease，未领取、错误绑定、过期租约、终态改写和结果重放均失败关闭。
+- 显式 probe：在普通结算边界上增加 private heartbeat 与服务端重验；GitHub 证据按 scope 与目标 HMAC 隔离，mock 不可领取，最新失败覆盖，TTL 失败关闭且敏感内部字段不外泄。
 - 远程访问：Access JWT 签名/issuer/audience 校验、邮件身份绑定、服务令牌分类、缺失配置失败关闭，以及控制台会话服务端绝对过期。
+- 出站凭据：远程 host 必须显式批准，loopback 不携带 Service Auth，Bearer/Service Auth 请求不跟随重定向。
 - 浏览器写入防护：同源校验、会话绑定 CSRF、登录失败限流、安全本地跳转、POST 退出、非法/重复审批拒绝，以及不可重试状态拒绝。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。

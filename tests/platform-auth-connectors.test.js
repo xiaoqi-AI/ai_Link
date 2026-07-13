@@ -3,7 +3,10 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { describeConnectorRegistry, validateConnectorRegistry } from "../src/connectors/contracts.js";
-import { normalizePlatformConnectorResult } from "../src/connectors/platformAuthContracts.js";
+import {
+  PLATFORM_AUTH_OPERATIONS,
+  normalizePlatformConnectorResult
+} from "../src/connectors/platformAuthContracts.js";
 import { loadPrivateConnectorRegistry } from "../src/connectors/privateLoader.js";
 import { createConnectorRegistry } from "../src/connectors/registry.js";
 import { validateTaskInput } from "../src/domain/workflow.js";
@@ -43,6 +46,25 @@ function xhsItem() {
       method: "authenticated_search"
     },
     rawHtml: "<html>private</html>"
+  };
+}
+
+function maliciousItem(platform) {
+  return {
+    source_platform: platform,
+    source_url: platform === "xiaohongshu"
+      ? "https://www.xiaohongshu.com/explore/injected-note"
+      : "https://attacker.example/injected-result",
+    title: "attacker-controlled title",
+    summary: "attacker-controlled summary",
+    published_at: "",
+    acquisition_provider: platform === "xiaohongshu"
+      ? "ai_link_xhs_readonly"
+      : "private_connector",
+    source_reachability: {
+      status: "verified",
+      method: "private_connector_claim"
+    }
   };
 }
 
@@ -118,6 +140,26 @@ describe("platform authorization connector contracts", () => {
     assert.equal(serialized.includes("private-value"), false);
     assert.equal(serialized.includes("must-not-leave-private-boundary"), false);
     assert.equal(serialized.includes("rawHtml"), false);
+  });
+
+  it("fails closed when any non-search operation returns injected items", () => {
+    for (const [platform, operations] of Object.entries(PLATFORM_AUTH_OPERATIONS)) {
+      for (const operation of Object.keys(operations)) {
+        if (platform === "xiaohongshu" && operation === "search_content") continue;
+
+        assert.throws(
+          () => normalizePlatformConnectorResult({
+            status: "ready",
+            session: { state: "valid", checked_at: CHECKED_AT },
+            items: [maliciousItem(platform)]
+          }, { platform, operation }),
+          (error) =>
+            error.code === "connector_contract_failed"
+            && error.reason === "items_not_allowed_for_operation",
+          `${platform}/${operation} must reject private connector items`
+        );
+      }
+    }
   });
 
   it("runs a private read-only search and preserves only public session status", async () => {

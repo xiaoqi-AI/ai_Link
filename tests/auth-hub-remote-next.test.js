@@ -143,6 +143,9 @@ describe("Auth Hub remote next report", () => {
     assert.match(smoke, /cloudflare access verification required/);
     assert.match(smoke, /\[switch\]\$AccessGateOnly/);
     assert.match(smoke, /Service Auth cannot prove browser login/);
+    assert.doesNotMatch(smoke, /Invoke-WebRequest/);
+    assert.match(smoke, /AllowAutoRedirect = \$false/);
+    assert.match(smoke, /Login redirect must remain on the approved Auth Hub origin/);
     const scripts = JSON.parse(packageJson).scripts;
     assert.match(scripts["auth-hub:remote:smoke"], /-SkipAppLogin/);
     assert.match(scripts["auth-hub:remote:smoke"], /-ExpectAccessGate/);
@@ -190,6 +193,7 @@ describe("Auth Hub remote next report", () => {
       assert.equal(result.status, 0, result.stderr);
       assert.equal(report.summary.remoteReady, true);
       assert.equal(report.summary.smokeReady, true);
+      assert.equal(report.summary.deploymentDecisionStatus, "encoded");
       assert.equal(report.summary.blockingCount, 0);
       assert.equal(result.stdout.includes("secret-admin-token"), false);
       assert.equal(result.stdout.includes("secret-access-client-secret"), false);
@@ -209,11 +213,15 @@ describe("Auth Hub remote next report", () => {
       const renderCheck = report.checks.find((check) => check.name === "render blueprint");
 
       assert.equal(result.status, 0, result.stderr);
-      assert.equal(renderCheck.status, "fail");
+      assert.equal(renderCheck.status, "manual");
       assert.match(renderCheck.detail, /region decision/);
       assert.match(renderCheck.detail, /renderSubdomainPolicy:disabled/);
       assert.match(renderCheck.detail, /domains:auth\.xiao-qi-ai\.com/);
       assert.equal(report.summary.smokeReady, false);
+      assert.equal(report.summary.deploymentDecisionStatus, "pending");
+      assert.equal(report.deploymentDecision.status, "pending");
+      assert.match(report.summary.recommendedNext, /Approve the Auth Hub deployment decision card/);
+      assert.ok(report.blockers.some((blocker) => blocker.includes("do not create remote resources")));
     });
   });
 
@@ -246,7 +254,7 @@ describe("Auth Hub remote next report", () => {
       assert.equal(report.summary.smokeReady, false);
       assert.ok(report.blockers.some((blocker) => blocker.includes("HTTP 404")));
       assert.ok(report.blockers.some((blocker) => blocker.includes("Missing production/smoke environment markers")));
-      assert.match(report.summary.recommendedNext, /Fix render.yaml|Configure Render custom domain|health payload/);
+      assert.match(report.summary.recommendedNext, /deployment decision card|Configure Render custom domain|health payload/);
     });
   });
 
@@ -354,12 +362,15 @@ describe("Auth Hub remote next report", () => {
       clientSecret: "test-client-secret"
     };
     const unapprovedHttps = validateServiceAuthTarget("https://not-approved.example.test", { allowedHosts: "" });
-    const approvedHttp = validateServiceAuthTarget("http://auth.xiao-qi-ai.com", { allowedHosts: "" });
-    const approvedHttps = validateServiceAuthTarget("https://auth.xiao-qi-ai.com", { allowedHosts: "" });
+    const implicitRecommendation = validateServiceAuthTarget("https://auth.xiao-qi-ai.com", { allowedHosts: "" });
+    const approvedHttp = validateServiceAuthTarget("http://auth.xiao-qi-ai.com", { allowedHosts: "auth.xiao-qi-ai.com" });
+    const approvedHttps = validateServiceAuthTarget("https://auth.xiao-qi-ai.com", { allowedHosts: "auth.xiao-qi-ai.com" });
 
     assert.equal(unapprovedHttps.ok, false);
     assert.equal(unapprovedHttps.attachServiceHeaders, false);
     assert.deepEqual(cloudflareServiceHeaders(unapprovedHttps, credentials), {});
+    assert.equal(implicitRecommendation.ok, false);
+    assert.deepEqual(cloudflareServiceHeaders(implicitRecommendation, credentials), {});
     assert.equal(approvedHttp.ok, false);
     assert.equal(approvedHttp.attachServiceHeaders, false);
     assert.deepEqual(cloudflareServiceHeaders(approvedHttp, credentials), {});
