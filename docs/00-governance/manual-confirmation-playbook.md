@@ -25,7 +25,8 @@ AI Link 是公开 GitHub 项目，目标是让 Codex 能按任务链路连接合
 - `npm.cmd run github:safety:json` 已可使用已登录的 `gh` 做远端只读检查。
 - 公开仓 secret scanning：已启用。
 - 公开仓 push protection：已启用。
-- 公开仓 `main` 分支保护：尚未配置；GitHub API 返回 branch not protected。
+- 公开仓 `main` 分支保护：已通过 repository ruleset 启用，要求 `Verify`，禁止非快进更新和删除。
+- PR 强制要求：当前按“开始接收外部贡献时再启用”处理，远端检查保留为 1 项人工观察项。
 - 私有 companion 仓 `xiaoqi-AI/ai_Link-internal`：可访问，且为 private。
 - 私有 companion 仓 secret scanning / push protection：本轮 API 未返回状态，需要你在 GitHub UI 确认。
 - Bitwarden Secrets Manager CLI：当前会话不可用。
@@ -34,12 +35,12 @@ AI Link 是公开 GitHub 项目，目标是让 Codex 能按任务链路连接合
 
 ## 推荐推进顺序
 
-1. 先配置公开仓 `main` branch protection 或 repository ruleset。
-2. 再确认公开仓和私有仓 secret scanning / push protection。
+1. 保持公开仓 `main` ruleset 和 required `Verify`，定期运行远端只读安全检查。
+2. 再确认私有仓 secret scanning / push protection。
 3. 决定 v0.1 release channel。
 4. 只有当下一步要做真实 provider 检查时，才安装或暴露 BWS CLI，并先配置 local-dev BWS。
 5. provider-live dispatch 等 BWS 和成本边界明确后再做。
-6. Auth Hub 远端 mock dry-run 和真实 connector 保持为后续独立门禁。
+6. Auth Hub 远程部署和真实 connector 保持为后续独立门禁。
 
 ## 门禁 1：公开仓 main 分支保护
 
@@ -49,35 +50,22 @@ AI Link 是公开 GitHub 项目，目标是让 Codex 能按任务链路连接合
 
 ### 当前状态
 
-远端只读检查显示：公开仓 secret scanning 和 push protection 已启用，但 `main` 分支保护缺失。
+2026-07-13 远端只读检查显示：公开仓 secret scanning 和 push protection 已启用；`Protect main` ruleset 已命中 `main`，required check 为 `Verify`，并禁止非快进更新和删除。严格检查结果为 25 项通过、0 项警告、0 项失败、1 项人工观察。
 
 ### 需要你做的事
 
-在 GitHub UI 中，为 `main` 配置 repository ruleset 或 branch protection：
+当前门禁已经关闭，无需重复配置。项目开始接收外部贡献时，再决定是否把“必须通过 PR 合并”加入 ruleset；调整 required checks 或保护规则仍属于独立人工门禁。
 
-- 仓库：`xiaoqi-AI/ai_Link`
-- 目标分支：`main`
-- 要求 status checks 通过。
-- required check：`Verify`
-- 禁止 force push。
-- 禁止删除分支。
-- 当项目开始接收外部贡献时，要求 PR 后合并。
-- 如希望 release gate 更严格，可要求分支在合并前保持最新。
+### 决策结果
 
-GitHub UI 入口：
-
-- `https://github.com/xiaoqi-AI/ai_Link/settings/rules`
-- `https://github.com/xiaoqi-AI/ai_Link/settings/branches`
-
-### 决策选项
-
-- 配置 ruleset / branch protection 后批准该门禁。
-- 如果 v0.1 只保持 repository-local，且不创建 tag、不发 GitHub Release、不发 npm、不声明 live-provider 验证，可以临时 waiver。
-- 如果暂时不配置，则保持 pending / blocked。
+- `main` protection：已批准并生效。
+- required `Verify`：已生效。
+- 非快进更新与删除限制：已生效。
+- 强制 PR：外部贡献开始前保持人工观察项，不阻塞当前 repository-local 迭代。
 
 ### 决策建议
 
-建议配置 `main` protection，并要求 `Verify`。这是当前最值得优先关闭的门禁：不引入真实密钥、不产生费用、不扩大产品范围，却能为后续 release 决策打好安全基线。
+保持当前 `main` protection 和 required `Verify`。如后续接受外部贡献，再把强制 PR 与分支保持最新策略作为独立决策评估。
 
 ### 可记录的公开安全证据
 
@@ -87,6 +75,18 @@ GitHub UI 入口：
 - `npm.cmd run github:safety:json reported GitHub branch protection and required Verify as pass.`
 
 不要附截图，也不要导出账号私密设置。
+
+### 已授权的后续 PR 合并方式
+
+2026-07-13，维护者明确授权：已批准迭代范围内的后续 PR 可由 Codex 自行合并，不再逐 PR 请求相同确认。
+
+执行条件：
+
+- 只使用普通合并，不使用管理员绕过，不修改或关闭 `main` 保护。
+- 堆叠 PR 必须按依赖顺序改基线、重放并重新触发 CI；旧头提交的绿色检查不能复用。
+- 合并前 required checks 必须在当前头提交上通过；涉及 Postgres 的变更还必须通过对应集成检查。
+- 可自行解决不改变批准范围的机械冲突，并补充回归测试；产品取舍、真实部署、真实平台调用、发布、密钥、费用和不可逆动作仍需单独确认。
+- 合并后同步本地 `main`、GitHub 与知识库镜像，并记录公开安全的验证摘要。
 
 ## 门禁 2：Secret scanning 和 push protection
 
