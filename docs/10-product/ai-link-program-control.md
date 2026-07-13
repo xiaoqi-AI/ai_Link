@@ -26,7 +26,7 @@ AI Link 当前把三项能力作为一个受治理的项目群推进：
 
 | 模块 | 当前阶段 | 已完成 | 尚未完成 |
 | --- | --- | --- | --- |
-| 2 Auth Hub 状态中枢 | 合并链 | PR #12、#16、#17 已进入 `main`；PR #22-#25、#27、#28 已实现心跳、probe、Access、滥用防护和生命周期 | 依赖顺序合并、逐个重新检查、远端真实证据 |
+| 2 Auth Hub 状态中枢 | 合并链 | PR #12、#16、#17 已进入 `main`；PR #22-#25、#27、#28 已实现心跳、probe、Access、滥用防护和生命周期；PR #30 提供低成本状态变更信号 | 依赖顺序合并、逐个重新检查、状态提醒自动化接线、远端真实证据 |
 | 5 平台授权连接器 P0.2 | 真实验收门禁 | PR #9、#13、#18-#21 已进入 `main`；三平台合同、私有脚手架和组合入口已完成 | PR #26 精确 GitHub scope；GitHub/小红书/公众号真实只读验收；Hermes 消费联调 |
 | 6 Auth Hub 远程化 | 部署决策门禁 | 远程安全代码、中文逐屏手册、回滚边界和 mock 验证已完成于堆叠 PR | 全链进入 `main`、十项部署决策、Render/Cloudflare/DNS、远程 mock 与浏览器验收 |
 
@@ -77,13 +77,15 @@ AI Link 当前把三项能力作为一个受治理的项目群推进：
 ```powershell
 npm run roadmap:next:json
 npm run next:actions:json
-npm run auth-status:next:json
+npm run auth-hub:status:json
+npm run auth-hub:status:watch:json
 npm run auth-hub:remote:next:json
 ```
 
 - `roadmap:next`：项目方向、三模块进度和决策卡。
 - `next:actions`：当前可执行项和人工项。
-- `auth-status:next`：真实平台授权与人工协助状态；只有需要平台状态时运行。
+- `auth-hub:status`：真实平台授权与人工协助状态；只有需要平台状态时运行。
+- `auth-hub:status:watch`：低频比较上次脱敏状态，只有新增人工事项或恶化时给自动化 `notify=true`；普通任务不运行。
 - `auth-hub:remote:next`：远程部署门禁；只有进入部署决策时运行。
 
 ## 更新责任

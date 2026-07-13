@@ -146,9 +146,14 @@ $env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
 npm run auth-hub:status
 npm run auth-hub:status:json
 npm run auth-hub:status:strict -- --platform github
+npm run auth-hub:status:watch:json -- --platform github
 ```
 
 如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应、内部 lease/session/revision 或 `runtime/private` 路径。外部项目需要真实平台能力时应使用 `npm run auth-hub:status:strict -- --platform <platform>`：只有目标平台为 `ready` 才继续；`unverified`、`needs_action`、`reserved`、`blocked`、过期 probe 或缺失平台都会非零退出。不要无差别检查所有平台；普通代码、文档、UI 和本地测试无需调用该状态接口。
+
+`auth-hub:status:watch` / `auth-hub:status:watch:json` 用于低频计划任务或 Codex 自动化，不用于每个项目任务的冷启动。首次成功运行只在 `runtime/private/auth-status-notifier/` 下建立按 Auth Hub 地址和平台过滤范围哈希隔离的脱敏基线，并返回 `notify=false`；之后只比较服务端规范化的 `authStatus.nextActions`。新人工事项或严重度恶化返回 `notify=true`；事项恢复、改善或同级原因变化只更新基线并返回 `resolved_without_alert` / `changed_without_alert`，避免误报。快照只包含哈希作用域、平台代码、状态、严重度、公开原因、最近成功检查时间和指纹，不保存 token、Cookie、Profile、二维码、截图、账号、任务 ID、目标 URL、标题、runbook 或原始响应。可用 `--state-file` 改到 `runtime/private/` 或 `runtime/tmp/` 下的其他文件，公共路径会被拒绝。缺 token、接口不可达、HTTP 200 非 JSON/缺字段/字段类型错误、平台范围缺失、作用域不匹配、快照损坏或无法写入时，命令返回非零、`monitoringOk=false`、`monitoringAlert=true` 和 `notify=false`，并且不会建立或推进业务基线。该命令只生成提醒信号，不自行发送邮件、不执行 probe、不续登，也不调用真实平台。
+
+推荐消费规则：自动化读取 JSON；`monitoringOk=true` 且 `notify=true` 时向负责人展示 `newSignals` / `worsenedSignals`，`notify=false` 时保持业务安静；`monitoringAlert=true` 则单独按监控故障提醒。不要把本机文件、环境变量或完整输出上传给其他项目。外部项目仍只在确实需要某个平台能力时运行 `auth-hub:status:strict -- --platform <platform>`；普通开发不查询 AI Link。当前输出是一次性变更信号，不承诺消息投递；接入真实邮件或其他通知渠道时，必须增加发送成功确认和稳定 notification ID，发送失败不得被当作已通知。
 
 `platform_auth_collect` 用于统一处理小红书会话/只读搜索、公众号官方 API 健康检查和 GitHub 授权健康检查。公开仓只提供安全脚手架，不携带真实登录态；维护者只能把已审查的模块放入 `runtime/private/`。单平台排障时可以让 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 直接指向一个适配器；三平台同时启用时，应先生成 `runtime/private/platform-connectors.mjs` 组合入口，再让该变量只指向组合入口。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据、GitHub token 或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
 

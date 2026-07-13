@@ -130,6 +130,8 @@
     "auth-hub:status": "node tools/show-auth-status-next-actions.js",
     "auth-hub:status:json": "node tools/show-auth-status-next-actions.js --json",
     "auth-hub:status:strict": "node tools/show-auth-status-next-actions.js --strict",
+    "auth-hub:status:watch": "node tools/show-auth-status-next-actions.js --watch",
+    "auth-hub:status:watch:json": "node tools/show-auth-status-next-actions.js --watch --json",
     "auth-hub:github-adapter:new": "node tools/new-github-auth-private-adapter.js",
     "auth-hub:github-adapter:print": "node tools/new-github-auth-private-adapter.js --print",
     "auth-hub:github-adapter:json": "node tools/new-github-auth-private-adapter.js --json",
