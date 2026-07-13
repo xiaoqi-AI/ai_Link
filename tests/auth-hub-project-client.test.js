@@ -10,6 +10,7 @@ import {
 } from "../src/authHub/projectTaskClient.js";
 import { loadConfig } from "../src/config.js";
 import { MemoryStore } from "../src/storage/memoryStore.js";
+import { PostgresStore } from "../src/storage/postgresStore.js";
 
 const PROJECT_A_TOKEN = "project-a-token-000000000000000000";
 const PROJECT_B_TOKEN = "project-b-token-000000000000000000";
@@ -404,6 +405,37 @@ describe("Auth Hub project client", () => {
       }),
       (error) => error.code === "idempotency_conflict"
     );
+  });
+
+  it("uses a text-safe PostgreSQL advisory lock key", async () => {
+    const expectedFailure = new Error("stop after lock capture");
+    let capturedLockKey = "";
+    const client = {
+      async query(sql, params = []) {
+        if (sql === "BEGIN" || sql === "ROLLBACK") return { rows: [] };
+        if (sql.includes("pg_advisory_xact_lock")) {
+          capturedLockKey = params[0];
+          throw expectedFailure;
+        }
+        throw new Error("unexpected query");
+      },
+      release() {}
+    };
+    const store = Object.create(PostgresStore.prototype);
+    store.pool = { connect: async () => client };
+
+    await assert.rejects(
+      store.createTaskIdempotent({
+        workflow: "platform_auth_collect",
+        input: { platform: "github", operation: "check_auth" },
+        targets: ["github"],
+        options: { requestId: "postgres-lock-key-001" },
+        createdBy: "project.parentinggame"
+      }),
+      (error) => error === expectedFailure
+    );
+    assert.match(capturedLockKey, /^[a-f0-9]{64}$/);
+    assert.equal(capturedLockKey.includes("\u0000"), false);
   });
 
   it("reports ready only for a completed matching connector result", async () => {

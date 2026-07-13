@@ -619,7 +619,7 @@ export class PostgresStore {
     }
 
     const client = await this.pool.connect();
-    const lockKey = `${createdBy}\u0000${workflow}\u0000${requestId}`;
+    const lockKey = taskRequestHash({ createdBy, workflow, requestId });
     const request = { input, targets, options };
     const requestHash = taskRequestHash(request);
     try {

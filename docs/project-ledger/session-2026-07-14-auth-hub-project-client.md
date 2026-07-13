@@ -67,10 +67,12 @@ Auth Hub 已具备任务、状态、审批、审计和 connector 运行槽位，
 
 残余边界：远程 hostname 仍依赖维护者显式 allowlist 与受控 DNS；loopback 仅视为本机信任边界。真实 Postgres 并发集成由 GitHub 必需检查执行，本机无测试数据库时明确跳过，不以 mock 冒充。
 
+PR #38 首轮 `Postgres integration` 发现 advisory lock 参数包含 NUL 分隔符，PostgreSQL 因 `text` 参数不允许 NUL 而返回 `22021`。现已改为对 `createdBy + workflow + requestId` 的结构化值计算 SHA-256 十六进制锁键；持久化唯一键、请求摘要和冲突合同不变，并新增不含 NUL 的回归测试。
+
 ## 本地验证
 
 - `npm run check`：通过。
-- `npm test`：通过；基础测试 `74/74`、Auth Hub `246/246`，Postgres 集成在本机无测试数据库时跳过。
+- `npm test`：通过；基础测试 `74/74`、Auth Hub `247/247`，Postgres 集成在本机无测试数据库时跳过。
 - `npm run package:check`：`41/41` 通过。
 - `npm run package:install-smoke`：`19/19` 通过，安装后的 `ai-link-auth-hub --help` 可运行。
 - `npm run security:scan`：通过，扫描 406 个公开文件。
