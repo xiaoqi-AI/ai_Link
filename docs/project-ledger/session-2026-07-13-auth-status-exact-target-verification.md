@@ -2,7 +2,7 @@
 
 日期：2026-07-13
 
-状态：实现、定向测试、全量本地回归、安全扫描和治理检查已完成；fresh-clone 复核、GitHub CI、合并和知识库镜像待本轮收尾。未调用真实 GitHub，未读取凭据，未创建远程资源。
+状态：实现、定向测试、全量本地回归、安全扫描、治理检查和 fresh-clone 复核已完成；GitHub CI、合并和知识库镜像待本轮收尾。未调用真实 GitHub，未读取凭据，未创建远程资源。
 
 ## 背景
 
@@ -61,4 +61,5 @@
 - `npm run check`：通过。
 - `npm run security:scan`：397 个公开文件通过。
 - `tools/check-governance.ps1`：通过。
-- fresh-clone、GitHub CI、合并和知识库镜像结果将在收尾后更新。
+- `npm run verify:fresh`：通过；临时干净克隆完成安装、构建、测试与安全扫描。
+- GitHub CI、合并和知识库镜像结果将在收尾后更新。
