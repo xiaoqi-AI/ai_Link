@@ -71,6 +71,7 @@ async function buildReport({
         reachable: false,
         nextActions: 0,
         blockingCount: 1,
+        monitoringIssue: "missing_read_token",
         recommendedNext: "Set AI_LINK_CODEX_TOKEN or AI_LINK_ADMIN_TOKEN in the current process, then rerun this read-only check."
       },
       target,
@@ -90,6 +91,7 @@ async function buildReport({
         reachable: response.reachable,
         nextActions: 0,
         blockingCount: 1,
+        monitoringIssue: response.issueCode,
         recommendedNext: response.reachable
           ? "Confirm the token has connectors:read scope and the Auth Hub URL is correct."
           : "Start Auth Hub locally or fix the remote Auth Hub URL / network path."
@@ -128,6 +130,7 @@ async function buildReport({
       nextActions: nextActions.length,
       blockingCount: blockers.length,
       manualCount,
+      monitoringIssue: "",
       recommendedNext: recommendedNext({ nextActions, blockers })
     },
     target,
@@ -155,12 +158,31 @@ async function fetchAuthStatus({ target, bearerToken }) {
       headers,
       signal: AbortSignal.timeout(Number(process.env.AI_LINK_AUTH_STATUS_TIMEOUT_MS || 20000))
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         ok: false,
         reachable: true,
+        issueCode: "auth_status_http_error",
         detail: `Auth Hub /api/auth-status returned HTTP ${response.status}.`
+      };
+    }
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return {
+        ok: false,
+        reachable: true,
+        issueCode: "auth_status_invalid_response",
+        detail: "Auth Hub /api/auth-status returned an invalid JSON response."
+      };
+    }
+    if (!validAuthStatusEnvelope(data)) {
+      return {
+        ok: false,
+        reachable: true,
+        issueCode: "auth_status_invalid_response",
+        detail: "Auth Hub /api/auth-status returned an invalid response schema."
       };
     }
     return { ok: true, reachable: true, data };
@@ -168,9 +190,25 @@ async function fetchAuthStatus({ target, bearerToken }) {
     return {
       ok: false,
       reachable: false,
+      issueCode: "auth_hub_unreachable",
       detail: `Auth Hub /api/auth-status is not reachable: ${error.message}.`
     };
   }
+}
+
+function validAuthStatusEnvelope(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  const authStatus = data.authStatus;
+  return Boolean(
+    authStatus
+    && typeof authStatus === "object"
+    && !Array.isArray(authStatus)
+    && authStatus.summary
+    && typeof authStatus.summary === "object"
+    && !Array.isArray(authStatus.summary)
+    && Array.isArray(authStatus.items)
+    && Array.isArray(authStatus.nextActions)
+  );
 }
 
 function publicAction(action) {
@@ -426,9 +464,8 @@ function monitoringFailureReport({ report, reason }) {
 
 function monitoringFailureReason(report) {
   if (!report.authStatus) {
-    const missingToken = (report.blockers || []).some((blocker) => blocker.includes("Missing read-only Auth Hub API token"));
-    if (missingToken) return "missing_read_token";
-    return report.summary.reachable ? "auth_status_access_failed" : "auth_hub_unreachable";
+    return report.summary.monitoringIssue
+      || (report.summary.reachable ? "auth_status_access_failed" : "auth_hub_unreachable");
   }
   if ((report.blockers || []).includes("invalid_platform_filter")) return "invalid_platform_filter";
   if ((report.blockers || []).some((blocker) => blocker.endsWith(": missing_from_auth_status"))) return "missing_platform";
@@ -540,6 +577,7 @@ async function readSnapshot(targetStateFile, expectedScopeFingerprint) {
     || typeof snapshot.scopeFingerprint !== "string"
     || !/^[a-f0-9]{64}$/.test(snapshot.scopeFingerprint)
     || typeof snapshot.lastSuccessfulCheckAt !== "string"
+    || !Number.isFinite(Date.parse(snapshot.lastSuccessfulCheckAt))
     || typeof snapshot.fingerprint !== "string"
     || !/^[a-f0-9]{64}$/.test(snapshot.fingerprint)
     || !signalsAreStrict

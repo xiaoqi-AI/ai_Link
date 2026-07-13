@@ -502,6 +502,56 @@ describe("Auth status next action client", () => {
     await assert.rejects(readFile(stateFile, "utf8"), { code: "ENOENT" });
   });
 
+  it("does not create or advance a baseline for malformed HTTP 200 responses", async () => {
+    const stateFile = path.join("runtime", "tmp", `auth-status-invalid-response-${process.pid}-${Date.now()}.json`);
+    let response = {
+      body: JSON.stringify({
+        authStatus: {
+          summary: { total: 1, ready: 1, next_actions: 0 },
+          items: [{ platform: "github", status: "ready", reason: "probe_verified" }],
+          nextActions: []
+        }
+      }),
+      contentType: "application/json"
+    };
+    try {
+      await withServer((req, res) => {
+        res.setHeader("content-type", response.contentType);
+        res.end(response.body);
+      }, async (baseUrl) => {
+        const runWatch = () => runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: ["--watch", "--json", "--state-file", stateFile]
+        });
+        assert.equal(JSON.parse((await runWatch()).stdout).baseline, true);
+        const baseline = await readFile(stateFile, "utf8");
+
+        const invalidResponses = [
+          { contentType: "text/html", body: "<html>access page</html>" },
+          { contentType: "application/json", body: "{}" },
+          {
+            contentType: "application/json",
+            body: JSON.stringify({ authStatus: { summary: {}, items: {}, nextActions: [] } })
+          }
+        ];
+        for (const invalid of invalidResponses) {
+          response = invalid;
+          const result = await runWatch();
+          const report = JSON.parse(result.stdout);
+          assert.equal(result.status, 1);
+          assert.equal(report.monitoringOk, false);
+          assert.equal(report.monitoringAlert, true);
+          assert.equal(report.notify, false);
+          assert.equal(report.reason, "auth_status_invalid_response");
+          assert.equal(await readFile(stateFile, "utf8"), baseline);
+        }
+      });
+    } finally {
+      await rm(stateFile, { force: true });
+    }
+  });
+
   it("rejects public paths, scope reuse, corrupt snapshots, and unexpected fields", async () => {
     const outside = `auth-status-public-${process.pid}.json`;
     const rejected = await runStatus({

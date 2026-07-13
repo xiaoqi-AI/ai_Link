@@ -212,7 +212,7 @@ npm run auth-hub:status:strict -- --platform github
 npm run auth-hub:status:watch:json -- --platform github
 ```
 
-首次成功运行只建立本机脱敏基线，不提醒；后续只有规范化 `nextActions` 出现新人工事项或严重度恶化时才输出 `notify=true`。状态恢复、改善或同级原因变化会更新基线但不发送业务提醒；缺 token、接口不可达、范围不匹配或快照损坏使用独立的 `monitoringAlert=true` 并且不会建立或推进基线。不同 Auth Hub 地址和平台过滤范围自动使用不同的哈希作用域，普通代码、文档、UI 和测试任务无需运行。该命令本身不发送邮件，也不触发真实平台调用；快照只保存在被 Git 忽略的本机私有运行目录，不保存 token、账号、任务 ID、URL、标题、runbook 或原始响应。
+首次成功运行只建立本机脱敏基线，不提醒；后续只有规范化 `nextActions` 出现新人工事项或严重度恶化时才输出 `notify=true`。状态恢复、改善或同级原因变化会更新基线但不发送业务提醒；缺 token、接口不可达、HTTP 200 畸形响应、范围不匹配或快照损坏使用独立的 `monitoringAlert=true` 并且不会建立或推进基线。不同 Auth Hub 地址和平台过滤范围自动使用不同的哈希作用域，普通代码、文档、UI 和测试任务无需运行。该命令本身不发送邮件，也不触发真实平台调用；快照只保存在被 Git 忽略的本机私有运行目录，不保存 token、账号、任务 ID、URL、标题、runbook 或原始响应。
 
 远程 Auth Hub 必须使用独立域名，避免覆盖当前承载其他应用的 `voice.xiao-qi-ai.com`；建议候选为 `auth.xiao-qi-ai.com`，最终地址仍需人工确认。公开 Render 蓝图使用 `basic-256mb` Postgres、`ipAllowList: []` 和 `autoDeployTrigger: checksPass`；region 创建后不可修改，部署前必须由负责人决定。域名确认并部署后，先用 `auth-hub:remote:next` 检查远端 `/healthz`、公开部署蓝图和当前进程的环境变量存在性；再用 `auth-hub:remote:smoke` 通过 `full_chain` mock 任务验收远端闭环。远程 smoke 会显式禁用私有连接器模块，并要求应用密码、Admin token、受限 Codex token 和执行器 token，只验证 mock 链路，不读取真实平台账号、不保存浏览器 Profile、不上传截图或 Cookie。
 
