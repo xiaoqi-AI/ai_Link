@@ -20,12 +20,12 @@ const program = {
         "PR #12, #16, and #17 merged login summaries, public next actions, and the project-facing status client.",
         "The open stack implements executor capability heartbeat, operation-bound probe evidence, remote identity hardening, abuse controls, and data lifecycle.",
         "Local full-chain mock, redacted audit, and restricted Codex client boundaries are verified.",
-        "A local public-safe status snapshot can emit notify=true only for new or worsened attention signals without querying AI Link during ordinary project work."
+        "PR #30 adds a local public-safe status snapshot that emits notify=true only for new or worsened attention signals without querying AI Link during ordinary project work."
       ],
       pending: [
         "Merge PR #22, #23, #24, #25, #27, and #28 in dependency order.",
         "Rebase or retarget each stacked PR after its parent merges and rerun GitHub checks.",
-        "Merge the stacked status notifier after its parent PR and connect notify=true to one approved low-frequency notification channel.",
+        "Merge stacked PR #30 after its parent PR and connect notify=true to one approved low-frequency notification channel.",
         "Do not claim the remote status center is deployed until Cloudflare Access and Render smoke evidence exists."
       ],
       decision: {
