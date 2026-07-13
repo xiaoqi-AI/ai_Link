@@ -6,6 +6,7 @@ const ACTION_REQUIRED_CODES = new Set([
   "verification_required",
   "credential_missing",
   "credential_invalid",
+  "approval_expired",
   "interactive_approval_required",
   "official_api_ip_not_whitelisted",
   "official_api_rate_limited",
@@ -15,10 +16,13 @@ const ACTION_REQUIRED_CODES = new Set([
   "specific_content_missing",
   "source_unreachable",
   "connector_missing",
-  "connector_contract_failed"
+  "connector_contract_failed",
+  "unknown_action_required"
 ]);
 
 const ACTION_LABELS = Object.freeze({
+  approval_expired: "人工审批已过期",
+  unknown_action_required: "需要检查未识别的人工事项",
   login_required: "需要本机登录",
   login_expired: "需要续登",
   session_expired: "需要续登",
@@ -39,6 +43,8 @@ const ACTION_LABELS = Object.freeze({
 });
 
 const ACTION_OWNERS = Object.freeze({
+  approval_expired: "task_owner",
+  unknown_action_required: "maintainer",
   login_required: "account_owner",
   login_expired: "account_owner",
   session_expired: "account_owner",
@@ -59,6 +65,8 @@ const ACTION_OWNERS = Object.freeze({
 });
 
 const ACTION_RUNBOOKS = Object.freeze({
+  approval_expired: "重新发起审批并确认当前任务上下文后再继续。",
+  unknown_action_required: "查看关联任务的公开错误，确认是否应收敛为可程序化恢复流程。",
   login_required: "在受信任本机完成平台登录后重试关联任务。",
   login_expired: "在受信任本机完成平台续登后重试关联任务。",
   session_expired: "在受信任本机刷新平台会话后重试关联任务。",
@@ -79,6 +87,8 @@ const ACTION_RUNBOOKS = Object.freeze({
 });
 
 const ACTION_SEVERITY = Object.freeze({
+  approval_expired: "approval",
+  unknown_action_required: "blocked",
   interactive_approval_required: "approval",
   connector_contract_failed: "blocked",
   credential_missing: "blocked",
@@ -87,13 +97,31 @@ const ACTION_SEVERITY = Object.freeze({
   official_api_ip_not_whitelisted: "blocked"
 });
 
-export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = [] } = {}) {
+export function summarizeConnectorAuthStatus({
+  connectors = [],
+  actionTasks = [],
+  actionTasksTruncated = false
+} = {}) {
   const actionByPlatform = groupActionTasksByPlatform(actionTasks);
   const items = connectors.map((connector) => {
-    const platformActions = (actionByPlatform.get(connector.platform) || [])
-      .filter((action) => !connector.probe?.checkedAt || !action.updatedAt || action.updatedAt >= connector.probe.checkedAt);
+    // Unresolved tasks remain authoritative until those tasks are retried or settled.
+    // A newer probe for another operation, scope, or target must never hide them.
+    const platformActions = actionByPlatform.get(connector.platform) || [];
     const firstAction = platformActions[0];
     const issueCodes = connector.issues?.map((issue) => issue.code).filter(Boolean) || [];
+
+    // A fresh blocked probe is stricter than an older manual action and must not
+    // be downgraded to needs_action. Verified probes never receive this override.
+    if (connector.probe?.status === "blocked") {
+      const probeReason = connector.probe.issueCode || "probe_blocked";
+      return authItem({
+        connector,
+        status: "blocked",
+        reason: probeReason,
+        action: actionLabel(probeReason),
+        relatedTaskIds: taskIdsForCode(platformActions, probeReason)
+      });
+    }
 
     if (firstAction) {
       return authItem({
@@ -101,7 +129,16 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
         status: "needs_action",
         reason: firstAction.code,
         action: actionLabel(firstAction.code),
-        relatedTaskIds: platformActions.map((item) => item.taskId)
+        relatedTaskIds: taskIdsForCode(platformActions, firstAction.code)
+      });
+    }
+
+    if (actionTasksTruncated) {
+      return authItem({
+        connector,
+        status: "unverified",
+        reason: "action_task_list_truncated",
+        action: "人工事项列表已截断，需要先恢复完整状态覆盖"
       });
     }
 
@@ -111,15 +148,6 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
         status: "unverified",
         reason: "executor_heartbeat_stale",
         action: "本机执行器心跳已过期"
-      });
-    }
-
-    if (connector.probe?.status === "blocked") {
-      return authItem({
-        connector,
-        status: "blocked",
-        reason: connector.probe.issueCode || "probe_blocked",
-        action: actionLabel(connector.probe.issueCode)
       });
     }
 
@@ -193,9 +221,10 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
     });
   });
 
-  const nextActions = buildNextActions(items);
+  const nextActions = buildNextActions(items, actionByPlatform);
 
   return {
+    schemaVersion: "2",
     summary: {
       total: items.length,
       ready: items.filter((item) => item.status === "ready").length,
@@ -203,7 +232,9 @@ export function summarizeConnectorAuthStatus({ connectors = [], actionTasks = []
       needs_action: items.filter((item) => item.status === "needs_action").length,
       reserved: items.filter((item) => item.status === "reserved").length,
       blocked: items.filter((item) => item.status === "blocked").length,
-      next_actions: nextActions.length
+      next_actions: nextActions.length,
+      action_tasks_complete: !actionTasksTruncated,
+      action_tasks_truncated: actionTasksTruncated === true
     },
     items,
     nextActions
@@ -231,10 +262,8 @@ function authItem({ connector, status, reason, action, relatedTaskIds = [] }) {
 function groupActionTasksByPlatform(tasks) {
   const groups = new Map();
   for (const task of tasks) {
-    const code = actionCode(task);
-    if (!ACTION_REQUIRED_CODES.has(code)) {
-      continue;
-    }
+    const rawCode = actionCode(task);
+    const code = ACTION_REQUIRED_CODES.has(rawCode) ? rawCode : "unknown_action_required";
     const platform = actionPlatform(task);
     if (!platform) {
       continue;
@@ -248,6 +277,12 @@ function groupActionTasksByPlatform(tasks) {
     groups.set(platform, values);
   }
   return groups;
+}
+
+function taskIdsForCode(actions, code) {
+  return actions
+    .filter((action) => action.code === code)
+    .map((action) => action.taskId);
 }
 
 function publicProbe(probe) {
@@ -306,21 +341,51 @@ function actionLabel(code) {
   return ACTION_LABELS[code] || "需要人工处理";
 }
 
-function buildNextActions(items) {
-  return items
+function buildNextActions(items, actionByPlatform) {
+  const baseActions = items
     .filter((item) => item.status === "needs_action" || item.status === "blocked")
-    .map((item) => ({
-      platform: item.platform,
-      status: item.status,
-      reason: item.reason,
-      title: actionLabel(item.reason),
-      owner: ACTION_OWNERS[item.reason] || "maintainer",
-      severity: actionSeverity(item),
-      runbook: ACTION_RUNBOOKS[item.reason] || "查看关联任务详情，按公开错误码处理后重试。",
-      relatedTaskIds: item.relatedTaskIds.slice(0, 5),
-      retryAfterAction: item.status === "needs_action" && item.reason !== "interactive_approval_required"
-    }))
-    .sort((a, b) => actionRank(a) - actionRank(b));
+    .map((item) => nextActionFromItem(item));
+  const represented = new Set(baseActions.map((action) => `${action.platform}|${action.reason}`));
+  const supplementalActions = [];
+
+  for (const [platform, actions] of actionByPlatform.entries()) {
+    const byCode = new Map();
+    for (const action of actions) {
+      const taskIds = byCode.get(action.code) || [];
+      taskIds.push(action.taskId);
+      byCode.set(action.code, taskIds);
+    }
+    for (const [code, relatedTaskIds] of byCode.entries()) {
+      if (represented.has(`${platform}|${code}`)) continue;
+      supplementalActions.push(nextActionFromItem({
+        platform,
+        status: "needs_action",
+        reason: code,
+        relatedTaskIds
+      }));
+    }
+  }
+
+  return [...baseActions, ...supplementalActions]
+    .sort((a, b) => (
+      actionRank(a) - actionRank(b)
+      || a.platform.localeCompare(b.platform)
+      || a.reason.localeCompare(b.reason)
+    ));
+}
+
+function nextActionFromItem(item) {
+  return {
+    platform: item.platform,
+    status: item.status,
+    reason: item.reason,
+    title: actionLabel(item.reason),
+    owner: ACTION_OWNERS[item.reason] || "maintainer",
+    severity: actionSeverity(item),
+    runbook: ACTION_RUNBOOKS[item.reason] || "查看关联任务详情，按公开错误码处理后重试。",
+    relatedTaskIds: item.relatedTaskIds.slice(0, 5),
+    retryAfterAction: item.status === "needs_action" && item.reason !== "interactive_approval_required"
+  };
 }
 
 function actionSeverity(item) {

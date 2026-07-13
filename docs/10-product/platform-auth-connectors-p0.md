@@ -130,6 +130,10 @@ Hermes 创建 `platform_auth_collect` 任务，AI Link 返回脱敏结果。Herm
 - `acquisition_provider` 如实标记。
 - 平台覆盖门禁不因单个 `ready` 字符串而自动放行。
 
+AI Link 提供消费前精确门禁：Hermes 在确实需要平台能力时运行 `auth-hub:status:strict -- --require-operation "<platform>=<verified-operation>"`，并只在客户端 `schemaVersion="1"`、`summary.ok=true`、服务端 `authStatus.schemaVersion="2"`、`action_tasks_complete=true` 且对应 `operationRequirements[].status=verified` 时继续。GitHub 的 `repo_read`、`actions_read`、`pull_request_read` 分别形成不同的 `check_auth:<scope>:target_bound`，不能相互替代。该门禁不触发 probe，也不查询真实登录态；证据缺失时由任务负责人另行申请低频真实只读验收。
+
+该门禁目前精确到 operation + scope，不精确到消费方当前仓库：`target_bound` 只表示服务端证据绑定了某个不公开目标。同 scope 不同仓库仍需后续服务端目标核验合同，Hermes 在此之前不得把 operation gate 当成任意仓库的通行证。未解决人工任务、审批过期、未知人工错误、旧版/不完整覆盖和人工事项列表截断都会失败关闭，较新的无关 probe 不能清除这些事项；同一平台的多个 operation 与人工动作也必须分别保留，不能折叠成一个平台信号。
+
 ## P0.1 迭代边界卡
 
 ### 需求

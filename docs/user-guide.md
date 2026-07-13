@@ -141,19 +141,21 @@ npm run auth-hub:executor:start
 跨项目只读消费可以直接运行：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前由负责人确认
+$env:AI_LINK_HOME="D:\codex_workplace\ai_Link"
+$env:AI_LINK_BASE_URL="<approved-auth-hub-url>"
 $env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
-npm run auth-hub:status
-npm run auth-hub:status:json
-npm run auth-hub:status:strict -- --platform github
-npm run auth-hub:status:watch:json -- --platform github
+npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:json
+npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:strict -- --require-operation "github=check_auth:repo_read:target_bound"
+npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:watch:json -- --require-operation "github=check_auth:repo_read:target_bound"
 ```
 
-如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。远程 hostname 必须同时显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`；项目没有任何隐式批准域名，不支持通配符，带凭据请求也不会自动跟随重定向。loopback 可用于本地开发，但永远不附加 Cloudflare Service Auth 头。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应、内部 lease/session/revision 或 `runtime/private` 路径。外部项目需要真实平台能力时应使用 `npm run auth-hub:status:strict -- --platform <platform>`：只有目标平台为 `ready` 才继续；`unverified`、`needs_action`、`reserved`、`blocked`、过期 probe 或缺失平台都会非零退出。不要无差别检查所有平台；普通代码、文档、UI 和本地测试无需调用该状态接口。
+`GET /api/auth-status` 当前合同为 `authStatus.schemaVersion="2"`，并同时报告 `authStatus.summary.action_tasks_complete` 与 `action_tasks_truncated`。所有客户端模式都会把旧版本、缺字段或自相矛盾的响应报告为 `action_task_coverage_unverified` blocker；strict、watch 或 `--require-operation` 模式只接受版本 2 且 `action_tasks_complete=true`、`action_tasks_truncated=false` 的完整覆盖。只要人工事项列表发生截断，所有平台状态都会失败关闭，strict/watch 客户端返回非零；先处理 Auth Hub 状态覆盖，不能把它解释为具体平台已通过。未解决任务也不会被同平台较新的其他 probe 自动清除，必须重试或结算原任务；即使平台已有更严重的 blocked probe，其他待办错误码仍会分别保留在 `nextActions`。GitHub 的 `target_bound` 当前不暴露也不验证调用方仓库身份，因此仓库级自动放行仍需后续服务端目标核验。
 
-`auth-hub:status:watch` / `auth-hub:status:watch:json` 用于低频计划任务或 Codex 自动化，不用于每个项目任务的冷启动。首次成功运行只在 `runtime/private/auth-status-notifier/` 下建立按 Auth Hub 地址和平台过滤范围哈希隔离的脱敏基线，并返回 `notify=false`；之后只比较服务端规范化的 `authStatus.nextActions`。新人工事项或严重度恶化返回 `notify=true`；事项恢复、改善或同级原因变化只更新基线并返回 `resolved_without_alert` / `changed_without_alert`，避免误报。快照只包含哈希作用域、平台代码、状态、严重度、公开原因、最近成功检查时间和指纹，不保存 token、Cookie、Profile、二维码、截图、账号、任务 ID、目标 URL、标题、runbook 或原始响应。可用 `--state-file` 改到 `runtime/private/` 或 `runtime/tmp/` 下的其他文件，公共路径会被拒绝。缺 token、接口不可达、HTTP 200 非 JSON/缺字段/字段类型错误、平台范围缺失、作用域不匹配、快照损坏或无法写入时，命令返回非零、`monitoringOk=false`、`monitoringAlert=true` 和 `notify=false`，并且不会建立或推进业务基线。该命令只生成提醒信号，不自行发送邮件、不执行 probe、不续登，也不调用真实平台。
+如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。远程 hostname 必须同时显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`；项目没有任何隐式批准域名，不支持通配符，带凭据请求也不会自动跟随重定向。loopback 可用于本地开发，但永远不附加 Cloudflare Service Auth 头。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应、内部 lease/session/revision 或 `runtime/private` 路径。外部项目需要真实平台能力时应使用 `--require-operation "<platform>=<verified-operation>"`；该参数会自动把检查范围收敛到对应平台，并要求 `ready` 与 `verifiedOperations` 精确匹配。`unverified`、`needs_action`、`reserved`、`blocked`、过期 probe、缺失平台或操作不匹配都会非零退出。不要只根据平台级 `ready` 放行，也不要无差别检查所有平台；普通代码、文档、UI 和本地测试无需调用该状态接口。
 
-推荐消费规则：自动化读取 JSON；`monitoringOk=true` 且 `notify=true` 时向负责人展示 `newSignals` / `worsenedSignals`，`notify=false` 时保持业务安静；`monitoringAlert=true` 则单独按监控故障提醒。不要把本机文件、环境变量或完整输出上传给其他项目。外部项目仍只在确实需要某个平台能力时运行 `auth-hub:status:strict -- --platform <platform>`；普通开发不查询 AI Link。当前输出是一次性变更信号，不承诺消息投递；接入真实邮件或其他通知渠道时，必须增加发送成功确认和稳定 notification ID，发送失败不得被当作已通知。
+`auth-hub:status:watch` / `auth-hub:status:watch:json` 用于低频计划任务或 Codex 自动化，不用于每个项目任务的冷启动。首次成功运行只在 `runtime/private/auth-status-notifier/` 下建立按 Auth Hub 地址、平台和所需操作哈希隔离的脱敏基线，并返回 `notify=false`；之后比较服务端规范化的 `authStatus.nextActions` 与消费端操作要求。watcher 会把人工动作和每一项精确操作作为独立信号，所以同一平台可以同时保留一个人工动作和多个 operation 门禁，不会互相覆盖。新人工事项、所需操作缺少证据或严重度恶化返回 `notify=true`；事项恢复、改善或同级原因变化只更新基线并返回 `resolved_without_alert` / `changed_without_alert`，避免误报。快照 schema 为版本 3，只包含哈希作用域、信号类型、平台代码、所需操作代码、状态、严重度、公开原因、最近成功检查时间和指纹，不保存 token、Cookie、Profile、二维码、截图、账号、任务 ID、目标 URL、标题、runbook 或原始响应。升级后如已有版本 2 快照，watcher 会以 `state_unreadable` 失败关闭；维护者确认没有并发 watcher 后，应删除或改名旧私有状态文件，再运行一次建立新基线。可用 `--state-file` 改到 `runtime/private/` 或 `runtime/tmp/` 下的其他文件，公共路径会被拒绝。缺 token、接口不可达、Auth Status 覆盖不完整、HTTP 200 非 JSON/缺字段/字段类型错误、平台/操作范围无效、作用域不匹配、快照损坏或无法写入时，命令返回非零、`monitoringOk=false`、`monitoringAlert=true` 和 `notify=false`，并且不会建立或推进业务基线。该命令只生成提醒信号，不自行发送邮件、不执行 probe、不续登，也不调用真实平台。
+
+推荐消费规则：自动化读取客户端 JSON；客户端顶层 `schemaVersion="1"`、`summary.ok=true`、`authStatus.schemaVersion="2"`、`authStatus.summary.action_tasks_complete=true` 且每个 `operationRequirements[].status=verified` 时才放行业务步骤。`monitoringOk=true` 且 `notify=true` 时向负责人展示 `newSignals` / `worsenedSignals`，`notify=false` 时保持业务安静；`monitoringAlert=true` 则单独按监控故障提醒。不要把本机文件、环境变量或完整输出上传给其他项目。外部项目只在确实需要某个平台能力时声明精确操作；普通开发不查询 AI Link。当前输出是一次性变更信号，不承诺消息投递；接入真实邮件或其他通知渠道时，必须增加发送成功确认和稳定 notification ID，发送失败不得被当作已通知。
 
 `platform_auth_collect` 用于统一处理小红书会话/只读搜索、公众号官方 API 健康检查和 GitHub 授权健康检查。公开仓只提供安全脚手架，不携带真实登录态；维护者只能把已审查的模块放入 `runtime/private/`。单平台排障时可以让 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 直接指向一个适配器；三平台同时启用时，应先生成 `runtime/private/platform-connectors.mjs` 组合入口，再让该变量只指向组合入口。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据、GitHub token 或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
 

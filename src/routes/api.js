@@ -14,6 +14,8 @@ import { requireApiScope } from "../security/auth.js";
 import { publicAuditEvent, publicLeasedTask, publicTask, redact } from "../security/redact.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
+const AUTH_STATUS_ACTION_LIMIT = 50;
+
 function actorName(req) {
   return req.actor?.name || "unknown";
 }
@@ -335,14 +337,20 @@ export function createApiRouter() {
   router.get("/auth-status", requireApiScope("connectors:read"), async (req, res) => {
     const [connectorDescription, actionTasks, approvalTasks] = await Promise.all([
       runtimeConnectorDescription(req),
-      req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
-      req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
+      req.app.locals.store.listTasks({ status: "action_required", limit: AUTH_STATUS_ACTION_LIMIT + 1 }),
+      req.app.locals.store.listTasks({ status: "approval_required", limit: AUTH_STATUS_ACTION_LIMIT + 1 })
     ]);
+    const actionTasksTruncated = actionTasks.length > AUTH_STATUS_ACTION_LIMIT
+      || approvalTasks.length > AUTH_STATUS_ACTION_LIMIT;
     res.json({
       ...connectorDescription,
       authStatus: summarizeConnectorAuthStatus({
         connectors: connectorDescription.executorRuntime.connectors,
-        actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
+        actionTasks: [
+          ...actionTasks.slice(0, AUTH_STATUS_ACTION_LIMIT),
+          ...approvalTasks.slice(0, AUTH_STATUS_ACTION_LIMIT)
+        ].map(publicTask),
+        actionTasksTruncated
       })
     });
   });
