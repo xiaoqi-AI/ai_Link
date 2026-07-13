@@ -52,6 +52,30 @@ async function requestJson(baseUrl, path, { token, method = "GET", body } = {}) 
   return { response, data };
 }
 
+async function leaseNextTask(server, executorId = "test-executor", executorSessionId = "test-session") {
+  const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
+    token: "executor-token",
+    method: "POST",
+    body: { executorId, executorSessionId }
+  });
+  if (leased.data.task) {
+    Object.defineProperties(leased.data.task, {
+      testExecutorId: { value: executorId },
+      testExecutorSessionId: { value: executorSessionId }
+    });
+  }
+  return leased;
+}
+
+function boundExecutorResult(task, result) {
+  return {
+    ...result,
+    executorId: task.testExecutorId,
+    executorSessionId: task.testExecutorSessionId,
+    leaseId: task.leaseId
+  };
+}
+
 describe("AI Link task flow", () => {
   let server;
 
@@ -79,11 +103,7 @@ describe("AI Link task flow", () => {
     assert.equal(created.response.status, 201);
     assert.equal(created.data.task.status, "queued");
 
-    const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
-      token: "executor-token",
-      method: "POST",
-      body: { executorId: "test-executor" }
-    });
+    const leased = await leaseNextTask(server);
     assert.equal(leased.response.status, 200);
     assert.equal(leased.data.task.status, "running");
 
@@ -92,7 +112,7 @@ describe("AI Link task flow", () => {
     const needsApproval = await requestJson(server.baseUrl, `/api/executor/tasks/${leased.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: firstResult
+      body: boundExecutorResult(leased.data.task, firstResult)
     });
     assert.equal(needsApproval.response.status, 200);
     assert.equal(needsApproval.data.task.status, "approval_required");
@@ -131,18 +151,14 @@ describe("AI Link task flow", () => {
     assert.equal(approved.data.task.status, "queued");
     assert.equal(approved.data.task.currentStep, "publish");
 
-    const publishLease = await requestJson(server.baseUrl, "/api/executor/lease", {
-      token: "executor-token",
-      method: "POST",
-      body: { executorId: "test-executor" }
-    });
+    const publishLease = await leaseNextTask(server);
     const publishResult = await runTask(publishLease.data.task);
     assert.equal(publishResult.status, "completed");
 
     const completed = await requestJson(server.baseUrl, `/api/executor/tasks/${publishLease.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: publishResult
+      body: boundExecutorResult(publishLease.data.task, publishResult)
     });
     assert.equal(completed.response.status, 200);
     assert.equal(completed.data.task.status, "completed");
@@ -158,14 +174,80 @@ describe("AI Link task flow", () => {
         input: { text: "公开测试文本", title: "只检测" }
       }
     });
-    const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
-      token: "executor-token",
-      method: "POST",
-      body: { executorId: "test-executor" }
-    });
+    const leased = await leaseNextTask(server);
     assert.equal(leased.data.task.id, created.data.task.id);
     const result = await runTask(leased.data.task);
     assert.equal(result.status, "completed");
+  });
+
+  it("binds executor results to one active lease and rejects replay", async () => {
+    const created = await requestJson(server.baseUrl, "/api/tasks", {
+      token: "admin-token",
+      method: "POST",
+      body: {
+        workflow: "read_detect",
+        input: { text: "lease binding test", title: "result integrity" }
+      }
+    });
+
+    const unleased = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: {
+        status: "completed",
+        executorId: "binding-executor",
+        executorSessionId: "binding-session",
+        leaseId: "00000000-0000-4000-8000-000000000000"
+      }
+    });
+    assert.equal(unleased.response.status, 409);
+    assert.equal(unleased.data.error, "executor_result_attempt_stale");
+
+    const leased = await leaseNextTask(server, "binding-executor", "binding-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+    const validBody = boundExecutorResult(leased.data.task, {
+      status: "completed",
+      summary: "bound result accepted",
+      result: { output: "ok" }
+    });
+
+    for (const body of [
+      { ...validBody, executorId: "other-executor" },
+      { ...validBody, executorSessionId: "other-session" },
+      {
+        ...validBody,
+        leaseId: validBody.leaseId.replace(/.$/, validBody.leaseId.endsWith("0") ? "1" : "0")
+      }
+    ]) {
+      const rejected = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+        token: "executor-token",
+        method: "POST",
+        body
+      });
+      assert.equal(rejected.response.status, 409);
+      assert.equal(rejected.data.error, "executor_result_attempt_stale");
+    }
+
+    const accepted = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: validBody
+    });
+    assert.equal(accepted.response.status, 200);
+    assert.equal(accepted.data.task.status, "completed");
+
+    const replayed = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
+      token: "executor-token",
+      method: "POST",
+      body: validBody
+    });
+    assert.equal(replayed.response.status, 409);
+    assert.equal(replayed.data.error, "executor_result_attempt_stale");
+
+    const audit = await requestJson(server.baseUrl, `/api/audit?taskId=${created.data.task.id}`, {
+      token: "admin-token"
+    });
+    assert.equal(audit.data.auditEvents.filter((event) => event.eventType === "task.completed").length, 1);
   });
 
   it("records AI Link audit summaries from executor results", async () => {
@@ -179,11 +261,7 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
-    const leased = await requestJson(server.baseUrl, "/api/executor/lease", {
-      token: "executor-token",
-      method: "POST",
-      body: { executorId: "audit-test-executor" }
-    });
+    const leased = await leaseNextTask(server, "audit-test-executor", "audit-test-session");
     assert.equal(leased.data.task.id, created.data.task.id);
 
     const audit = {
@@ -220,7 +298,7 @@ describe("AI Link task flow", () => {
     const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${leased.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "completed",
         summary: "audit captured",
         audit,
@@ -229,7 +307,7 @@ describe("AI Link task flow", () => {
           audit,
           apiKey: "placeholder"
         }
-      }
+      })
     });
 
     assert.equal(reported.response.status, 200);
@@ -333,6 +411,13 @@ describe("AI Link task flow", () => {
     assert.match(html, /grok/);
     assert.equal(html.includes("public audit append test"), false);
     assert.equal(html.includes("rawSecret"), false);
+
+    await server.store.completeTask({
+      taskId: created.data.task.id,
+      summary: "test cleanup",
+      result: {},
+      actor: "test-cleanup"
+    });
   });
 
   it("can mark a task action_required and retry it", async () => {
@@ -346,15 +431,18 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
+    const leased = await leaseNextTask(server, "action-test-executor", "action-test-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+
     const actionRequired = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "needs_action",
         summary: "需要人工续登",
         error: { message: "login_required" },
         result: { nextStep: "refresh_login" }
-      }
+      })
     });
     assert.equal(actionRequired.response.status, 200);
     assert.equal(actionRequired.data.task.status, "action_required");
@@ -382,6 +470,13 @@ describe("AI Link task flow", () => {
     assert.equal(retried.response.status, 200);
     assert.equal(retried.data.task.status, "queued");
     assert.equal(retried.data.task.error, null);
+
+    await server.store.completeTask({
+      taskId: created.data.task.id,
+      summary: "test cleanup",
+      result: {},
+      actor: "test-cleanup"
+    });
   });
 
   it("accepts AI Link audit summaries without exposing raw executor payloads", async () => {
@@ -395,10 +490,13 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
+    const leased = await leaseNextTask(server, "audit-summary-executor", "audit-summary-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+
     const completed = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "completed",
         summary: "已完成",
         result: {
@@ -427,7 +525,7 @@ describe("AI Link task flow", () => {
           },
           rawSecret: "drop me too"
         }
-      }
+      })
     });
     assert.equal(completed.response.status, 200);
     assert.equal(completed.data.task.result.password, "[redacted]");
@@ -544,10 +642,13 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
+    const leased = await leaseNextTask(server, "wechat-failure-executor", "wechat-failure-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+
     const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "failed",
         summary: "公众号 API 当前不可达。",
         error: {
@@ -576,7 +677,7 @@ describe("AI Link task flow", () => {
             raw_response: "private-response"
           }
         }
-      }
+      })
     });
 
     assert.equal(reported.response.status, 200);
@@ -704,10 +805,13 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
+    const leased = await leaseNextTask(server, "approval-status-executor", "approval-status-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+
     const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "needs_approval",
         summary: "需要人工批准后，才会在本机执行交互式平台登录。",
         approval: {
@@ -727,7 +831,7 @@ describe("AI Link task flow", () => {
           },
           token: "private-token"
         }
-      }
+      })
     });
     assert.equal(reported.response.status, 200);
     assert.equal(reported.data.task.status, "approval_required");
@@ -764,10 +868,13 @@ describe("AI Link task flow", () => {
     });
     assert.equal(created.response.status, 201);
 
+    const leased = await leaseNextTask(server, "session-status-executor", "session-status-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+
     const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "needs_action",
         summary: "需要本机续登",
         error: {
@@ -784,7 +891,7 @@ describe("AI Link task flow", () => {
           },
           token: "private-token"
         }
-      }
+      })
     });
     assert.equal(reported.response.status, 200);
     assert.equal(reported.data.task.status, "action_required");
@@ -854,10 +961,13 @@ describe("AI Link task flow", () => {
     assert.equal(created.data.task.input.credential, undefined);
     assert.deepEqual(created.data.task.targets, ["github"]);
 
+    const leased = await leaseNextTask(server, "github-status-executor", "github-status-session");
+    assert.equal(leased.data.task.id, created.data.task.id);
+
     const reported = await requestJson(server.baseUrl, `/api/executor/tasks/${created.data.task.id}/result`, {
       token: "executor-token",
       method: "POST",
-      body: {
+      body: boundExecutorResult(leased.data.task, {
         status: "needs_action",
         summary: "平台 API 凭据尚未配置。",
         error: {
@@ -880,7 +990,7 @@ describe("AI Link task flow", () => {
             code: "credential_missing"
           }
         }
-      }
+      })
     });
     assert.equal(reported.response.status, 200);
     assert.equal(reported.data.task.status, "action_required");

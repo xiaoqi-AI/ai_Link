@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExecutorCapabilityHeartbeat } from "../connectors/executorCapabilities.js";
 import { loadPrivateConnectorRegistry } from "../connectors/privateLoader.js";
+import { cloudflareServiceHeaders, validateAuthHubTarget } from "../security/authHubOutbound.js";
 import { runTask } from "./runTask.js";
 
 const args = new Set(process.argv.slice(2));
@@ -30,29 +31,31 @@ async function writeState(statePath, state) {
 }
 
 async function requestJson(url, { token, method = "GET", body } = {}) {
+  const target = validateAuthHubTarget(url);
+  if (!target.ok) {
+    const error = new Error(target.detail);
+    error.code = "auth_hub_target_rejected";
+    throw error;
+  }
   const headers = {
     "content-type": "application/json",
-    authorization: `Bearer ${token}`
+    authorization: `Bearer ${token}`,
+    ...cloudflareServiceHeaders(target)
   };
-  const cfAccessClientId = readEnv("CF_ACCESS_CLIENT_ID", "");
-  const cfAccessClientSecret = readEnv("CF_ACCESS_CLIENT_SECRET", "");
-  if (cfAccessClientId && cfAccessClientSecret) {
-    headers["CF-Access-Client-Id"] = cfAccessClientId;
-    headers["CF-Access-Client-Secret"] = cfAccessClientSecret;
-  }
   const cfAccessJwt = readEnv("AI_LINK_CF_ACCESS_TEST_JWT", "");
   const cfAccessEmail = readEnv("AI_LINK_CF_ACCESS_TEST_EMAIL", "");
-  if (cfAccessJwt) {
+  if (target.attachServiceHeaders && cfAccessJwt) {
     headers["cf-access-jwt-assertion"] = cfAccessJwt;
   }
-  if (cfAccessEmail) {
+  if (target.attachServiceHeaders && cfAccessEmail) {
     headers["cf-access-authenticated-user-email"] = cfAccessEmail;
   }
 
   const response = await fetch(url, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    redirect: "manual"
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

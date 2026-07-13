@@ -155,7 +155,7 @@ export class MemoryStore {
     if (!evidence) {
       throw new Error("Invalid connector probe evidence.");
     }
-    const key = [evidence.executorId, evidence.platform, evidence.operation].join(":");
+    const key = connectorProbeEvidenceKey(evidence);
     const existing = this.connectorProbeEvidence.get(key);
     if (!existing || existing.checkedAt <= evidence.checkedAt) {
       this.connectorProbeEvidence.set(key, evidence);
@@ -321,6 +321,79 @@ export class MemoryStore {
     return clone(task);
   }
 
+  async settleTaskResult({
+    taskId,
+    executorId,
+    executorSessionId,
+    leaseId,
+    taskStatus,
+    resultStatus,
+    summary,
+    result,
+    error,
+    approval,
+    artifacts = [],
+    actor,
+    aiLinkAudit
+  }) {
+    const task = this.tasks.get(taskId);
+    if (
+      !task
+      || task.options?.evidenceIntent === "connector_probe"
+      || task.status !== TASK_STATUSES.RUNNING
+      || task.leasedBy !== executorId
+      || task.leaseExecutorSessionId !== executorSessionId
+      || task.leaseId !== leaseId
+      || !task.leaseExpiresAt
+      || new Date(task.leaseExpiresAt).getTime() <= Date.now()
+      || ![
+        TASK_STATUSES.APPROVAL_REQUIRED,
+        TASK_STATUSES.COMPLETED,
+        TASK_STATUSES.ACTION_REQUIRED,
+        TASK_STATUSES.FAILED
+      ].includes(taskStatus)
+    ) {
+      return null;
+    }
+
+    let outcome;
+    if (taskStatus === TASK_STATUSES.APPROVAL_REQUIRED) {
+      outcome = await this.markTaskNeedsApproval({
+        taskId,
+        summary,
+        result,
+        approval,
+        artifacts,
+        actor
+      });
+    } else if (taskStatus === TASK_STATUSES.COMPLETED) {
+      outcome = {
+        task: await this.completeTask({ taskId, summary, result, artifacts, actor }),
+        approval: null
+      };
+    } else if (taskStatus === TASK_STATUSES.ACTION_REQUIRED) {
+      outcome = {
+        task: await this.markTaskNeedsAction({ taskId, summary, result, error, artifacts, actor }),
+        approval: null
+      };
+    } else {
+      outcome = {
+        task: await this.failTask({ taskId, error, result, actor }),
+        approval: null
+      };
+    }
+
+    if (aiLinkAudit) {
+      await this.appendAudit({
+        taskId,
+        actor,
+        eventType: "ai_link.audit",
+        detail: { status: resultStatus, audit: aiLinkAudit }
+      });
+    }
+    return outcome;
+  }
+
   async settleConnectorProbeTask({
     taskId,
     executorId,
@@ -362,11 +435,7 @@ export class MemoryStore {
     task.leaseHeartbeatRevision = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
-    const evidenceKey = [
-      normalizedEvidence.executorId,
-      normalizedEvidence.platform,
-      normalizedEvidence.operation
-    ].join(":");
+    const evidenceKey = connectorProbeEvidenceKey(normalizedEvidence);
     const existingEvidence = this.connectorProbeEvidence.get(evidenceKey);
     if (!existingEvidence || existingEvidence.checkedAt <= normalizedEvidence.checkedAt) {
       this.connectorProbeEvidence.set(evidenceKey, normalizedEvidence);
@@ -679,6 +748,7 @@ function cloneMap(map) {
 
 function taskEventType(status) {
   return {
+    approval_required: "task.approval_required",
     completed: "task.completed",
     action_required: "task.action_required",
     failed: "task.failed"
@@ -690,10 +760,22 @@ function publicProbeAuditDetail(evidence) {
     schemaVersion: evidence.schemaVersion,
     platform: evidence.platform,
     operation: evidence.operation,
+    qualifier: evidence.qualifier,
+    subjectBound: Boolean(evidence.subjectKey),
     capability: evidence.capability,
     outcome: evidence.outcome,
     issueCode: evidence.issueCode,
     checkedAt: evidence.checkedAt,
     expiresAt: evidence.expiresAt
   };
+}
+
+function connectorProbeEvidenceKey(evidence) {
+  return [
+    evidence.executorId,
+    evidence.platform,
+    evidence.operation,
+    evidence.qualifier,
+    evidence.subjectKey
+  ].join(":");
 }

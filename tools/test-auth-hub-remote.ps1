@@ -65,11 +65,28 @@ if (-not $CfAccessEmail) {
   $CfAccessEmail = $env:AI_LINK_CF_ACCESS_TEST_EMAIL
 }
 
+$targetUri = $null
+try {
+  $targetUri = [Uri]$BaseUrl
+} catch {
+  throw "BaseUrl must be a valid Auth Hub URL."
+}
+if (-not $targetUri.IsAbsoluteUri -or $targetUri.UserInfo) {
+  throw "BaseUrl must be an absolute URL without embedded credentials."
+}
+$loopbackHosts = @("127.0.0.1", "::1", "localhost")
+$isLoopbackTarget = $loopbackHosts -contains $targetUri.Host.ToLowerInvariant()
+$approvedHosts = @($env:AI_LINK_AUTH_HUB_ALLOWED_HOSTS -split "," | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+if (-not $isLoopbackTarget -and ($targetUri.Scheme -ne "https" -or -not ($approvedHosts -contains $targetUri.Host.ToLowerInvariant()))) {
+  throw "Remote Auth Hub must use HTTPS and its hostname must be listed in AI_LINK_AUTH_HUB_ALLOWED_HOSTS."
+}
+$attachAccessHeaders = -not $isLoopbackTarget
+
 function New-CommonHeaders {
   param([switch]$WithoutAccess)
 
   $headers = @{}
-  if ($WithoutAccess) {
+  if ($WithoutAccess -or -not $attachAccessHeaders) {
     return $headers
   }
 
@@ -88,7 +105,7 @@ function New-CommonHeaders {
 
 function New-UserAccessHeaders {
   $headers = @{}
-  if ($CfAccessJwt -and $CfAccessEmail) {
+  if ($attachAccessHeaders -and $CfAccessJwt -and $CfAccessEmail) {
     $headers["cf-access-jwt-assertion"] = $CfAccessJwt
     $headers["cf-access-authenticated-user-email"] = $CfAccessEmail
   }
@@ -189,11 +206,59 @@ function Invoke-Json {
     [string]$Body = ""
   )
 
-  if ($Body) {
-    return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $Headers -ContentType "application/json" -Body $Body -TimeoutSec 30
+  $response = Invoke-HttpStatus -Uri $Uri -Method $Method -Headers $Headers -Body $(if ($Body) { $Body } else { $null })
+  if ($response.statusCode -lt 200 -or $response.statusCode -ge 300) {
+    throw "Auth Hub request returned HTTP $($response.statusCode); redirects are not followed."
   }
+  if (-not $response.content) {
+    return $null
+  }
+  try {
+    return $response.content | ConvertFrom-Json
+  } catch {
+    throw "Auth Hub returned invalid JSON."
+  }
+}
 
-  return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $Headers -TimeoutSec 30
+function Invoke-BrowserRequest {
+  param(
+    [System.Net.Http.HttpClient]$Client,
+    [string]$Uri,
+    [string]$Method = "Get",
+    [hashtable]$Headers = @{},
+    [object]$Body = $null,
+    [string]$ContentType = "application/json"
+  )
+
+  $request = New-Object System.Net.Http.HttpRequestMessage(
+    (New-Object System.Net.Http.HttpMethod($Method.ToUpperInvariant())),
+    $Uri
+  )
+  $response = $null
+  try {
+    foreach ($name in $Headers.Keys) {
+      $request.Headers.TryAddWithoutValidation([string]$name, [string]$Headers[$name]) | Out-Null
+    }
+    if ($null -ne $Body) {
+      $request.Content = New-Object System.Net.Http.StringContent(
+        [string]$Body,
+        [System.Text.Encoding]::UTF8,
+        $ContentType
+      )
+    }
+    $response = $Client.SendAsync($request).GetAwaiter().GetResult()
+    $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    return [ordered]@{
+      statusCode = [int]$response.StatusCode
+      content = [string]$content
+      location = [string]$response.Headers.Location
+    }
+  } finally {
+    if ($response) {
+      $response.Dispose()
+    }
+    $request.Dispose()
+  }
 }
 
 $result = [ordered]@{
@@ -265,15 +330,18 @@ if ($SkipAppLogin) {
     Add-Check "app login" "fail" "Service Auth cannot prove browser login. Use -SkipAppLogin for the API/executor smoke and complete approved-email login manually."
   } else {
   try {
-    $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $browserHandler = New-Object System.Net.Http.HttpClientHandler
+    $browserHandler.AllowAutoRedirect = $false
+    $browserHandler.UseCookies = $true
+    $browserHandler.CookieContainer = New-Object System.Net.CookieContainer
+    $browserClient = New-Object System.Net.Http.HttpClient($browserHandler)
+    $browserClient.Timeout = [TimeSpan]::FromSeconds(30)
     $userAccessHeaders = New-UserAccessHeaders
-    $loginPage = Invoke-WebRequest `
-      -Uri "$BaseUrl/login" `
-      -Headers $userAccessHeaders `
-      -WebSession $session `
-      -UseBasicParsing `
-      -TimeoutSec 30
-    $csrfMatch = [regex]::Match($loginPage.Content, 'name="csrfToken" value="([^"]+)"')
+    $loginPage = Invoke-BrowserRequest -Client $browserClient -Uri "$BaseUrl/login" -Headers $userAccessHeaders
+    if ($loginPage.statusCode -ne 200) {
+      throw "Login page returned HTTP $($loginPage.statusCode); redirects are not followed."
+    }
+    $csrfMatch = [regex]::Match($loginPage.content, 'name="csrfToken" value="([^"]+)"')
     if (-not $csrfMatch.Success) {
       throw "Login page did not provide a request token."
     }
@@ -281,28 +349,41 @@ if ($SkipAppLogin) {
     $form = "password=$([uri]::EscapeDataString($AppPassword))&next=%2Fdashboard&csrfToken=$([uri]::EscapeDataString($csrfToken))"
     $loginPostHeaders = New-UserAccessHeaders
     $loginPostHeaders["Origin"] = $BaseUrl
-    $loginResult = Invoke-WebRequest `
+    $loginResult = Invoke-BrowserRequest `
+      -Client $browserClient `
       -Uri "$BaseUrl/login" `
       -Method "Post" `
       -Headers $loginPostHeaders `
       -Body $form `
-      -ContentType "application/x-www-form-urlencoded" `
-      -WebSession $session `
-      -UseBasicParsing `
-      -TimeoutSec 30
+      -ContentType "application/x-www-form-urlencoded"
 
-    if ($loginResult.StatusCode -eq 200) {
-      $dashboard = Invoke-WebRequest -Uri "$BaseUrl/dashboard" -Headers (New-UserAccessHeaders) -WebSession $session -UseBasicParsing -TimeoutSec 30
-      if ($dashboard.StatusCode -eq 200 -and $dashboard.Content -match "AI Link") {
-        Add-Check "app login" "pass" "Application login reaches dashboard with session cookie."
-      } else {
-        Add-Check "app login" "fail" "Dashboard did not return the expected console page."
-      }
+    if ($loginResult.statusCode -ne 303 -or -not $loginResult.location) {
+      throw "Login returned HTTP $($loginResult.statusCode); expected a same-origin 303 redirect."
+    }
+    $dashboardUri = [Uri]::new($targetUri, [string]$loginResult.location)
+    if (
+      $dashboardUri.Scheme -ne $targetUri.Scheme `
+      -or $dashboardUri.Host -ne $targetUri.Host `
+      -or $dashboardUri.Port -ne $targetUri.Port `
+      -or $dashboardUri.AbsolutePath -ne "/dashboard"
+    ) {
+      throw "Login redirect must remain on the approved Auth Hub origin and target /dashboard."
+    }
+    $dashboard = Invoke-BrowserRequest -Client $browserClient -Uri $dashboardUri.AbsoluteUri -Headers (New-UserAccessHeaders)
+    if ($dashboard.statusCode -eq 200 -and $dashboard.content -match "AI Link") {
+      Add-Check "app login" "pass" "Application login reaches dashboard with session cookie."
     } else {
-      Add-Check "app login" "fail" "Login returned HTTP $($loginResult.StatusCode)."
+      Add-Check "app login" "fail" "Dashboard did not return the expected console page."
     }
   } catch {
     Add-Check "app login" "fail" $_.Exception.Message
+  } finally {
+    if ($browserClient) {
+      $browserClient.Dispose()
+    }
+    if ($browserHandler) {
+      $browserHandler.Dispose()
+    }
   }
   }
 } else {

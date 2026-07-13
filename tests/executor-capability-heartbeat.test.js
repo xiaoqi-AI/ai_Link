@@ -226,6 +226,74 @@ describe("executor capability heartbeat", () => {
     }
   });
 
+  it("rejects an unapproved remote Auth Hub before sending any credential", async () => {
+    const previousAllowedHosts = process.env.AI_LINK_AUTH_HUB_ALLOWED_HOSTS;
+    const previousFetch = globalThis.fetch;
+    let requests = 0;
+    process.env.AI_LINK_AUTH_HUB_ALLOWED_HOSTS = "";
+    globalThis.fetch = async () => {
+      requests += 1;
+      throw new Error("unexpected network request");
+    };
+    try {
+      await assert.rejects(
+        runExecutorOnce({
+          baseUrl: "https://unapproved.example.invalid",
+          token: "must-not-send",
+          executorId: "local-executor",
+          registry: privateRegistry()
+        }),
+        (error) => error.code === "auth_hub_target_rejected"
+      );
+      assert.equal(requests, 0);
+    } finally {
+      globalThis.fetch = previousFetch;
+      restoreEnv("AI_LINK_AUTH_HUB_ALLOWED_HOSTS", previousAllowedHosts);
+    }
+  });
+
+  it("does not attach Service Auth credentials to loopback or follow redirects", async () => {
+    const previousClientId = process.env.CF_ACCESS_CLIENT_ID;
+    const previousClientSecret = process.env.CF_ACCESS_CLIENT_SECRET;
+    process.env.CF_ACCESS_CLIENT_ID = "must-not-forward";
+    process.env.CF_ACCESS_CLIENT_SECRET = "must-not-forward";
+    let redirectedRequests = 0;
+    const redirecting = http.createServer((req, res) => {
+      assert.equal(req.headers["cf-access-client-id"], undefined);
+      assert.equal(req.headers["cf-access-client-secret"], undefined);
+      if (req.url === "/api/executor/heartbeat") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ accepted: true }));
+        return;
+      }
+      if (req.url === "/redirected") {
+        redirectedRequests += 1;
+        res.end("unexpected");
+        return;
+      }
+      res.statusCode = 302;
+      res.setHeader("location", "/redirected");
+      res.end();
+    });
+    await new Promise((resolve) => redirecting.listen(0, "127.0.0.1", resolve));
+    try {
+      await assert.rejects(
+        runExecutorOnce({
+          baseUrl: `http://127.0.0.1:${redirecting.address().port}`,
+          token: "executor-token",
+          executorId: "local-executor",
+          registry: privateRegistry()
+        }),
+        (error) => error.code === "auth_hub_request_failed"
+      );
+      assert.equal(redirectedRequests, 0);
+    } finally {
+      await new Promise((resolve) => redirecting.close(resolve));
+      restoreEnv("CF_ACCESS_CLIENT_ID", previousClientId);
+      restoreEnv("CF_ACCESS_CLIENT_SECRET", previousClientSecret);
+    }
+  });
+
   it("requires the heartbeat scope and persists only the latest Postgres snapshot", async () => {
     const unsafe = await requestJson(baseUrl, "/api/executor/heartbeat", {
       token: "executor-token",
@@ -252,6 +320,11 @@ describe("executor capability heartbeat", () => {
     assert.equal(/hostname|module_path|browser_profile|raw_response/i.test(source), false);
   });
 });
+
+function restoreEnv(name, value) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
 
 function privateRegistry() {
   return createConnectorRegistry({

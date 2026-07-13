@@ -113,8 +113,10 @@ if (!browserAccessPolicyReady) {
 if (!serviceTokenPolicyReady) {
   blockers.push("Explicitly set AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true after approving the local executor Service Auth path.");
 }
-if (!renderCheck.ok) {
-  blockers.push("render.yaml is missing required Auth Hub deployment references.");
+if (!renderCheck.contractOk) {
+  blockers.push("render.yaml is missing required Auth Hub deployment contract references.");
+} else if (!renderCheck.decisionEncoded) {
+  blockers.push("Auth Hub deployment decisions are not yet approved and encoded in render.yaml; do not create remote resources.");
 }
 
 const report = {
@@ -124,7 +126,10 @@ const report = {
     remoteReady,
     smokeReady,
     blockingCount: blockers.length,
-    recommendedNext: recommendedNext({ remoteHealth, missingSmokeEnv, missingAccessOperatorEnv, renderOk: renderCheck.ok })
+    deploymentDecisionStatus: renderCheck.contractOk
+      ? renderCheck.decisionEncoded ? "encoded" : "pending"
+      : "contract_error",
+    recommendedNext: recommendedNext({ remoteHealth, missingSmokeEnv, missingAccessOperatorEnv, renderCheck })
   },
   target: {
     baseUrl,
@@ -144,10 +149,12 @@ const report = {
     },
     {
       name: "render blueprint",
-      status: renderCheck.ok ? "pass" : "fail",
+      status: renderCheck.ok ? "pass" : renderCheck.contractOk ? "manual" : "fail",
       detail: renderCheck.ok
-        ? "render.yaml references the expected Auth Hub service, Postgres, env vars, and /healthz check."
-        : `Missing render.yaml references: ${renderCheck.missing.join(", ")}.`
+        ? "render.yaml contains the required contract and the approved deployment decisions."
+        : renderCheck.contractOk
+          ? `Deployment decisions are not encoded: ${renderCheck.decisionMissing.join(", ")}.`
+          : `Missing render.yaml contract references: ${renderCheck.contractMissing.join(", ")}.`
     },
     {
       name: "Cloudflare Access verification",
@@ -163,6 +170,16 @@ const report = {
     }))
   ],
   blockers,
+  deploymentDecision: {
+    status: renderCheck.contractOk
+      ? renderCheck.decisionEncoded ? "encoded" : "pending"
+      : "contract_error",
+    background: "Remote Auth Hub requires paid infrastructure, public DNS, production secrets, browser identity policy, and database recovery ownership.",
+    content: "Approve the dedicated hostname, Render region and plans, browser allowlist, local-executor Service Auth, secret storage, native-subdomain policy, retention timing, and backup/PITR before editing the production blueprint.",
+    recommendation: "Keep the current blueprint no-go until the owner approves the complete deployment decision card; then encode the approved values in one reviewed PR before creating any remote resource.",
+    value: "Separates repository readiness from production ownership so code automation cannot silently choose cost, identity, or recovery policy.",
+    risk: "Encoding provisional values can create recurring charges, expose an origin, lock out the operator, or leave destructive retention without a verified recovery point."
+  },
   manualActions: [
     {
       owner: "Infrastructure maintainer",
@@ -288,50 +305,60 @@ function checkRenderYaml(path) {
   } catch {
     return {
       ok: false,
-      missing: ["render.yaml"]
+      contractOk: false,
+      decisionEncoded: false,
+      missing: ["render.yaml"],
+      contractMissing: ["render.yaml"],
+      decisionMissing: []
     };
   }
-  const missing = [];
+  const contractMissing = [];
+  const decisionMissing = [];
   for (const value of requiredRenderRefs) {
     if (!text.includes(value)) {
-      missing.push(value);
+      contractMissing.push(value);
     }
   }
   if (!/healthCheckPath:\s*\/healthz/.test(text)) {
-    missing.push("healthCheckPath:/healthz");
+    contractMissing.push("healthCheckPath:/healthz");
   }
   if (!/type:\s*web/.test(text)) {
-    missing.push("web service");
+    contractMissing.push("web service");
   }
   if (!/databases:/.test(text)) {
-    missing.push("Postgres database");
+    contractMissing.push("Postgres database");
   }
   if (!/autoDeployTrigger:\s*checksPass/.test(text)) {
-    missing.push("autoDeployTrigger:checksPass");
+    contractMissing.push("autoDeployTrigger:checksPass");
   }
   if (!/databases:\s+[\s\S]*?plan:\s*basic-256mb/.test(text)) {
-    missing.push("Postgres plan:basic-256mb");
+    contractMissing.push("Postgres plan:basic-256mb");
   }
   if (!/databases:\s+[\s\S]*?ipAllowList:\s*\[\]/.test(text)) {
-    missing.push("Postgres ipAllowList:[]");
+    contractMissing.push("Postgres ipAllowList:[]");
   }
   if (!/key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false/.test(text)) {
-    missing.push("explicit Cloudflare service-token decision");
+    contractMissing.push("explicit Cloudflare service-token decision");
   }
   const webRegion = text.match(/services:[\s\S]*?-\s*type:\s*web[\s\S]*?region:\s*([a-z0-9-]+)[\s\S]*?(?=databases:)/)?.[1] || "";
   const databaseRegion = text.match(/databases:[\s\S]*?-\s*name:\s*ai-link-postgres[\s\S]*?region:\s*([a-z0-9-]+)/)?.[1] || "";
   if (!webRegion || !databaseRegion || webRegion !== databaseRegion) {
-    missing.push("matching explicit Web/Postgres region decision");
+    decisionMissing.push("matching explicit Web/Postgres region decision");
   }
   if (!/renderSubdomainPolicy:\s*disabled/.test(text)) {
-    missing.push("renderSubdomainPolicy:disabled");
+    decisionMissing.push("renderSubdomainPolicy:disabled");
   }
   if (!/domains:\s*(?:\[\s*auth\.xiao-qi-ai\.com\s*\]|\r?\n\s*-\s*auth\.xiao-qi-ai\.com(?:\s|$))/.test(text)) {
-    missing.push("domains:auth.xiao-qi-ai.com");
+    decisionMissing.push("domains:auth.xiao-qi-ai.com");
   }
+  const missing = [...contractMissing, ...decisionMissing];
   return {
     ok: missing.length === 0,
-    missing
+    contractOk: contractMissing.length === 0,
+    decisionEncoded: decisionMissing.length === 0,
+    missing,
+    contractMissing,
+    decisionMissing
   };
 }
 
@@ -359,9 +386,12 @@ function gitOutput(commandArgs) {
   return result.stdout.trim();
 }
 
-function recommendedNext({ remoteHealth, missingSmokeEnv: missingEnv, missingAccessOperatorEnv: missingAccess, renderOk }) {
-  if (!renderOk) {
-    return "Fix render.yaml deployment references before external setup.";
+function recommendedNext({ remoteHealth, missingSmokeEnv: missingEnv, missingAccessOperatorEnv: missingAccess, renderCheck }) {
+  if (!renderCheck.contractOk) {
+    return "Fix the repository deployment contract before requesting production decisions.";
+  }
+  if (!renderCheck.decisionEncoded) {
+    return "Approve the Auth Hub deployment decision card, then encode the approved region, custom domain, and native-subdomain policy in render.yaml.";
   }
   if (remoteHealth.status !== "pass") {
     return "Configure Render custom domain / Cloudflare DNS until /healthz returns the AI Link Auth Hub payload.";
@@ -385,6 +415,7 @@ function renderMarkdown(remoteReport) {
   lines.push(`- Target: ${remoteReport.target.baseUrl}`);
   lines.push(`- Remote ready: ${remoteReport.summary.remoteReady ? "yes" : "no"}`);
   lines.push(`- Smoke ready: ${remoteReport.summary.smokeReady ? "yes" : "no"}`);
+  lines.push(`- Deployment decision: ${remoteReport.summary.deploymentDecisionStatus}`);
   lines.push(`- Blocking count: ${remoteReport.summary.blockingCount}`);
   lines.push(`- Recommended next: ${remoteReport.summary.recommendedNext}`);
   lines.push(`- Repository: ${remoteReport.repository.branch || "unknown"} @ ${remoteReport.repository.head || "unknown"}`);
@@ -408,6 +439,16 @@ function renderMarkdown(remoteReport) {
     }
     lines.push("");
   }
+
+  lines.push("## Deployment Decision");
+  lines.push("");
+  lines.push(`- Status: ${remoteReport.deploymentDecision.status}`);
+  lines.push(`- Background: ${remoteReport.deploymentDecision.background}`);
+  lines.push(`- Decision content: ${remoteReport.deploymentDecision.content}`);
+  lines.push(`- Recommendation: ${remoteReport.deploymentDecision.recommendation}`);
+  lines.push(`- Value: ${remoteReport.deploymentDecision.value}`);
+  lines.push(`- Risk: ${remoteReport.deploymentDecision.risk}`);
+  lines.push("");
 
   lines.push("## Manual Actions");
   lines.push("");

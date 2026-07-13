@@ -131,9 +131,10 @@ npm run auth-hub:remote:next:json
 ```
 
 2. 域名切为 Proxied 且 Access 生效后，无凭据 `/healthz` 可能被 Access 拦截；最终态应先从密码库临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`，再运行 `remote:next`。工具会带 Service Auth 请求 `/healthz`，但不打印凭据。
-   - Service Auth 头只会发往 `https://auth.xiao-qi-ai.com`。
-   - 若负责人批准另一个专用域名，只在当前 smoke 终端设置 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS=<批准的 hostname>`；只写 hostname，不写 URL、路径或通配符。
-   - 工具禁止自动跟随 `/healthz` 重定向，防止凭据被带到其他地址。
+   - 项目没有隐式批准域名；即使采用建议候选 `auth.xiao-qi-ai.com`，也必须在当前 smoke 终端设置 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS=auth.xiao-qi-ai.com`。
+   - 只写批准的 hostname，多个值用逗号分隔；不写 URL、路径、端口或通配符。
+   - loopback 仅用于本地开发且永远不附加 Service Auth；远程目标必须使用 HTTPS。
+   - 状态客户端、本地执行器和 smoke 都禁止自动跟随重定向，防止 Bearer 或 Service Auth 凭据被带到其他地址。
 3. 从本机密码库临时注入 smoke 所需变量，按本文件第 6 节运行生产预检和 Service Auth API/执行器 smoke。
 4. 验证结束立即关闭该 PowerShell；不要用 `setx` 把生产 token 永久写入用户环境。
 5. 首次验收必须保存三条独立证据：未授权浏览器在 Cloudflare 边缘被拦截；批准邮箱可进入应用内登录并通过 CSRF 检查；本地执行器可用 Service Auth 完成 mock 任务。Service Auth 不是浏览器身份，不能替代批准邮箱验收。
@@ -240,7 +241,7 @@ Render 官方参考：[Blueprint YAML Reference](https://render.com/docs/bluepri
 - 记录应用 AUD tag 到 `AI_LINK_CLOUDFLARE_ACCESS_AUD`。
 - 确认源站验证 JWT 的 RS256 签名、issuer 和 audience；不得把 `Cf-Access-Authenticated-User-Email` 当成独立凭据。
 - 用户 JWT 的 `email` 必须与转发邮件头一致；服务令牌 JWT 的 `common_name` 不得当作用户邮箱。
-- 本地执行器如需穿过 Cloudflare Access，创建 Service Auth 凭据，并只在本机或 Bitwarden 中保存 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。
+- 本地执行器如需穿过 Cloudflare Access，创建 Service Auth 凭据，并只在本机或 Bitwarden 中保存 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`；目标 hostname 必须显式加入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`，请求不得自动跟随重定向。
 
 官方参考：[验证 Access JWT](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)、[Application token claims](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)、[Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)。
 
@@ -252,6 +253,7 @@ Render 官方参考：[Blueprint YAML Reference](https://render.com/docs/bluepri
 
 ```powershell
 $env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
+$env:AI_LINK_AUTH_HUB_ALLOWED_HOSTS="auth.xiao-qi-ai.com"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_ID="local-executor"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
@@ -301,7 +303,9 @@ powershell -ExecutionPolicy Bypass -File tools/start-auth-hub-executor.ps1 `
 - 控制台只接受本地安全跳转；任务只有 `action_required` 或 `failed` 可重试，非法或重复审批不得改变状态。
 - 本地执行器能领取任务并回传结果。
 - `GET /api/connectors` 显示至少一个 online executor heartbeat；没有显式只读 probe 时，真实能力仍显示 `unverified` 和 `canRunReal=false`。
-- 显式 probe 只允许三项健康操作，并验证 token/executor/session/lease 绑定、重放拒绝、服务端 TTL 与 `verifiedOperations` 操作级口径。
+- 所有执行器结果都验证 token/executor/session/lease 绑定，拒绝未领取、错误绑定、过期租约、终态改写和重放。
+- 显式 probe 只允许三项健康操作；GitHub 证据按 scope 与目标绑定，验证服务端 TTL 与 `verifiedOperations` 精确限定口径。
+- 远程 Bearer/Service Auth 只发往显式批准的 HTTPS hostname；loopback 不携带 Service Auth，所有相关客户端拒绝重定向。
 - `auth-hub:smoke` 可跑通 mock 全链路。
 - 发布动作仍需要审批。
 - `npm run security:scan` 无敏感发现。
@@ -311,6 +315,7 @@ powershell -ExecutionPolicy Bypass -File tools/start-auth-hub-executor.ps1 `
 
 ```powershell
 $env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
+$env:AI_LINK_AUTH_HUB_ALLOWED_HOSTS="auth.xiao-qi-ai.com"
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_ID="local-executor"

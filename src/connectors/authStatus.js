@@ -260,6 +260,8 @@ function publicProbe(probe) {
     operations: Array.isArray(probe.operations)
       ? probe.operations.slice(0, 10).map((item) => ({
         operation: String(item.operation || ""),
+        qualifier: String(item.qualifier || ""),
+        subjectBound: item.subjectBound === true,
         capability: String(item.capability || ""),
         outcome: String(item.outcome || ""),
         issueCode: String(item.issueCode || ""),

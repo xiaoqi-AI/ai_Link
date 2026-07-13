@@ -79,7 +79,10 @@ export function normalizePlatformConnectorResult(value, {
   }
 
   const session = normalizeSession(value.session, { platform, status, clock });
-  const items = normalizeItems(value.items, { platform });
+  const items = normalizeItems(value.items, {
+    platform,
+    allowNonEmpty: platform === "xiaohongshu" && operation === "search_content"
+  });
   const emptyReadySearch = platform === "xiaohongshu"
     && operation === "search_content"
     && status === "ready"
@@ -135,10 +138,13 @@ function normalizeSession(value, { platform, clock }) {
   };
 }
 
-function normalizeItems(value, { platform }) {
+function normalizeItems(value, { platform, allowNonEmpty = false }) {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 4) {
     throw contractError(platform, "invalid_item_count");
+  }
+  if (!allowNonEmpty && value.length > 0) {
+    throw contractError(platform, "items_not_allowed_for_operation");
   }
   return value.map((item) => normalizeItem(item, { platform }));
 }

@@ -35,7 +35,7 @@ describe("next actions report", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
-    assert.equal(report.summary.nextOpen, 6);
+    assert.equal(report.summary.nextOpen, 5);
     assert.equal(report.repository.branch.length > 0, true);
     assert.equal(report.repository.head.length > 0, true);
     assert.deepEqual(ids, [
@@ -47,15 +47,11 @@ describe("next actions report", () => {
       "configure-provider-live-environment",
       "decide-v0-1-release-channel",
       "keep-local-baseline-green",
-      "merge-auth-hub-program-stack",
       "record-v0-1-release-decisions"
     ]);
-    const mergeAction = report.actions.find((action) => action.id === "merge-auth-hub-program-stack");
-    assert.match(mergeAction.background, /PR #21 is merged/);
-    assert.match(mergeAction.recommendation, /#22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28/);
-    assert.equal(Boolean(mergeAction.value && mergeAction.risk), true);
     const remoteAction = report.actions.find((action) => action.id === "configure-auth-hub-remote-mock-dry-run");
     assert.equal(remoteAction.status, "gated");
+    assert.match(remoteAction.background, /no remote resource or smoke evidence exists/);
     assert.equal(remoteAction.commands.some((command) => command.includes("<confirmed-auth-hub-url>")), true);
     assert.equal(remoteAction.commands.some((command) => command.includes("https://auth.xiao-qi-ai.com")), false);
     const platformAction = report.actions.find((action) => action.id === "accept-platform-readonly-p0-2");
@@ -63,6 +59,7 @@ describe("next actions report", () => {
     assert.equal(report.actions.find((action) => action.id === "configure-github-hardening").status, "ready");
     assert.equal(report.actions.find((action) => action.id === "record-v0-1-release-decisions").status, "ready");
     assert.equal(report.actions.find((action) => action.id === "decide-v0-1-release-channel").status, "ready");
+    assert.equal(report.actions.some((action) => action.id === "merge-auth-hub-program-stack"), false);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
     assert.equal(report.actions.every((action) => action.commands.length > 0 && action.evidence.length > 0), true);
   });
@@ -72,9 +69,8 @@ describe("next actions report", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /# AI Link Next Actions/);
-    assert.match(result.stdout, /Merge Auth Hub program stack in dependency order/);
     assert.match(result.stdout, /Approve platform read-only P0.2 acceptance/);
-    assert.match(result.stdout, /#22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28/);
+    assert.doesNotMatch(result.stdout, /Merge Auth Hub program stack in dependency order/);
     assert.match(result.stdout, /Configure Bitwarden Secrets Manager/);
     assert.match(result.stdout, /Configure Auth Hub remote mock dry-run/);
     assert.match(result.stdout, /auth-hub:remote:smoke/);

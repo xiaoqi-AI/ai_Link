@@ -53,6 +53,98 @@ postgresDescribe("PostgresStore lifecycle integration", () => {
     assert.equal(removed.revoked, 0);
   });
 
+  it("settles an executor lease once under concurrent result submissions", async () => {
+    const created = await store.createTask({
+      workflow: "read_detect",
+      input: { text: "postgres lease test" },
+      targets: ["wechat_official"],
+      options: {},
+      createdBy: "integration"
+    });
+    const leased = await store.leaseTask({
+      executorId: "integration-executor",
+      executorSessionId: "integration-session",
+      leaseMs: 60_000
+    });
+    assert.equal(leased.id, created.id);
+
+    const settlement = {
+      taskId: created.id,
+      executorId: "integration-executor",
+      executorSessionId: "integration-session",
+      leaseId: leased.leaseId,
+      taskStatus: "completed",
+      resultStatus: "completed",
+      summary: "settled once",
+      result: { output: "ok" },
+      artifacts: [{ kind: "summary", title: "result" }],
+      actor: "integration-executor"
+    };
+    const outcomes = await Promise.all([
+      store.settleTaskResult(settlement),
+      store.settleTaskResult(settlement)
+    ]);
+
+    assert.equal(outcomes.filter(Boolean).length, 1);
+    assert.equal((await store.getTask(created.id)).status, "completed");
+    assert.equal((await store.listArtifacts(created.id)).length, 1);
+    const audits = await store.listAuditEvents({ taskId: created.id, eventType: "task.completed" });
+    assert.equal(audits.length, 1);
+  });
+
+  it("rolls back a task settlement when a dependent write fails", async () => {
+    const created = await store.createTask({
+      workflow: "read_detect",
+      input: { text: "postgres rollback test" },
+      targets: ["wechat_official"],
+      options: {},
+      createdBy: "integration"
+    });
+    const leased = await store.leaseTask({
+      executorId: "rollback-executor",
+      executorSessionId: "rollback-session",
+      leaseMs: 60_000
+    });
+    await store.pool.query(`
+      CREATE OR REPLACE FUNCTION ai_link_test_reject_artifact_insert()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        RAISE EXCEPTION 'forced settlement rollback';
+      END;
+      $$;
+      CREATE TRIGGER ai_link_test_artifact_insert
+      BEFORE INSERT ON artifacts
+      FOR EACH ROW EXECUTE FUNCTION ai_link_test_reject_artifact_insert();
+    `);
+    try {
+      await assert.rejects(
+        store.settleTaskResult({
+          taskId: created.id,
+          executorId: "rollback-executor",
+          executorSessionId: "rollback-session",
+          leaseId: leased.leaseId,
+          taskStatus: "completed",
+          resultStatus: "completed",
+          summary: "must roll back",
+          result: { output: "not persisted" },
+          artifacts: [{ kind: "summary", title: "blocked" }],
+          actor: "rollback-executor"
+        }),
+        /forced settlement rollback/
+      );
+    } finally {
+      await store.pool.query("DROP TRIGGER IF EXISTS ai_link_test_artifact_insert ON artifacts");
+      await store.pool.query("DROP FUNCTION IF EXISTS ai_link_test_reject_artifact_insert() ");
+    }
+
+    const task = await store.getTask(created.id);
+    assert.equal(task.status, "running");
+    assert.equal(task.leaseId, leased.leaseId);
+    assert.equal((await store.listArtifacts(created.id)).length, 0);
+    const audits = await store.listAuditEvents({ taskId: created.id, eventType: "task.completed" });
+    assert.equal(audits.length, 0);
+  });
+
   it("previews without writes and applies only eligible retention records", async () => {
     const fixture = await seedRetentionFixture(store);
     const beforeCounts = await tableCounts(store);
@@ -284,13 +376,14 @@ async function seedRetentionFixture(store) {
   );
   await store.pool.query(
     `INSERT INTO connector_probe_evidence (
-       executor_id, executor_session_id, platform, operation, schema_version, capability, outcome,
-       issue_code, task_id, attempt_id, heartbeat_revision, checked_at, expires_at, updated_at
+       executor_id, executor_session_id, platform, operation, qualifier, subject_key,
+       schema_version, capability, outcome, issue_code, task_id, attempt_id,
+       heartbeat_revision, checked_at, expires_at, updated_at
      ) VALUES (
-       'integration-executor', 'integration-session', 'github', 'check_auth', '1', 'check_auth', 'verified',
-       '', $1, $2, $3, $4, $5, $5
+       'integration-executor', 'integration-session', 'github', 'check_auth', 'repo_read', $6,
+       '2', 'check_auth', 'verified', '', $1, $2, $3, $4, $5, $5
      )`,
-    [terminalTaskId, crypto.randomUUID(), heartbeatRevision, older, old]
+    [terminalTaskId, crypto.randomUUID(), heartbeatRevision, older, old, "a".repeat(64)]
   );
   await store.pool.query(
     `INSERT INTO audit_events (id, task_id, actor, event_type, detail, created_at)

@@ -94,6 +94,8 @@ function connectorProbeParams(evidence) {
     evidence.executorSessionId,
     evidence.platform,
     evidence.operation,
+    evidence.qualifier,
+    evidence.subjectKey,
     evidence.schemaVersion,
     evidence.capability,
     evidence.outcome,
@@ -108,6 +110,7 @@ function connectorProbeParams(evidence) {
 
 function taskEventType(status) {
   return {
+    approval_required: "task.approval_required",
     completed: "task.completed",
     action_required: "task.action_required",
     failed: "task.failed"
@@ -119,6 +122,8 @@ function publicProbeAuditDetail(evidence) {
     schemaVersion: evidence.schemaVersion,
     platform: evidence.platform,
     operation: evidence.operation,
+    qualifier: evidence.qualifier,
+    subjectBound: Boolean(evidence.subjectKey),
     capability: evidence.capability,
     outcome: evidence.outcome,
     issueCode: evidence.issueCode,
@@ -150,6 +155,8 @@ function rowConnectorProbeEvidence(row) {
     executorSessionId: row.executor_session_id,
     platform: row.platform,
     operation: row.operation,
+    qualifier: row.qualifier || "",
+    subjectKey: row.subject_key || "",
     capability: row.capability,
     outcome: row.outcome,
     issueCode: row.issue_code || "",
@@ -271,6 +278,8 @@ export class PostgresStore {
         executor_session_id text NOT NULL,
         platform text NOT NULL,
         operation text NOT NULL,
+        qualifier text NOT NULL DEFAULT '',
+        subject_key text NOT NULL DEFAULT '',
         schema_version text NOT NULL,
         capability text NOT NULL,
         outcome text NOT NULL,
@@ -281,7 +290,7 @@ export class PostgresStore {
         checked_at timestamptz NOT NULL,
         expires_at timestamptz NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now(),
-        PRIMARY KEY (executor_id, platform, operation),
+        PRIMARY KEY (executor_id, platform, operation, qualifier, subject_key),
         CONSTRAINT connector_probe_outcome CHECK (outcome IN ('verified', 'action_required', 'blocked', 'unverified')),
         CONSTRAINT connector_probe_expiry CHECK (expires_at > checked_at)
       );
@@ -296,8 +305,25 @@ export class PostgresStore {
       ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lease_executor_session_id text;
       ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lease_heartbeat_revision uuid;
       ALTER TABLE connector_probe_evidence ADD COLUMN IF NOT EXISTS executor_session_id text;
+      ALTER TABLE connector_probe_evidence ADD COLUMN IF NOT EXISTS qualifier text NOT NULL DEFAULT '';
+      ALTER TABLE connector_probe_evidence ADD COLUMN IF NOT EXISTS subject_key text NOT NULL DEFAULT '';
       UPDATE connector_probe_evidence SET executor_session_id = 'legacy-untrusted' WHERE executor_session_id IS NULL;
       ALTER TABLE connector_probe_evidence ALTER COLUMN executor_session_id SET NOT NULL;
+      DO $$
+      DECLARE probe_primary_key text;
+      BEGIN
+        SELECT pg_get_constraintdef(oid)
+          INTO probe_primary_key
+          FROM pg_constraint
+         WHERE conrelid = 'connector_probe_evidence'::regclass
+           AND contype = 'p';
+        IF probe_primary_key IS NULL OR probe_primary_key NOT ILIKE '%qualifier%' THEN
+          ALTER TABLE connector_probe_evidence DROP CONSTRAINT IF EXISTS connector_probe_evidence_pkey;
+          ALTER TABLE connector_probe_evidence
+            ADD CONSTRAINT connector_probe_evidence_pkey
+            PRIMARY KEY (executor_id, platform, operation, qualifier, subject_key);
+        END IF;
+      END $$;
 
       CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_api_tokens_executor_id ON api_tokens(executor_id) WHERE executor_id IS NOT NULL;
@@ -491,11 +517,12 @@ export class PostgresStore {
     if (!evidence) throw new Error("Invalid connector probe evidence.");
     const { rows } = await this.pool.query(
       `INSERT INTO connector_probe_evidence (
-         executor_id, executor_session_id, platform, operation, schema_version, capability, outcome,
-         issue_code, task_id, attempt_id, heartbeat_revision, checked_at, expires_at
+         executor_id, executor_session_id, platform, operation, qualifier, subject_key,
+         schema_version, capability, outcome, issue_code, task_id, attempt_id,
+         heartbeat_revision, checked_at, expires_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       ON CONFLICT (executor_id, platform, operation) DO UPDATE SET
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       ON CONFLICT (executor_id, platform, operation, qualifier, subject_key) DO UPDATE SET
          executor_session_id = EXCLUDED.executor_session_id,
          schema_version = EXCLUDED.schema_version,
          capability = EXCLUDED.capability,
@@ -678,6 +705,137 @@ export class PostgresStore {
     return rowTask(rows[0]);
   }
 
+  async settleTaskResult({
+    taskId,
+    executorId,
+    executorSessionId,
+    leaseId,
+    taskStatus,
+    resultStatus,
+    summary,
+    result,
+    error,
+    approval,
+    artifacts = [],
+    actor,
+    aiLinkAudit
+  }) {
+    if (![
+      TASK_STATUSES.APPROVAL_REQUIRED,
+      TASK_STATUSES.COMPLETED,
+      TASK_STATUSES.ACTION_REQUIRED,
+      TASK_STATUSES.FAILED
+    ].includes(taskStatus)) {
+      return null;
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query(
+        `UPDATE tasks
+         SET status = $1,
+             summary = $2,
+             result = $3,
+             error = $4,
+             leased_by = NULL,
+             lease_id = NULL,
+             lease_executor_session_id = NULL,
+             lease_heartbeat_revision = NULL,
+             lease_expires_at = NULL,
+             updated_at = now()
+         WHERE id = $5
+           AND status = $6
+           AND COALESCE(options->>'evidenceIntent', '') <> 'connector_probe'
+           AND leased_by = $7
+           AND lease_executor_session_id = $8
+           AND lease_id = $9
+           AND lease_expires_at > now()
+         RETURNING *`,
+        [
+          taskStatus,
+          summary || "",
+          json(result || null),
+          json(error || null),
+          taskId,
+          TASK_STATUSES.RUNNING,
+          executorId,
+          executorSessionId,
+          leaseId
+        ]
+      );
+      if (!updated.rows[0]) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      for (const artifact of artifacts) {
+        await client.query(
+          `INSERT INTO artifacts (id, task_id, kind, title, summary, location, content, retention_until)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            crypto.randomUUID(),
+            taskId,
+            artifact.kind || "summary",
+            artifact.title || "",
+            artifact.summary || "",
+            artifact.location || "",
+            json(artifact.content || null),
+            artifact.retentionUntil || null
+          ]
+        );
+      }
+
+      let createdApproval = null;
+      if (taskStatus === TASK_STATUSES.APPROVAL_REQUIRED) {
+        const approvalId = crypto.randomUUID();
+        const approvalRows = await client.query(
+          `INSERT INTO approvals (
+             id, task_id, type, title, summary, next_step, status, requested_by, expires_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, now() + ($8::int * interval '1 day'))
+           RETURNING *`,
+          [
+            approvalId,
+            taskId,
+            approval?.type || "publish",
+            approval?.title || "Confirm action",
+            approval?.summary || summary || "",
+            approval?.nextStep || "publish",
+            actor,
+            this.retentionPolicy.approvalDays
+          ]
+        );
+        createdApproval = rowApproval(approvalRows.rows[0]);
+      }
+
+      const eventDetail = createdApproval
+        ? { approvalId: createdApproval.id }
+        : taskStatus === TASK_STATUSES.COMPLETED
+          ? { status: taskStatus }
+          : { error: error || null };
+      await client.query(
+        `INSERT INTO audit_events (id, task_id, actor, event_type, detail)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [crypto.randomUUID(), taskId, actor, taskEventType(taskStatus), json(eventDetail)]
+      );
+      if (aiLinkAudit) {
+        await client.query(
+          `INSERT INTO audit_events (id, task_id, actor, event_type, detail)
+           VALUES ($1, $2, $3, 'ai_link.audit', $4)`,
+          [crypto.randomUUID(), taskId, actor, json({ status: resultStatus, audit: aiLinkAudit })]
+        );
+      }
+
+      await client.query("COMMIT");
+      return { task: rowTask(updated.rows[0]), approval: createdApproval };
+    } catch (error_) {
+      await client.query("ROLLBACK");
+      throw error_;
+    } finally {
+      client.release();
+    }
+  }
+
   async settleConnectorProbeTask({
     taskId,
     executorId,
@@ -743,11 +901,12 @@ export class PostgresStore {
 
       await client.query(
         `INSERT INTO connector_probe_evidence (
-           executor_id, executor_session_id, platform, operation, schema_version, capability, outcome,
-           issue_code, task_id, attempt_id, heartbeat_revision, checked_at, expires_at
+           executor_id, executor_session_id, platform, operation, qualifier, subject_key,
+           schema_version, capability, outcome, issue_code, task_id, attempt_id,
+           heartbeat_revision, checked_at, expires_at
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-         ON CONFLICT (executor_id, platform, operation) DO UPDATE SET
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         ON CONFLICT (executor_id, platform, operation, qualifier, subject_key) DO UPDATE SET
            executor_session_id = EXCLUDED.executor_session_id,
            schema_version = EXCLUDED.schema_version,
            capability = EXCLUDED.capability,
