@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "bin": {
     "ai-link": "dist/cli.js",
+    "ai-link-auth-hub": "dist/authHub/projectTask.js",
     "ai-link-gsc": "dist/connectors/gscCheck.js",
     "ai-link-gsc-auth": "dist/connectors/gscAuthorize.js"
   },
@@ -132,6 +133,7 @@
     "auth-hub:status:strict": "node tools/show-auth-status-next-actions.js --strict",
     "auth-hub:status:watch": "node tools/show-auth-status-next-actions.js --watch",
     "auth-hub:status:watch:json": "node tools/show-auth-status-next-actions.js --watch --json",
+    "auth-hub:project": "node src/authHub/projectTask.js",
     "auth-hub:github-adapter:new": "node tools/new-github-auth-private-adapter.js",
     "auth-hub:github-adapter:print": "node tools/new-github-auth-private-adapter.js --print",
     "auth-hub:github-adapter:json": "node tools/new-github-auth-private-adapter.js --json",

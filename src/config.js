@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { parseProjectClientEntries, publicProjectClientPolicy } from "./authHub/projectPolicy.js";
 
 function readCsv(value) {
   return String(value || "")
@@ -32,6 +33,7 @@ export function loadConfig(env = process.env) {
     throw new Error("AI_LINK_EXECUTOR_ID has an invalid format.");
   }
   const codexToken = env.AI_LINK_CODEX_TOKEN || (isProduction ? "" : "dev-codex-token");
+  const projectClientEntries = parseProjectClientEntries(env);
   const requireCloudflareAccess = ["1", "true", "yes"].includes(
     String(env.AI_LINK_REQUIRE_CLOUDFLARE_ACCESS || "").toLowerCase()
   );
@@ -125,6 +127,7 @@ export function loadConfig(env = process.env) {
       to: env.APPROVAL_EMAIL_TO || "",
       from: env.APPROVAL_EMAIL_FROM || "AI Link <no-reply@localhost>"
     },
+    projectClients: projectClientEntries.map(publicProjectClientPolicy),
     apiTokens: [
       {
         name: "admin",
@@ -151,7 +154,12 @@ export function loadConfig(env = process.env) {
         scopes: readCsv(env.AI_LINK_CODEX_SCOPES).length
           ? readCsv(env.AI_LINK_CODEX_SCOPES)
           : ["tasks:create", "tasks:read", "connectors:read", "connectors:verify-target", "audit:write"]
-      }
+      },
+      ...projectClientEntries.map((entry) => ({
+        name: entry.actorName,
+        token: entry.token,
+        scopes: ["tasks:create", "tasks:read"]
+      }))
     ].filter((item) => item.token)
   };
 }

@@ -154,6 +154,51 @@ npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:watch:json -- --require-o
 
 如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。远程 hostname 必须同时显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`；项目没有任何隐式批准域名，不支持通配符，带凭据请求也不会自动跟随重定向。loopback 可用于本地开发，但永远不附加 Cloudflare Service Auth 头。`auth-hub:status` 总是先调用 `GET /api/auth-status`；仅当声明 GitHub `target_bound` 且通用状态发布 `check_auth:<scope>:target_verification_required:v1` 候选证据时，再调用 `POST /api/auth-status/verify-targets`。精确核验 token 必须同时具有 `connectors:read` 与独立 `connectors:verify-target` scope；只有状态读取权限的 token 会被拒绝。两条请求都不会输出 token、Cookie、Profile、二维码、截图、账号详情、目标仓库、原始响应、内部 HMAC、lease/session/revision 或 `runtime/private` 路径。目标值只能来自 `--github-target-env` 指定的环境变量，不能放进命令行参数；该选项接收的是环境变量名，不是 `<owner>/<repo>` 本身。外部项目需要真实平台能力时应使用 `--require-operation "<platform>=<verified-operation>"`；该参数会自动把检查范围收敛到对应平台，并要求 `ready`、精确 operation 和目标核验同时通过。`unverified`、`needs_action`、`reserved`、`blocked`、过期 probe、缺失平台、错误 scope、错误目标或核验接口异常都会非零退出。不要只根据平台级 `ready` 放行，也不要无差别检查所有平台；普通代码、文档、UI 和本地测试无需调用该状态接口。
 
+### 项目任务客户端
+
+状态客户端回答“已有授权证据是否可用”；项目任务客户端回答“请 AI Link 执行一个已批准的只读 connector 任务”。维护者先在 Auth Hub 服务端配置项目清单。清单只保存项目 id、token 所在环境变量名、允许的 operation，以及 GitHub 的精确仓库/scope 白名单；真实 token 仍放在 secret manager 或部署平台 Secret 中：
+
+```powershell
+$env:AI_LINK_PROJECT_CLIENTS_JSON='[
+  {"id":"parentinggame","tokenEnv":"AI_LINK_PROJECT_PARENTINGGAME_TOKEN","operations":["github/check_auth","wechat_official/check_health"],"githubTargets":[{"repository":"owner/repository","scopes":["repo_read"]}]},
+  {"id":"hermes","tokenEnv":"AI_LINK_PROJECT_HERMES_TOKEN","operations":["xiaohongshu/check_session","xiaohongshu/search_content"]}
+]'
+$env:AI_LINK_PROJECT_PARENTINGGAME_TOKEN="<strong-random-project-token>"
+$env:AI_LINK_PROJECT_HERMES_TOKEN="<different-strong-random-project-token>"
+```
+
+项目 id 会映射为服务端身份 `project.<id>`。每个项目必须使用不同 token；删除清单项后，`project.` 托管 token 会在下次启动对账时撤销。项目 token 固定只有 `tasks:create,tasks:read`，服务端还会强制 operation 白名单、`platform_auth_collect` workflow 和合法 `requestId`。启用 `github/check_auth` 时必须给该项目配置 1-20 个 `githubTargets`；每项按大小写无关的精确 `owner/repository` 和 `repo_read` / `actions_read` / `pull_request_read` scope 匹配，未授权仓库或 scope 即使绕过 CLI 直接调用 API 也会被拒绝。既有 Admin/Codex 角色仍保留原有全局任务读取合同，只有 `project.*` 身份只能枚举和读取自己创建的任务。
+
+调用方安装本包后，在当前进程临时注入连接信息：
+
+```powershell
+$env:AI_LINK_AUTH_HUB_URL="https://auth.example.com"
+$env:AI_LINK_AUTH_HUB_ALLOWED_HOSTS="auth.example.com"
+$env:AI_LINK_PROJECT_TOKEN="<this-project-token>"
+$env:CF_ACCESS_CLIENT_ID="<service-auth-client-id>"       # 仅远程 Access 场景
+$env:CF_ACCESS_CLIENT_SECRET="<service-auth-client-secret>"
+```
+
+远程地址只允许显式批准的 HTTPS hostname 和 443 端口；不接受 URL 内嵌凭据、IP 字面量、通配符或自动重定向。Service Auth 两个值必须同时存在；部署要求强制 Service Auth 时再设置 `AI_LINK_AUTH_HUB_REQUIRE_SERVICE_AUTH=true`。loopback 仅用于本机开发，不附加 Cloudflare 头。Bearer token、Service Auth、GitHub 目标和小红书查询都不会进入命令输出。
+
+GitHub 目标和值可能敏感的查询只能通过环境变量传入，命令行只写环境变量名：
+
+```powershell
+$env:PROJECT_GITHUB_TARGET="<owner>/<repo>"
+ai-link-auth-hub submit --platform github --operation check_auth --scope repo_read --github-target-env PROJECT_GITHUB_TARGET --request-id "parentinggame-github-20260714-001" --wait --json
+
+$env:PROJECT_XHS_QUERY="<approved-query>"
+ai-link-auth-hub submit --platform xiaohongshu --operation search_content --query-env PROJECT_XHS_QUERY --limit 4 --request-id "hermes-xhs-20260714-001" --wait --json
+
+ai-link-auth-hub status --task-id "<task-uuid>" --json
+```
+
+`requestId` 必须由调用项目生成并在同一次业务尝试中保持稳定。相同项目、workflow 和 `requestId` 的相同载荷通过数据库持久化唯一键返回原任务；载荷不同则返回 `idempotency_conflict`，不会悄悄复用。默认等待 60 秒、间隔 2 秒、单请求 20 秒；可用 `--timeout-ms`、`--interval-ms` 和 `--request-timeout-ms` 调整，但总等待最多 5 分钟、单请求最多 30 秒且轮询间隔不少于 1 秒。轮询会把单请求超时收敛到剩余总预算，不会在总等待结束后再多跑一个完整请求。`approval_required` / `action_required` 退出码为 2，`failed` / `cancelled` 为 3，等待超时为 4，协议、认证或网络故障为 1。
+
+JSON 输出同时给出 `accepted`、`ready` 和 `ok`。合法任务被 Auth Hub 接受后 `accepted=true`，但 `queued` / `running` 仍为 `ready=false, ok=false`；只有任务为 `completed` 且严格 connector 结果为 `status=ready` 时，才会输出 `ready=true, ok=true`。`completed` 缺结果、终态与结果状态不匹配、返回任务 ID/operation/requestId 与原请求不一致都会失败关闭，不能被上游解释为授权成功。
+
+客户端只允许 `xiaohongshu/check_session`、`xiaohongshu/search_content`、`wechat_official/check_health` 和 `github/check_auth`。它不允许 `begin_login`、`evidenceIntent=connector_probe`、审批、retry、发布或写操作；普通任务完成也不会自动变成 Auth Status 的 probe 证据。遇到登录、验证码、凭据、费用、平台写入或远程部署事项时，必须回到 Auth Hub 管理员和人工决策流程。
+
 GitHub 精确目标状态采用失败关闭口径：`target_missing` 表示未提供目标环境变量，`target_invalid` 表示环境变量名或 `owner/repo` 值畸形，`target_unsupported` 表示请求不属于当前支持的 GitHub `check_auth` 范围，`target_coverage_unverified` 表示服务端过旧、接口不可达或响应合同不完整，`target_unverified` 表示现有新鲜证据没有验证该精确目标与 scope。前四类属于监控配置/覆盖故障，不建立或推进 watcher 基线；最后一类是可提醒的业务门禁信号。所有类别都不会在输出中回显目标。
 
 `auth-hub:status:watch` / `auth-hub:status:watch:json` 用于低频计划任务或 Codex 自动化，不用于每个项目任务的冷启动。首次成功运行只在 `runtime/private/auth-status-notifier/` 下建立按 Auth Hub 地址、平台、所需操作和规范化目标 keyed-HMAC 隔离的脱敏基线，并返回 `notify=false`；之后比较服务端规范化的 `authStatus.nextActions` 与消费端操作要求。watcher 会把人工动作和每一项精确操作作为独立信号，所以同一平台可以同时保留一个人工动作和多个 operation 门禁，不会互相覆盖。目标大小写规范化后复用同一基线，切换仓库则失败关闭并要求新的基线，避免把仓库 A 的状态沿用到仓库 B；持有快照但没有当前受限 token 的一方不能直接做仓库名字典验证。新人工事项、所需操作缺少证据或严重度恶化返回 `notify=true`；事项恢复、改善或同级原因变化只更新基线并返回 `resolved_without_alert` / `changed_without_alert`，避免误报。快照 schema 为版本 3，只包含哈希作用域、信号类型、平台代码、所需操作代码、状态、严重度、公开原因、最近成功检查时间和指纹，不保存 token、Cookie、Profile、二维码、截图、账号、目标仓库、任务 ID、目标 URL、标题、runbook 或原始响应。升级后如已有版本 2 快照，watcher 会以 `state_unreadable` 失败关闭；维护者确认没有并发 watcher 后，应删除或改名旧私有状态文件，再运行一次建立新基线。可用 `--state-file` 改到 `runtime/private/` 或 `runtime/tmp/` 下的其他文件，公共路径会被拒绝。缺 token、接口不可达、Auth Status 覆盖不完整、目标配置缺失/畸形、目标核验失败、HTTP 200 非 JSON/缺字段/字段类型错误、平台/操作范围无效、作用域不匹配、快照损坏或无法写入时，命令返回非零、`monitoringOk=false`、`monitoringAlert=true` 和 `notify=false`，并且不会建立或推进业务基线。该命令只生成提醒信号，不自行发送邮件、不执行 probe、不续登，也不调用真实平台。

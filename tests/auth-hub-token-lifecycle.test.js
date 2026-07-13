@@ -31,6 +31,18 @@ describe("configured API token lifecycle", () => {
     assert.equal((await store.findApiTokenByHash(manualHash)).revokedAt, null);
   });
 
+  it("revokes a removed project token through the reserved managed prefix", async () => {
+    const store = new MemoryStore();
+    const token = "test-project-token-value-000000";
+    await seedConfiguredTokens(store, [configuredToken("project.parentinggame", token)]);
+    const tokenHash = hashToken(token);
+    assert.equal((await store.findApiTokenByHash(tokenHash)).revokedAt, null);
+
+    const removed = await seedConfiguredTokens(store, []);
+    assert.equal(removed.revoked, 1);
+    assert.ok((await store.findApiTokenByHash(tokenHash)).revokedAt);
+  });
+
   it("preserves revocation and expiry when the same credential is seeded again", async () => {
     const store = new MemoryStore();
     const tokenHash = hashToken("test-revoked-token-value");

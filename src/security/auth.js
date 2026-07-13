@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import { parseCookies, verifySessionCookie } from "./session.js";
 import { browserSessionActor } from "./loginRateLimit.js";
-import { CONFIGURED_API_TOKEN_NAMES } from "./apiTokenLifecycle.js";
+import {
+  CONFIGURED_API_TOKEN_NAMES,
+  CONFIGURED_API_TOKEN_PREFIXES
+} from "./apiTokenLifecycle.js";
 
 export function hashToken(token) {
   return crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -17,6 +20,7 @@ export async function seedConfiguredTokens(store, tokens) {
   }));
   return store.syncConfiguredApiTokens({
     managedNames: CONFIGURED_API_TOKEN_NAMES,
+    managedNamePrefixes: CONFIGURED_API_TOKEN_PREFIXES,
     activeTokens
   });
 }

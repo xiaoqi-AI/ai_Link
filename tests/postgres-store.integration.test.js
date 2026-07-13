@@ -53,6 +53,85 @@ postgresDescribe("PostgresStore lifecycle integration", () => {
     assert.equal(removed.revoked, 0);
   });
 
+  it("serializes idempotent task creation and filters task ownership", async () => {
+    const request = {
+      workflow: "platform_auth_collect",
+      input: { platform: "github", operation: "check_auth", owner: "owner", repo: "repo", scope: "repo_read" },
+      targets: ["github"],
+      options: { requestId: "postgres-idempotency-001" },
+      createdBy: "project.parentinggame"
+    };
+    const [left, right] = await Promise.all([
+      store.createTaskIdempotent(request),
+      store.createTaskIdempotent(request)
+    ]);
+    assert.equal(left.task.id, right.task.id);
+    assert.deepEqual([left.replayed, right.replayed].sort(), [false, true]);
+    const keyCount = await store.pool.query(
+      "SELECT count(*)::int AS count FROM task_idempotency_keys WHERE created_by = $1",
+      [request.createdBy]
+    );
+    assert.equal(keyCount.rows[0].count, 1);
+
+    const conflict = await store.createTaskIdempotent({
+      ...request,
+      input: { ...request.input, scope: "actions_read" }
+    });
+    assert.equal(conflict.conflict, true);
+    assert.equal(conflict.task.id, left.task.id);
+
+    const directRequest = {
+      ...request,
+      options: { requestId: "postgres-idempotency-direct-001" }
+    };
+    const directTask = await store.createTask(directRequest);
+    const directReplay = await store.createTaskIdempotent(directRequest);
+    assert.equal(directReplay.replayed, true);
+    assert.equal(directReplay.task.id, directTask.id);
+    await assert.rejects(
+      store.createTask({
+        ...directRequest,
+        input: { ...directRequest.input, scope: "actions_read" }
+      }),
+      (error) => error.code === "idempotency_conflict"
+    );
+
+    const legacyId = crypto.randomUUID();
+    const legacyRequest = {
+      ...request,
+      options: { requestId: "postgres-idempotency-legacy-001" },
+      createdBy: "project.legacy"
+    };
+    await store.pool.query(
+      `INSERT INTO tasks (id, workflow, status, current_step, input, targets, options, created_by)
+       VALUES ($1, $2, 'queued', 'process', $3, $4, $5, $6)`,
+      [
+        legacyId,
+        legacyRequest.workflow,
+        JSON.stringify(legacyRequest.input),
+        JSON.stringify(legacyRequest.targets),
+        JSON.stringify(legacyRequest.options),
+        legacyRequest.createdBy
+      ]
+    );
+    const legacyReplay = await store.createTaskIdempotent(legacyRequest);
+    assert.equal(legacyReplay.replayed, true);
+    assert.equal(legacyReplay.task.id, legacyId);
+
+    await store.createTask({
+      workflow: "read_detect",
+      input: { text: "other project" },
+      targets: ["wechat_official"],
+      options: {},
+      createdBy: "project.hermes"
+    });
+    const owned = await store.listTasks({ createdBy: "project.parentinggame" });
+    assert.deepEqual(
+      owned.map((task) => task.id).sort(),
+      [left.task.id, directTask.id].sort()
+    );
+  });
+
   it("settles an executor lease once under concurrent result submissions", async () => {
     const created = await store.createTask({
       workflow: "read_detect",

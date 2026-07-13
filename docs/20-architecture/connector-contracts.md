@@ -109,6 +109,10 @@ npm run auth-hub:status:json
 | `wechat_official` | `check_health` | `checkHealth` | 官方 API 只读健康检查 |
 | `github` | `check_auth` | `checkAuth` | 目标仓库必填；`repo_read` / `actions_read` / `pull_request_read` 分别探测 Contents、Actions、Pull requests 只读端点 |
 
+项目侧公开 CLI `ai-link-auth-hub` 只开放表中四个非交互 operation：`xiaohongshu/check_session`、`xiaohongshu/search_content`、`wechat_official/check_health`、`github/check_auth`。`begin_login` 只能由 Auth Hub 管理端按人工审批流程发起。项目 CLI 不能设置 `evidenceIntent`，因此普通任务不会被扩大解释为 connector probe 或 Auth Status 放行证据。
+
+每次项目提交必须包含稳定 `options.requestId`。服务端以 `createdBy + workflow + requestId` 的持久化唯一键去重；完全相同的规范化输入复用原任务，不同输入返回 `idempotency_conflict`。只有 `project.*` 身份执行 own-task 读取隔离，既有 Admin/Codex/Executor 角色合同不被改变。项目 token 还受服务端 operation allowlist 约束；GitHub 请求必须同时匹配该项目配置的精确仓库和 scope，客户端参数限制不是唯一安全边界。
+
 连接器结果固定为：
 
 ```json

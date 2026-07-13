@@ -5,9 +5,9 @@ const args = new Set(process.argv.slice(2));
 const outputJson = args.has("--json");
 
 const program = {
-  asOf: "2026-07-13",
+  asOf: "2026-07-14",
   objective: "Advance Auth Hub status, platform authorization connectors P0.2, and remote deployment as one governed AI Link program.",
-  recommendedNext: "Approve the first real GitHub read-only acceptance, then decide whether to activate low-frequency status notifications; keep remote deployment behind its decision card.",
+  recommendedNext: "After PR #38 passes required checks and is integrated, run local/mock project-consumption acceptance before any separately approved real GitHub read-only acceptance or remote deployment.",
   mergeStatus: "complete",
   mergeOrder: ["#22", "#23", "#26", "#24", "#25", "#27", "#28", "#29", "#30"],
   modules: [
@@ -15,16 +15,19 @@ const program = {
       id: "auth-hub-status-center",
       number: 2,
       title: "Auth Hub 状态中枢",
-      status: "local_ready",
-      currentStage: "The complete status-center stack is in main; local low-noise change detection is ready, while notification-channel activation and remote evidence remain gated.",
+      status: "project_client_pending_merge",
+      currentStage: "The status-center stack is in main; PR #38 adds governed project submission, own-task status reads, and bounded polling, while notification activation and remote evidence remain gated.",
       completed: [
         "PR #12, #16, and #17 merged login summaries, public next actions, and the project-facing status client.",
         "PR #22-#25 and #27-#30 are merged with executor heartbeat, operation-bound probe evidence, remote identity hardening, abuse controls, data lifecycle, program control, and low-noise change detection.",
         "Local full-chain mock, redacted audit, and restricted Codex client boundaries are verified.",
         "The local public-safe status snapshot emits notify=true only for new or worsened attention signals without querying AI Link during ordinary project work.",
-        "PR #31 records maintainer authorization for future in-scope PR merges without bypassing required checks."
+        "PR #31 records maintainer authorization for future in-scope PR merges without bypassing required checks.",
+        "PR #33-#37 tightened operator trust, exact operation status, and exact GitHub target evidence.",
+        "PR #38 implements project identities, persistent idempotency, own-task reads, and a packaged bounded task client; required checks are pending."
       ],
       pending: [
+        "Complete required checks and integration for PR #38, then validate one dependent project through local/mock submission and status reads.",
         "Choose one approved low-frequency notification channel and schedule only after a stable local or remote Auth Hub endpoint exists.",
         "Collect the first operation-bound real connector evidence without moving credentials or login state into the public repository.",
         "Do not claim the remote status center is deployed until Cloudflare Access and Render smoke evidence exists."
@@ -42,15 +45,18 @@ const program = {
       number: 5,
       title: "平台授权连接器 P0.2",
       status: "manual_acceptance",
-      currentStage: "Public contracts and private adapter scaffolds are merged; real account acceptance remains gated.",
+      currentStage: "Public contracts and private adapter scaffolds are merged; PR #38 exposes only approved read-only operations through project policies, while real account acceptance remains gated.",
       completed: [
         "PR #9 and #13 merged platform contracts and the interactive-login approval gate.",
         "PR #18-#21 merged GitHub and WeChat private scaffolds plus the combined Xiaohongshu read-only bridge entry.",
         "PR #26 merged target-required, scope-specific GitHub read-only evidence checks.",
+        "PR #33-#37 hardened exact operation and GitHub repository/scope evidence boundaries.",
+        "PR #38 binds project policies to approved connector operations and exact GitHub targets without exposing login state.",
         "Private runtime state stays under runtime/private and public task results are rebuilt through allowlists."
       ],
       pending: [
-        "Run a low-risk real GitHub read-only acceptance with the existing local gh authorization.",
+        "Complete PR #38 integration and local/mock project-client consumption before any real connector call.",
+        "Run a separately approved low-risk real GitHub read-only acceptance with the existing local authorization.",
         "Separately approve Xiaohongshu account/keywords/time window and WeChat credentials/IP allowlist before real calls.",
         "Complete Hermes platform_auth_collect consumption acceptance after connector evidence is stable."
       ],
@@ -67,13 +73,15 @@ const program = {
       number: 6,
       title: "Auth Hub 远程化",
       status: "deployment_gated",
-      currentStage: "Code, tests, rollback guidance, and a Chinese deployment handoff are merged; no production resource or remote smoke evidence exists.",
+      currentStage: "Code, tests, rollback guidance, and a Chinese deployment handoff are merged; PR #38 adds a remote-ready project client, but no production resource or remote smoke evidence exists.",
       completed: [
         "PR #24, #25, #27, and #28 implement Access identity checks, deployment readiness, browser-write protection, credential lifecycle, and retention.",
         "Service Auth target allowlisting, no-redirect health checks, independent browser/service acceptance, and executor target protection are verified.",
+        "PR #38 packages an HTTPS-443-only, no-redirect, response-bounded project client with optional Cloudflare Service Auth.",
         "The production preflight deliberately remains NO-GO until deployment decisions are encoded."
       ],
       pending: [
+        "Complete PR #38 integration and verify the packaged client against a local/mock endpoint before remote deployment work.",
         "Approve region, custom domain, paid plans, allowed email, Service Auth, secret storage, native-domain policy, retention timing, and backup/PITR.",
         "Create Render and Cloudflare resources only after the approved render.yaml change passes CI.",
         "Run remote mock smoke and browser acceptance separately; real platform calls remain independent gates."

@@ -16,6 +16,7 @@
 | Postgres 规格 | `basic-256mb` | 提供持久化任务、审批和审计 | 产生持续费用；容量和备份能力有限 | 待确认 |
 | 浏览器允许账号 | 仅填写明确批准的邮箱 | 防止匿名或组织内其他人进入后台 | 邮箱写错会把负责人锁在门外 | 待确认 |
 | 本地执行器 Service Auth | 允许，且只发一个受限 service token | 本地执行器可重复处理任务，不需每次浏览器登录 | 凭据泄露时可绕过浏览器登录层，必须可撤销 | 待确认 |
+| 项目客户端身份 | 每个业务项目使用独立 token 和 operation allowlist | 可做任务归属隔离、最小权限和单项目撤销 | 共用 token 会让项目身份失去意义；清单和 secret 必须同步维护 | 待确认 |
 | 初始密钥存放 | Render Secrets + 负责人掌握的本机密码库 | 不阻塞首次部署 | 后续应迁移到统一 secret manager 并建立轮换 | 待确认 |
 | Render 原生子域名 | 首次生产 Blueprint 即禁用 | 收敛绕过 Cloudflare 的源站入口 | 初次验收只能走自定义域名和 Render 内部健康状态 | 待确认 |
 | 自动数据清理 | 首次上线暂不开 Cron，只做 dry-run | 避免误删审批和审计证据 | 数据会继续增长，需要后续维护窗口 | 待确认 |
@@ -100,6 +101,7 @@ npm run auth-hub:secrets:new
    - `AI_LINK_CLOUDFLARE_ACCESS_AUD=<阶段 A 的 AUD tag>`
    - `AI_LINK_CLOUDFLARE_TEAM_DOMAIN=<team>.cloudflareaccess.com`
    - `AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true`，仅在阶段 B 已批准并完成时填写；否则填 `false`
+   - `AI_LINK_PROJECT_CLIENTS_JSON=[]` 可先保持空数组；启用项目客户端时再写只含 id、tokenEnv、operations 和精确 `githubTargets` 的清单，并在 Render 单独新增每个 `tokenEnv` 对应的 Secret
 8. `DATABASE_URL` 必须来自 Blueprint 创建的 Render Postgres 私网连接，不手工粘贴公网数据库地址。
 9. 创建 Blueprint，等待数据库和 Web Service 部署成功。由于原生子域名已禁用，先在 Render Dashboard 通过服务状态和 Logs 确认 `/healthz` 内部健康检查通过，再立即进入阶段 E 配置 DNS。
 
@@ -205,6 +207,8 @@ npm run auth-hub:local:stop
 - `AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true`（仅当负责人批准本地执行器使用 Service Auth 时）
 - `AI_LINK_CODEX_TOKEN`：Blueprint 中为 `sync: false`；本项目需要受限项目客户端能力，因此首次部署必须填写，远程 smoke 也会校验
 - `AI_LINK_CODEX_SCOPES=tasks:create,tasks:read,connectors:read,connectors:verify-target,audit:write`：受限项目客户端可提交任务、读脱敏状态、执行 GitHub 精确目标门禁并追加审计，但不能领取执行器任务或批准发布；不需要精确目标核验的状态 token 不应获得 `connectors:verify-target`
+- `AI_LINK_PROJECT_CLIENTS_JSON=[]`：Blueprint 中为 `sync: false`；未接入业务项目时填空数组。启用后清单只写项目 id、独立 `tokenEnv` 和允许的四类非交互 operation
+- 每个项目清单引用的 token 环境变量：在 Render 手工新增为 Secret，不写进清单值、不与 Admin、Codex、Executor 或其他项目复用
 
 邮件提醒可选配置：
 

@@ -1,3 +1,5 @@
+import net from "node:net";
+
 export function validateAuthHubTarget(targetUrl, options = {}) {
   let url;
   try {
@@ -30,11 +32,16 @@ export function validateAuthHubTarget(targetUrl, options = {}) {
       .map((value) => value.trim().toLowerCase())
       .filter(Boolean)
   );
-  if (url.protocol !== "https:" || !explicitlyAllowed.has(hostname)) {
+  if (
+    url.protocol !== "https:"
+    || (url.port && url.port !== "443")
+    || net.isIP(hostname) !== 0
+    || !explicitlyAllowed.has(hostname)
+  ) {
     return {
       ok: false,
       attachServiceHeaders: false,
-      detail: "Credentials may only be sent to an explicitly approved HTTPS Auth Hub hostname."
+      detail: "Credentials may only be sent to an explicitly approved HTTPS Auth Hub hostname on port 443."
     };
   }
 

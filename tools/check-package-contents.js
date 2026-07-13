@@ -54,12 +54,16 @@ function checkRequiredFiles(files) {
     "dist/cli.js",
     "dist/index.js",
     "dist/types.d.ts",
+    "dist/authHub/projectTask.js",
+    "dist/authHub/projectTaskClient.js",
     "dist/connectors/googleOAuthDesktop.js",
     "dist/connectors/googleSearchConsole.js",
     "dist/connectors/googleSearchConsoleApi.js",
     "dist/connectors/gscAuthorize.js",
     "dist/connectors/gscCheck.js",
     "dist/connectors/gscHistory.js",
+    "dist/connectors/platformAuthContracts.js",
+    "dist/security/authHubOutbound.js",
     "docs/quickstart.md",
     "docs/user-guide.md",
     "docs/20-architecture/configuration.md",
@@ -134,6 +138,7 @@ if (!packageJson) {
   addCheck("package version", /^\d+\.\d+\.\d+/.test(packageJson.version ?? "") ? "pass" : "fail", packageJson.version ?? "missing", "package");
   addCheck("license", packageJson.license === "Apache-2.0" ? "pass" : "fail", packageJson.license ?? "missing", "package");
   addCheck("bin ai-link", packageJson.bin?.["ai-link"] === "dist/cli.js" ? "pass" : "fail", packageJson.bin?.["ai-link"] ?? "missing", "package");
+  addCheck("bin ai-link-auth-hub", packageJson.bin?.["ai-link-auth-hub"] === "dist/authHub/projectTask.js" ? "pass" : "fail", packageJson.bin?.["ai-link-auth-hub"] ?? "missing", "package");
   addCheck("bin ai-link-gsc", packageJson.bin?.["ai-link-gsc"] === "dist/connectors/gscCheck.js" ? "pass" : "fail", packageJson.bin?.["ai-link-gsc"] ?? "missing", "package");
   addCheck("bin ai-link-gsc-auth", packageJson.bin?.["ai-link-gsc-auth"] === "dist/connectors/gscAuthorize.js" ? "pass" : "fail", packageJson.bin?.["ai-link-gsc-auth"] ?? "missing", "package");
   addCheck(

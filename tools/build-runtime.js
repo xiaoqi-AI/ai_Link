@@ -28,10 +28,24 @@ if (result.status === 0) {
     "googleSearchConsoleApi.js",
     "gscAuthorize.js",
     "gscCheck.js",
-    "gscHistory.js"
+    "gscHistory.js",
+    "platformAuthContracts.js"
   ]) {
     copyFileSync(path.join(cwd, "src", "connectors", file), path.join(connectorDist, file));
   }
+
+  const authHubDist = path.join(distPath, "authHub");
+  mkdirSync(authHubDist, { recursive: true });
+  for (const file of ["projectTask.js", "projectTaskClient.js"]) {
+    copyFileSync(path.join(cwd, "src", "authHub", file), path.join(authHubDist, file));
+  }
+
+  const securityDist = path.join(distPath, "security");
+  mkdirSync(securityDist, { recursive: true });
+  copyFileSync(
+    path.join(cwd, "src", "security", "authHubOutbound.js"),
+    path.join(securityDist, "authHubOutbound.js")
+  );
 }
 
 process.exit(result.status ?? 1);
