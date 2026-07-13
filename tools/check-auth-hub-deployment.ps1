@@ -16,11 +16,11 @@ $requiredEnv = @(
   "AI_LINK_SESSION_SECRET",
   "AI_LINK_ADMIN_TOKEN",
   "AI_LINK_EXECUTOR_TOKEN",
-  "AI_LINK_EXECUTOR_ID"
+  "AI_LINK_EXECUTOR_ID",
+  "AI_LINK_CODEX_TOKEN"
 )
 
 $optionalEnv = @(
-  "AI_LINK_CODEX_TOKEN",
   "SMTP_URL",
   "APPROVAL_EMAIL_TO",
   "APPROVAL_EMAIL_FROM",
@@ -94,6 +94,8 @@ if (Test-Path -LiteralPath $renderPath) {
     "AI_LINK_ADMIN_TOKEN",
     "AI_LINK_EXECUTOR_TOKEN",
     "AI_LINK_EXECUTOR_ID",
+    "AI_LINK_CODEX_TOKEN",
+    "AI_LINK_CODEX_SCOPES",
     "AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS",
     "AI_LINK_CONNECTOR_PROBE_TTL_MS",
     "AI_LINK_ARTIFACT_RETENTION_DAYS",
@@ -129,6 +131,26 @@ if (Test-Path -LiteralPath $renderPath) {
     Add-Result $results "Render web instances" "pass" "Blueprint keeps one web instance for the in-process login limiter."
   } else {
     Add-Result $results "Render web instances" "fail" "Keep numInstances at 1 until login rate limits use a shared store."
+  }
+  $webRegionMatch = [regex]::Match($renderText, "(?s)services:.*?-\s*type:\s*web.*?region:\s*([a-z0-9-]+).*?(?=databases:)")
+  $databaseRegionMatch = [regex]::Match($renderText, "(?s)databases:.*?-\s*name:\s*ai-link-postgres.*?region:\s*([a-z0-9-]+)")
+  if ($webRegionMatch.Success -and $databaseRegionMatch.Success -and $webRegionMatch.Groups[1].Value -eq $databaseRegionMatch.Groups[1].Value) {
+    Add-Result $results "Render region decision" "pass" "Web Service and Postgres use the same explicit region."
+  } else {
+    $status = if ($Production) { "fail" } else { "warn" }
+    Add-Result $results "Render region decision" $status "Set the same explicit region for the Web Service and Postgres after owner approval."
+  }
+  if ($renderText -match "renderSubdomainPolicy:\s*disabled") {
+    Add-Result $results "Render native subdomain" "pass" "The onrender.com subdomain is disabled by policy."
+  } else {
+    $status = if ($Production) { "fail" } else { "warn" }
+    Add-Result $results "Render native subdomain" $status "Set renderSubdomainPolicy: disabled after the custom-domain rollback path is approved."
+  }
+  if ($renderText -match "domains:\s*(?:\[\s*auth\.xiao-qi-ai\.com\s*\]|\r?\n\s*-\s*auth\.xiao-qi-ai\.com(?:\s|$))") {
+    Add-Result $results "Render custom domain" "pass" "The dedicated Auth Hub hostname is declared in the Blueprint."
+  } else {
+    $status = if ($Production) { "fail" } else { "warn" }
+    Add-Result $results "Render custom domain" $status "Declare domains: auth.xiao-qi-ai.com before disabling the onrender.com subdomain."
   }
   if ($renderText -match "(?s)databases:.*?plan:\s*basic-256mb") {
     Add-Result $results "Render Postgres plan" "pass" "Blueprint uses the current basic-256mb database plan."
@@ -235,10 +257,14 @@ if ($Production) {
   $serviceTokens = ([string](Get-EnvValue "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN")).ToLowerInvariant()
   if ($allowedEmails) {
     Add-Result $results "Cloudflare Access allowed emails" "pass" "Allowed email list is configured."
-  } elseif ($serviceTokens -eq "1" -or $serviceTokens -eq "true" -or $serviceTokens -eq "yes") {
-    Add-Result $results "Cloudflare Access allowed emails" "warn" "Only service-token access appears configured; set allowed emails for browser operators."
   } else {
-    Add-Result $results "Cloudflare Access allowed emails" "fail" "Set AI_LINK_ALLOWED_ACCESS_EMAILS or explicitly allow service tokens."
+    Add-Result $results "Cloudflare Access allowed emails" "fail" "Set AI_LINK_ALLOWED_ACCESS_EMAILS for the approved browser operator."
+  }
+
+  if ($serviceTokens -eq "1" -or $serviceTokens -eq "true" -or $serviceTokens -eq "yes") {
+    Add-Result $results "Cloudflare Access service tokens" "pass" "Local-executor Service Auth is explicitly enabled."
+  } else {
+    Add-Result $results "Cloudflare Access service tokens" "fail" "Set AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true only after the local executor Service Auth path is approved."
   }
 }
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { cloudflareServiceHeaders, validateServiceAuthTarget } from "./auth-hub-remote-safety.js";
 
 const args = new Set(process.argv.slice(2));
 const outputJson = args.has("--json");
 const baseUrlArg = valueAfter("--base-url");
 const baseUrl = trimSlash(baseUrlArg || process.env.AI_LINK_BASE_URL || "https://auth.xiao-qi-ai.com");
+const renderYamlPath = valueAfter("--render-yaml") || "render.yaml";
 
 const requiredRenderRefs = [
   "AI_LINK_BASE_URL",
@@ -26,6 +28,7 @@ const requiredRenderRefs = [
   "AI_LINK_PROBE_RETENTION_GRACE_DAYS",
   "AI_LINK_RETENTION_MAX_ROWS_PER_TABLE",
   "AI_LINK_CODEX_TOKEN",
+  "AI_LINK_CODEX_SCOPES",
   "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
   "AI_LINK_ALLOWED_ACCESS_EMAILS",
   "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN",
@@ -53,13 +56,15 @@ const optionalAccessEnv = [
   "AI_LINK_ALLOWED_ACCESS_EMAILS",
   "AI_LINK_CLOUDFLARE_TEAM_DOMAIN",
   "AI_LINK_CLOUDFLARE_ACCESS_ISSUER",
+  "AI_LINK_AUTH_HUB_ALLOWED_HOSTS",
   "CF_ACCESS_CLIENT_ID",
   "CF_ACCESS_CLIENT_SECRET"
 ];
 
-const remoteHealth = await checkHealthz(baseUrl);
+const serviceAuthTarget = validateServiceAuthTarget(baseUrl);
+const remoteHealth = await checkHealthz(baseUrl, cloudflareServiceHeaders(serviceAuthTarget));
 const envChecks = envPresence([...requiredProductionEnv, ...optionalAccessEnv]);
-const renderCheck = checkRenderYaml();
+const renderCheck = checkRenderYaml(renderYamlPath);
 const repository = gitState();
 const missingRequiredEnv = envChecks.filter((item) => item.required && !item.set).map((item) => item.name);
 const missingSmokeEnv = requiredSmokeEnv.filter((name) => !process.env[name]);
@@ -69,14 +74,16 @@ const accessIssuerReady = Boolean(
   process.env.AI_LINK_CLOUDFLARE_TEAM_DOMAIN
   || process.env.AI_LINK_CLOUDFLARE_ACCESS_ISSUER
 );
-const accessIdentityPolicyReady = Boolean(process.env.AI_LINK_ALLOWED_ACCESS_EMAILS)
-  || enabled(process.env.AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN);
+const browserAccessPolicyReady = Boolean(process.env.AI_LINK_ALLOWED_ACCESS_EMAILS);
+const serviceTokenPolicyReady = enabled(process.env.AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN);
 const accessVerificationReady = accessGuardEnabled
   && Boolean(process.env.AI_LINK_CLOUDFLARE_ACCESS_AUD)
   && accessIssuerReady
-  && accessIdentityPolicyReady;
+  && browserAccessPolicyReady
+  && serviceTokenPolicyReady;
 const remoteReady = remoteHealth.status === "pass";
 const smokeReady = remoteReady
+  && serviceAuthTarget.ok
   && missingSmokeEnv.length === 0
   && missingAccessOperatorEnv.length === 0
   && accessVerificationReady;
@@ -84,6 +91,9 @@ const smokeReady = remoteReady
 const blockers = [];
 if (!remoteReady) {
   blockers.push(remoteHealth.detail);
+}
+if (!serviceAuthTarget.ok) {
+  blockers.push(serviceAuthTarget.detail);
 }
 if (missingRequiredEnv.length > 0) {
   blockers.push(`Missing production/smoke environment markers in current process: ${missingRequiredEnv.join(", ")}.`);
@@ -97,8 +107,11 @@ if (!accessGuardEnabled) {
 if (!accessIssuerReady) {
   blockers.push("Set AI_LINK_CLOUDFLARE_TEAM_DOMAIN or AI_LINK_CLOUDFLARE_ACCESS_ISSUER for signed JWT verification.");
 }
-if (!accessIdentityPolicyReady) {
-  blockers.push("Set AI_LINK_ALLOWED_ACCESS_EMAILS or explicitly allow Cloudflare Access service tokens.");
+if (!browserAccessPolicyReady) {
+  blockers.push("Set AI_LINK_ALLOWED_ACCESS_EMAILS for the approved browser operator.");
+}
+if (!serviceTokenPolicyReady) {
+  blockers.push("Explicitly set AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true after approving the local executor Service Auth path.");
 }
 if (!renderCheck.ok) {
   blockers.push("render.yaml is missing required Auth Hub deployment references.");
@@ -125,6 +138,11 @@ const report = {
       detail: remoteHealth.detail
     },
     {
+      name: "Service Auth target",
+      status: serviceAuthTarget.ok ? "pass" : "fail",
+      detail: serviceAuthTarget.detail
+    },
+    {
       name: "render blueprint",
       status: renderCheck.ok ? "pass" : "fail",
       detail: renderCheck.ok
@@ -135,8 +153,8 @@ const report = {
       name: "Cloudflare Access verification",
       status: accessVerificationReady ? "pass" : "fail",
       detail: accessVerificationReady
-        ? "Origin guard, audience, issuer/team domain, and an identity policy are configured."
-        : "Remote smoke requires a true origin guard, audience, issuer/team domain, and an allowed user or service-token policy."
+        ? "Origin guard, audience, issuer/team domain, an approved browser policy, and the local-executor Service Auth policy are configured."
+        : "Remote smoke requires the origin guard, audience, issuer/team domain, an approved browser email, and an explicitly enabled Service Auth policy."
     },
     ...envChecks.map((item) => ({
       name: `env ${item.name}`,
@@ -160,7 +178,7 @@ const report = {
     },
     {
       owner: "Maintainer",
-      action: "Run npm run auth-hub:remote:smoke and tools/test-auth-hub-remote.ps1 -ExpectAccessGate after external setup."
+      action: "Run the Service Auth API/executor smoke, verify the unauthenticated edge gate, then complete approved-email browser login as a separate manual check."
     }
   ],
   commands: {
@@ -182,7 +200,7 @@ const report = {
       "$env:CF_ACCESS_CLIENT_ID=\"<cloudflare-service-auth-client-id>\"",
       "$env:CF_ACCESS_CLIENT_SECRET=\"<cloudflare-service-auth-client-secret>\"",
       "npm run auth-hub:remote:smoke",
-      "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -ExpectAccessGate"
+      "Open https://auth.xiao-qi-ai.com/login in a browser and complete the approved-email plus application-password check."
     ],
     localFallback: [
       "npm run auth-hub:local:start",
@@ -218,10 +236,14 @@ function enabled(value) {
   return ["1", "true", "yes"].includes(String(value || "").toLowerCase());
 }
 
-async function checkHealthz(targetBaseUrl) {
+async function checkHealthz(targetBaseUrl, headers = {}) {
   const url = `${targetBaseUrl}/healthz`;
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    const response = await fetch(url, {
+      headers,
+      redirect: "manual",
+      signal: AbortSignal.timeout(20000)
+    });
     const text = await response.text();
     let data = {};
     try {
@@ -259,10 +281,10 @@ function envPresence(names) {
   }));
 }
 
-function checkRenderYaml() {
+function checkRenderYaml(path) {
   let text = "";
   try {
-    text = readFileSync("render.yaml", "utf8");
+    text = readFileSync(path, "utf8");
   } catch {
     return {
       ok: false,
@@ -295,6 +317,17 @@ function checkRenderYaml() {
   }
   if (!/key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false/.test(text)) {
     missing.push("explicit Cloudflare service-token decision");
+  }
+  const webRegion = text.match(/services:[\s\S]*?-\s*type:\s*web[\s\S]*?region:\s*([a-z0-9-]+)[\s\S]*?(?=databases:)/)?.[1] || "";
+  const databaseRegion = text.match(/databases:[\s\S]*?-\s*name:\s*ai-link-postgres[\s\S]*?region:\s*([a-z0-9-]+)/)?.[1] || "";
+  if (!webRegion || !databaseRegion || webRegion !== databaseRegion) {
+    missing.push("matching explicit Web/Postgres region decision");
+  }
+  if (!/renderSubdomainPolicy:\s*disabled/.test(text)) {
+    missing.push("renderSubdomainPolicy:disabled");
+  }
+  if (!/domains:\s*(?:\[\s*auth\.xiao-qi-ai\.com\s*\]|\r?\n\s*-\s*auth\.xiao-qi-ai\.com(?:\s|$))/.test(text)) {
+    missing.push("domains:auth.xiao-qi-ai.com");
   }
   return {
     ok: missing.length === 0,
@@ -336,7 +369,7 @@ function recommendedNext({ remoteHealth, missingSmokeEnv: missingEnv, missingAcc
   if (missingEnv.length > 0 || missingAccess.length > 0) {
     return "Inject temporary smoke credentials in the current terminal from the secret store, then rerun this check.";
   }
-  return "Run npm run auth-hub:remote:smoke and tools/test-auth-hub-remote.ps1 -ExpectAccessGate.";
+  return "Run the Service Auth API/executor smoke, then complete approved-email browser login as a separate manual acceptance.";
 }
 
 function renderMarkdown(remoteReport) {

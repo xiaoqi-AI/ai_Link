@@ -59,6 +59,8 @@ services:
         value: "500"
       - key: AI_LINK_CODEX_TOKEN
         sync: false
+      - key: AI_LINK_CODEX_SCOPES
+        value: "tasks:create,tasks:read,connectors:read,audit:write"
       - key: AI_LINK_REQUIRE_CLOUDFLARE_ACCESS
         value: "true"
       - key: AI_LINK_ALLOWED_ACCESS_EMAILS

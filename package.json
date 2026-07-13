@@ -142,7 +142,7 @@
     "auth-hub:private-bundle:new": "node tools/new-private-connector-bundle.js",
     "auth-hub:private-bundle:print": "node tools/new-private-connector-bundle.js --print",
     "auth-hub:private-bundle:json": "node tools/new-private-connector-bundle.js --json",
-    "auth-hub:remote:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1",
+    "auth-hub:remote:smoke": "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -SkipAppLogin -ExpectAccessGate",
     "auth-hub:secrets:new": "powershell -ExecutionPolicy Bypass -File tools/new-auth-hub-secrets.ps1",
     "auth-hub:retention": "node tools/run-auth-hub-retention.js",
     "auth-hub:retention:json": "node tools/run-auth-hub-retention.js --json",

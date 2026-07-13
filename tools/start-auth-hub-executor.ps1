@@ -1,7 +1,7 @@
 param(
   [string]$BaseUrl = "",
   [string]$ExecutorToken = "",
-  [string]$ExecutorId = "local-executor",
+  [string]$ExecutorId = "",
   [int]$IntervalSeconds = 10
 )
 
@@ -35,11 +35,11 @@ function Get-ProcessTreeIds {
 }
 
 if (-not $BaseUrl) {
-  if (Test-Path -LiteralPath $hubStatePath) {
+  if ($env:AI_LINK_BASE_URL) {
+    $BaseUrl = $env:AI_LINK_BASE_URL
+  } elseif (Test-Path -LiteralPath $hubStatePath) {
     $hubState = Get-Content -LiteralPath $hubStatePath -Raw | ConvertFrom-Json
     $BaseUrl = $hubState.url
-  } else {
-    $BaseUrl = $env:AI_LINK_BASE_URL
   }
 }
 
@@ -52,13 +52,27 @@ if (-not $ExecutorToken) {
 }
 
 if (-not $ExecutorToken) {
+  if ($BaseUrl -match '^https://') {
+    throw "AI_LINK_EXECUTOR_TOKEN or -ExecutorToken is required for a remote HTTPS executor."
+  }
   $ExecutorToken = "dev-executor-token"
+}
+
+if (-not $ExecutorId) {
+  $ExecutorId = if ($env:AI_LINK_EXECUTOR_ID) { $env:AI_LINK_EXECUTOR_ID } else { "local-executor" }
 }
 
 if (Test-Path -LiteralPath $processStatePath) {
   $existing = Get-Content -LiteralPath $processStatePath -Raw | ConvertFrom-Json
   $existingProcess = Get-Process -Id ([int]$existing.pid) -ErrorAction SilentlyContinue
   if ($existingProcess) {
+    $existingBaseUrl = ([string]$existing.baseUrl).TrimEnd("/")
+    $requestedBaseUrl = ([string]$BaseUrl).TrimEnd("/")
+    $existingExecutorId = [string]$existing.executorId
+    if ($existingBaseUrl -ne $requestedBaseUrl -or $existingExecutorId -ne $ExecutorId) {
+      Write-Error "AI Link executor is already running for a different target. Stop it before switching BaseUrl or ExecutorId."
+      exit 1
+    }
     Write-Output "AI Link executor is already running for $($existing.baseUrl)"
     exit 0
   }
