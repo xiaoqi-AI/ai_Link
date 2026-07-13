@@ -32,6 +32,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Auth Hub API-token lifecycle reconciliation with atomic rotation, missing-token revocation, same-hash revocation preservation, and Memory/Postgres parity.
 - Auth Hub bounded data-retention maintenance with read-only preview, backup-confirmed apply, approval expiry, transactional rollback, protected resources, and redacted maintenance reporting.
 - Auth Hub Chinese remote-deployment handoff with an explicit decision card, identity-separated browser/Service Auth acceptance, Render Blueprint and custom-domain steps, evidence-based Access gate checks, production-target executor safety, and fail-closed rollback guidance.
+- Project-director roadmap output that records the completed Auth Hub merge chain and points the next decisions to real read-only acceptance, low-noise notification activation, and remote deployment gates.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.

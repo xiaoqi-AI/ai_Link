@@ -56,8 +56,10 @@ describe("roadmap next report", () => {
       "platform-auth-connectors-p0-2",
       "auth-hub-remote"
     ]);
-    assert.deepEqual(report.program.mergeOrder, ["#22", "#23", "#26", "#24", "#25", "#27", "#28"]);
-    assert.match(report.program.recommendedNext, /PR #22/);
+    assert.equal(report.program.mergeStatus, "complete");
+    assert.deepEqual(report.program.mergeOrder, ["#22", "#23", "#26", "#24", "#25", "#27", "#28", "#29", "#30"]);
+    assert.match(report.program.recommendedNext, /GitHub read-only acceptance/);
+    assert.equal(report.program.modules.some((module) => module.pending.some((item) => /Merge PR|rebase|retarget/i.test(item))), false);
     assert.equal(report.program.modules.every((module) => (
       module.completed.length > 0
       && module.pending.length > 0
@@ -68,7 +70,7 @@ describe("roadmap next report", () => {
       && module.decision.risk
     )), true);
     assert.equal(report.phases.some((phase) => phase.nextCommands.some((command) => command.includes("roadmap:next:json"))), true);
-    assert.equal(report.phases.some((phase) => phase.openQuestions.some((question) => question.includes("PR #22"))), true);
+    assert.equal(report.phases.some((phase) => phase.openQuestions.some((question) => question.includes("PR #22"))), false);
     assert.equal(result.stdout.includes("Which real connector comes first"), false);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
   });
@@ -81,7 +83,8 @@ describe("roadmap next report", () => {
     assert.match(result.stdout, /Program Control/);
     assert.match(result.stdout, /Auth Hub 状态中枢/);
     assert.match(result.stdout, /平台授权连接器 P0.2/);
-    assert.match(result.stdout, /#22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28/);
+    assert.match(result.stdout, /Merge chain status: complete/);
+    assert.match(result.stdout, /#22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28 -> #29 -> #30/);
     assert.match(result.stdout, /v0\.1 local public baseline/);
     assert.match(result.stdout, /v0\.2 real provider acceptance/);
     assert.match(result.stdout, /Later SDK and ecosystem/);

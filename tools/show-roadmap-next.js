@@ -7,33 +7,34 @@ const outputJson = args.has("--json");
 const program = {
   asOf: "2026-07-13",
   objective: "Advance Auth Hub status, platform authorization connectors P0.2, and remote deployment as one governed AI Link program.",
-  recommendedNext: "Merge PR #22 first after explicit maintainer authorization, then continue the dependency order.",
-  mergeOrder: ["#22", "#23", "#26", "#24", "#25", "#27", "#28"],
+  recommendedNext: "Approve the first real GitHub read-only acceptance, then decide whether to activate low-frequency status notifications; keep remote deployment behind its decision card.",
+  mergeStatus: "complete",
+  mergeOrder: ["#22", "#23", "#26", "#24", "#25", "#27", "#28", "#29", "#30"],
   modules: [
     {
       id: "auth-hub-status-center",
       number: 2,
       title: "Auth Hub 状态中枢",
-      status: "merge_chain",
-      currentStage: "Public status baseline is merged; executor/probe/remote hardening and low-noise change detection are implemented in the open PR stack.",
+      status: "local_ready",
+      currentStage: "The complete status-center stack is in main; local low-noise change detection is ready, while notification-channel activation and remote evidence remain gated.",
       completed: [
         "PR #12, #16, and #17 merged login summaries, public next actions, and the project-facing status client.",
-        "The open stack implements executor capability heartbeat, operation-bound probe evidence, remote identity hardening, abuse controls, and data lifecycle.",
+        "PR #22-#25 and #27-#30 are merged with executor heartbeat, operation-bound probe evidence, remote identity hardening, abuse controls, data lifecycle, program control, and low-noise change detection.",
         "Local full-chain mock, redacted audit, and restricted Codex client boundaries are verified.",
-        "PR #30 adds a local public-safe status snapshot that emits notify=true only for new or worsened attention signals without querying AI Link during ordinary project work."
+        "The local public-safe status snapshot emits notify=true only for new or worsened attention signals without querying AI Link during ordinary project work.",
+        "PR #31 records maintainer authorization for future in-scope PR merges without bypassing required checks."
       ],
       pending: [
-        "Merge PR #22, #23, #24, #25, #27, and #28 in dependency order.",
-        "Rebase or retarget each stacked PR after its parent merges and rerun GitHub checks.",
-        "Merge stacked PR #30 after its parent PR and connect notify=true to one approved low-frequency notification channel.",
+        "Choose one approved low-frequency notification channel and schedule only after a stable local or remote Auth Hub endpoint exists.",
+        "Collect the first operation-bound real connector evidence without moving credentials or login state into the public repository.",
         "Do not claim the remote status center is deployed until Cloudflare Access and Render smoke evidence exists."
       ],
       decision: {
-        background: "The code chain is reviewable and CI-green, but only PR #21 has entered main; dependent status evidence remains outside main.",
-        content: "Authorize each merge one at a time, beginning with PR #22.",
-        recommendation: "Use merge commits and the order #22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28.",
-        value: "Moves the status center into main without losing ancestry or mixing independent GitHub scope probes into later conflict resolution.",
-        risk: "Merging out of order can create duplicated commits, misleading PR diffs, or unverified conflict resolutions."
+        background: "The status stack is merged and locally verified, but no notification channel is active and the remote Auth Hub does not exist.",
+        content: "Choose whether to activate the low-noise watcher, its channel, recipient, frequency, and stop conditions.",
+        recommendation: "Keep the watcher repository-local and at most daily until the remote Auth Hub is accepted; notify only when notify=true.",
+        value: "Surfaces new or worsening authorization work without making every project task query AI Link.",
+        risk: "A noisy schedule or unstable endpoint can create false urgency; a remote channel before Access acceptance can expose operational metadata."
       }
     },
     {
@@ -45,10 +46,10 @@ const program = {
       completed: [
         "PR #9 and #13 merged platform contracts and the interactive-login approval gate.",
         "PR #18-#21 merged GitHub and WeChat private scaffolds plus the combined Xiaohongshu read-only bridge entry.",
+        "PR #26 merged target-required, scope-specific GitHub read-only evidence checks.",
         "Private runtime state stays under runtime/private and public task results are rebuilt through allowlists."
       ],
       pending: [
-        "Merge PR #26 for precise GitHub read-scope evidence.",
         "Run a low-risk real GitHub read-only acceptance with the existing local gh authorization.",
         "Separately approve Xiaohongshu account/keywords/time window and WeChat credentials/IP allowlist before real calls.",
         "Complete Hermes platform_auth_collect consumption acceptance after connector evidence is stable."
@@ -66,21 +67,20 @@ const program = {
       number: 6,
       title: "Auth Hub 远程化",
       status: "deployment_gated",
-      currentStage: "Code, tests, rollback guidance, and a Chinese deployment handoff are ready in the stack; no production resource exists.",
+      currentStage: "Code, tests, rollback guidance, and a Chinese deployment handoff are merged; no production resource or remote smoke evidence exists.",
       completed: [
         "PR #24, #25, #27, and #28 implement Access identity checks, deployment readiness, browser-write protection, credential lifecycle, and retention.",
         "Service Auth target allowlisting, no-redirect health checks, independent browser/service acceptance, and executor target protection are verified.",
         "The production preflight deliberately remains NO-GO until deployment decisions are encoded."
       ],
       pending: [
-        "Merge the complete Auth Hub stack into main before creating a Render Blueprint.",
         "Approve region, custom domain, paid plans, allowed email, Service Auth, secret storage, native-domain policy, retention timing, and backup/PITR.",
         "Create Render and Cloudflare resources only after the approved render.yaml change passes CI.",
         "Run remote mock smoke and browser acceptance separately; real platform calls remain independent gates."
       ],
       decision: {
         background: "Remote deployment adds recurring cost, public DNS, production secrets, identity policy, and database recovery responsibility.",
-        content: "Approve the deployment decision card after the code merge chain is complete.",
+        content: "Approve the deployment decision card before creating any Render, Cloudflare, DNS, database, or secret resources.",
         recommendation: "Use auth.xiao-qi-ai.com, Singapore, one Starter web instance, basic-256mb Postgres, exact-email Access, one revocable Service Auth token, no initial retention cron, and verified backup/PITR before apply.",
         value: "Lets ParentingGame, Hermes, and other projects submit controlled tasks and inspect redacted status without receiving platform login state.",
         risk: "Incorrect DNS, Access, secret, or backup settings can expose the console, lock out the operator, or make retention irreversible."
@@ -211,7 +211,7 @@ const phases = [
     title: "Auth Hub and platform connector program",
     status: "active",
     owner: "Product owner, connector owner, and infrastructure maintainer",
-    horizon: "now: merge and manual acceptance",
+    horizon: "now: manual acceptance and deployment decision",
     goal: "Complete modules 2, 5, and 6 without moving platform login state into the remote control plane.",
     outcomes: [
       "Auth Hub exposes task, approval, connector, executor, and audit status while failing closed on stale evidence.",
@@ -229,9 +229,9 @@ const phases = [
       "npm run security:scan"
     ],
     openQuestions: [
-      "Will the maintainer authorize the PR merge sequence beginning with PR #22?",
       "Which approved test account, scope, frequency, and stop conditions will be used for each real connector acceptance?",
-      "Will the owner approve the Auth Hub deployment decision card after the merge chain enters main?"
+      "Which low-frequency notification channel, if any, should receive notify=true status changes?",
+      "Will the owner approve the Auth Hub deployment decision card now that the merge chain is complete?"
     ],
     secretBoundary: "Do not publish account credentials, cookies, QR codes, browser profiles, private screenshots, or raw connector payloads."
   },
@@ -335,7 +335,8 @@ function renderMarkdown(roadmap) {
   lines.push("");
   lines.push(`As of: ${roadmap.program.asOf}`);
   lines.push(`Recommended next: ${roadmap.program.recommendedNext}`);
-  lines.push(`Merge order: ${roadmap.program.mergeOrder.join(" -> ")}`);
+  lines.push(`Merge chain status: ${roadmap.program.mergeStatus}`);
+  lines.push(`Historical merge order: ${roadmap.program.mergeOrder.join(" -> ")}`);
   lines.push("");
   lines.push("| Module | Status | Current stage |");
   lines.push("| --- | --- | --- |");
