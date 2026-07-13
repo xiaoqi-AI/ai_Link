@@ -258,7 +258,13 @@ describe("platform authorization connector contracts", () => {
     });
     const probe = validateTaskInput({
       workflow: "platform_auth_collect",
-      input: { platform: "github", operation: "check_auth", scope: "repo_read" },
+      input: {
+        platform: "github",
+        operation: "check_auth",
+        owner: "xiaoqi-AI",
+        repo: "ai_Link",
+        scope: "repo_read"
+      },
       options: { evidenceIntent: "connector_probe" }
     });
     const deniedSearchProbe = validateTaskInput({
