@@ -4,6 +4,89 @@ import { spawnSync } from "node:child_process";
 const args = new Set(process.argv.slice(2));
 const outputJson = args.has("--json");
 
+const program = {
+  asOf: "2026-07-13",
+  objective: "Advance Auth Hub status, platform authorization connectors P0.2, and remote deployment as one governed AI Link program.",
+  recommendedNext: "Merge PR #22 first after explicit maintainer authorization, then continue the dependency order.",
+  mergeOrder: ["#22", "#23", "#26", "#24", "#25", "#27", "#28"],
+  modules: [
+    {
+      id: "auth-hub-status-center",
+      number: 2,
+      title: "Auth Hub 状态中枢",
+      status: "merge_chain",
+      currentStage: "Public status baseline is merged; executor/probe/remote hardening is implemented in the open PR stack.",
+      completed: [
+        "PR #12, #16, and #17 merged login summaries, public next actions, and the project-facing status client.",
+        "The open stack implements executor capability heartbeat, operation-bound probe evidence, remote identity hardening, abuse controls, and data lifecycle.",
+        "Local full-chain mock, redacted audit, and restricted Codex client boundaries are verified."
+      ],
+      pending: [
+        "Merge PR #22, #23, #24, #25, #27, and #28 in dependency order.",
+        "Rebase or retarget each stacked PR after its parent merges and rerun GitHub checks.",
+        "Do not claim the remote status center is deployed until Cloudflare Access and Render smoke evidence exists."
+      ],
+      decision: {
+        background: "The code chain is reviewable and CI-green, but only PR #21 has entered main; dependent status evidence remains outside main.",
+        content: "Authorize each merge one at a time, beginning with PR #22.",
+        recommendation: "Use merge commits and the order #22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28.",
+        value: "Moves the status center into main without losing ancestry or mixing independent GitHub scope probes into later conflict resolution.",
+        risk: "Merging out of order can create duplicated commits, misleading PR diffs, or unverified conflict resolutions."
+      }
+    },
+    {
+      id: "platform-auth-connectors-p0-2",
+      number: 5,
+      title: "平台授权连接器 P0.2",
+      status: "manual_acceptance",
+      currentStage: "Public contracts and private adapter scaffolds are merged; real account acceptance remains gated.",
+      completed: [
+        "PR #9 and #13 merged platform contracts and the interactive-login approval gate.",
+        "PR #18-#21 merged GitHub and WeChat private scaffolds plus the combined Xiaohongshu read-only bridge entry.",
+        "Private runtime state stays under runtime/private and public task results are rebuilt through allowlists."
+      ],
+      pending: [
+        "Merge PR #26 for precise GitHub read-scope evidence.",
+        "Run a low-risk real GitHub read-only acceptance with the existing local gh authorization.",
+        "Separately approve Xiaohongshu account/keywords/time window and WeChat credentials/IP allowlist before real calls.",
+        "Complete Hermes platform_auth_collect consumption acceptance after connector evidence is stable."
+      ],
+      decision: {
+        background: "The connector framework is implemented, but scaffold success does not prove a real platform account can be used safely.",
+        content: "Choose the first real acceptance path and its account, scope, frequency, and stop conditions.",
+        recommendation: "Complete GitHub read-only acceptance first, then Xiaohongshu read-only, then WeChat health; keep drafts and publish as separate approvals.",
+        value: "Starts with the least interactive, easiest-to-revoke path and produces reusable Auth Hub evidence before browser or AppSecret handling.",
+        risk: "Real calls can consume quota, trigger platform controls, or expose account state if private boundaries are bypassed."
+      }
+    },
+    {
+      id: "auth-hub-remote",
+      number: 6,
+      title: "Auth Hub 远程化",
+      status: "deployment_gated",
+      currentStage: "Code, tests, rollback guidance, and a Chinese deployment handoff are ready in the stack; no production resource exists.",
+      completed: [
+        "PR #24, #25, #27, and #28 implement Access identity checks, deployment readiness, browser-write protection, credential lifecycle, and retention.",
+        "Service Auth target allowlisting, no-redirect health checks, independent browser/service acceptance, and executor target protection are verified.",
+        "The production preflight deliberately remains NO-GO until deployment decisions are encoded."
+      ],
+      pending: [
+        "Merge the complete Auth Hub stack into main before creating a Render Blueprint.",
+        "Approve region, custom domain, paid plans, allowed email, Service Auth, secret storage, native-domain policy, retention timing, and backup/PITR.",
+        "Create Render and Cloudflare resources only after the approved render.yaml change passes CI.",
+        "Run remote mock smoke and browser acceptance separately; real platform calls remain independent gates."
+      ],
+      decision: {
+        background: "Remote deployment adds recurring cost, public DNS, production secrets, identity policy, and database recovery responsibility.",
+        content: "Approve the deployment decision card after the code merge chain is complete.",
+        recommendation: "Use auth.xiao-qi-ai.com, Singapore, one Starter web instance, basic-256mb Postgres, exact-email Access, one revocable Service Auth token, no initial retention cron, and verified backup/PITR before apply.",
+        value: "Lets ParentingGame, Hermes, and other projects submit controlled tasks and inspect redacted status without receiving platform login state.",
+        risk: "Incorrect DNS, Access, secret, or backup settings can expose the console, lock out the operator, or make retention irreversible."
+      }
+    }
+  ]
+};
+
 const phases = [
   {
     id: "v0-1-local-public-baseline",
@@ -38,15 +121,15 @@ const phases = [
   },
   {
     id: "v0-1-maintainer-external-gates",
-    title: "v0.1 maintainer external gates",
-    status: "manual",
+    title: "v0.1 maintainer external gates recorded",
+    status: "ready",
     owner: "Repository maintainer and release owner",
-    horizon: "before tag or npm publish",
-    goal: "Close public-safe manual release decisions before making external release claims.",
+    horizon: "maintain current repository-local baseline",
+    goal: "Keep the approved GitHub hardening and repository-local release decisions green without reopening them during Auth Hub work.",
     outcomes: [
-      "GitHub main protection or a ruleset requires the Verify check.",
-      "Secret scanning and push protection are enabled for the public repository and reviewed for the internal companion repository.",
-      "The release decision record is updated only with public-safe evidence or explicit waivers."
+      "The Protect main ruleset requires Verify and restricts deletion and non-fast-forward updates.",
+      "Secret scanning and push protection are enabled for the public repository; the internal companion limitation is recorded.",
+      "The release owner selected repository-local, so npm publish is not an active project decision."
     ],
     nextCommands: [
       "npm run external:preflight",
@@ -60,10 +143,7 @@ const phases = [
       "npm run github:safety:json",
       "npm run release:decisions:strict"
     ],
-    openQuestions: [
-      "Should GitHub Discussions be enabled for external users?",
-      "Should the internal companion repository get an independent branch protection or ruleset?"
-    ],
+    openQuestions: [],
     secretBoundary: "Record setting names, command statuses, and public-safe evidence only; never record screenshots, tokens, QR codes, or login state."
   },
   {
@@ -126,29 +206,30 @@ const phases = [
   },
   {
     id: "v0-3-agent-connectors",
-    title: "v0.3 agent and connector expansion",
-    status: "draft",
-    owner: "Product owner and connector owner",
-    horizon: "after v0.1 release decision",
-    goal: "Extend the platform from model routing into safer agent and platform connector workflows.",
+    title: "Auth Hub and platform connector program",
+    status: "active",
+    owner: "Product owner, connector owner, and infrastructure maintainer",
+    horizon: "now: merge and manual acceptance",
+    goal: "Complete modules 2, 5, and 6 without moving platform login state into the remote control plane.",
     outcomes: [
-      "Coze remains available through dry-run/local command and can later be upgraded to API or MCP after the integration path is confirmed.",
-      "Auth Hub keeps real platform login state local/private while exposing public-safe task and audit contracts.",
-      "Connector contracts distinguish available, reserved, and misconfigured connectors without exposing account state."
+      "Auth Hub exposes task, approval, connector, executor, and audit status while failing closed on stale evidence.",
+      "GitHub, WeChat, and Xiaohongshu use one governed private connector boundary with operation-specific evidence.",
+      "Remote Auth Hub keeps real platform login state local/private and accepts only redacted task and audit contracts."
     ],
     nextCommands: [
-      "npm run auth-hub:audit-smoke",
-      "npm run auth-hub:deploy:check",
-      "npm run ai-link -- run auto_ops.agent_flow --dry-run --input \"connector planning check\""
+      "npm run next:actions:json",
+      "npm run auth-status:next:json",
+      "npm run auth-hub:remote:next:json",
+      "npm run auth-hub:test"
     ],
     gates: [
       "npm run auth-hub:test",
       "npm run security:scan"
     ],
     openQuestions: [
-      "Should Coze real integration prioritize API, MCP, CLI, or another bridge?",
-      "Which real connector comes first: WeChat, Zhuque AI, Douyin, Xiaohongshu, Zhihu, or Toutiao?",
-      "Should Auth Hub be deployed to Render with Cloudflare Access or stay local-first for now?"
+      "Will the maintainer authorize the PR merge sequence beginning with PR #22?",
+      "Which approved test account, scope, frequency, and stop conditions will be used for each real connector acceptance?",
+      "Will the owner approve the Auth Hub deployment decision card after the merge chain enters main?"
     ],
     secretBoundary: "Do not publish account credentials, cookies, QR codes, browser profiles, private screenshots, or raw connector payloads."
   },
@@ -185,8 +266,9 @@ const report = {
   summary: {
     ok: true,
     phases: phases.length,
+    programModules: program.modules.length,
     activeReady: phases.filter((phase) => phase.status === "ready").length,
-    openDecisions: phases.reduce((count, phase) => count + phase.openQuestions.length, 0),
+    openDecisions: phases.reduce((count, phase) => count + phase.openQuestions.length, 0) + program.modules.length,
     counts: summarize(phases)
   },
   repository: {
@@ -200,6 +282,7 @@ const report = {
     "Does not modify GitHub settings, release records, tags, npm packages, Bitwarden secrets, GitHub secrets, provider-live workflows, or connector accounts.",
     "Use this as a planning map; use next:actions, maintainer:pack, and release:* commands for execution evidence."
   ],
+  program,
   phases
 };
 
@@ -240,11 +323,38 @@ function renderMarkdown(roadmap) {
   lines.push("");
   lines.push(`- OK: ${roadmap.summary.ok ? "yes" : "no"}`);
   lines.push(`- Phases: ${roadmap.summary.phases}`);
+  lines.push(`- Active program modules: ${roadmap.summary.programModules}`);
   lines.push(`- Ready phases: ${roadmap.summary.activeReady}`);
   lines.push(`- Open decisions: ${roadmap.summary.openDecisions}`);
   lines.push(`- Repository: ${roadmap.repository.branch ?? "unknown"} @ ${roadmap.repository.head ?? "unknown"}`);
   lines.push(`- Working tree clean: ${roadmap.repository.clean ? "yes" : "no"}`);
   lines.push("");
+  lines.push("## Program Control");
+  lines.push("");
+  lines.push(`As of: ${roadmap.program.asOf}`);
+  lines.push(`Recommended next: ${roadmap.program.recommendedNext}`);
+  lines.push(`Merge order: ${roadmap.program.mergeOrder.join(" -> ")}`);
+  lines.push("");
+  lines.push("| Module | Status | Current stage |");
+  lines.push("| --- | --- | --- |");
+  for (const module of roadmap.program.modules) {
+    lines.push(`| ${module.number}. ${escapeCell(module.title)} | ${escapeCell(module.status)} | ${escapeCell(module.currentStage)} |`);
+  }
+  lines.push("");
+
+  for (const module of roadmap.program.modules) {
+    lines.push(`### ${module.number}. ${module.title}`);
+    lines.push("");
+    pushList(lines, "Completed", module.completed);
+    pushList(lines, "Pending", module.pending);
+    lines.push(`Decision background: ${module.decision.background}`);
+    lines.push(`Decision content: ${module.decision.content}`);
+    lines.push(`Recommendation: ${module.decision.recommendation}`);
+    lines.push(`Value: ${module.decision.value}`);
+    lines.push(`Risk: ${module.decision.risk}`);
+    lines.push("");
+  }
+
   lines.push("## Phase Map");
   lines.push("");
   lines.push("| Phase | Status | Horizon | Owner |");

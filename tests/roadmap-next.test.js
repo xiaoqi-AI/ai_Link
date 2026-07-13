@@ -40,6 +40,7 @@ describe("roadmap next report", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.equal(report.summary.ok, true);
     assert.equal(report.summary.phases, 6);
+    assert.equal(report.summary.programModules, 3);
     assert.equal(report.summary.openDecisions > 0, true);
     assert.equal(report.repository.head.length > 0, true);
     assert.deepEqual(ids, [
@@ -50,8 +51,25 @@ describe("roadmap next report", () => {
       "v0-2-skill-authoring",
       "v0-3-agent-connectors"
     ]);
+    assert.deepEqual(report.program.modules.map((module) => module.id), [
+      "auth-hub-status-center",
+      "platform-auth-connectors-p0-2",
+      "auth-hub-remote"
+    ]);
+    assert.deepEqual(report.program.mergeOrder, ["#22", "#23", "#26", "#24", "#25", "#27", "#28"]);
+    assert.match(report.program.recommendedNext, /PR #22/);
+    assert.equal(report.program.modules.every((module) => (
+      module.completed.length > 0
+      && module.pending.length > 0
+      && module.decision.background
+      && module.decision.content
+      && module.decision.recommendation
+      && module.decision.value
+      && module.decision.risk
+    )), true);
     assert.equal(report.phases.some((phase) => phase.nextCommands.some((command) => command.includes("roadmap:next:json"))), true);
-    assert.equal(report.phases.some((phase) => phase.openQuestions.some((question) => question.includes("Coze real integration"))), true);
+    assert.equal(report.phases.some((phase) => phase.openQuestions.some((question) => question.includes("PR #22"))), true);
+    assert.equal(result.stdout.includes("Which real connector comes first"), false);
     assert.equal(report.safety.some((line) => line.includes("Does not read API keys")), true);
   });
 
@@ -60,6 +78,10 @@ describe("roadmap next report", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /# AI Link Roadmap Next/);
+    assert.match(result.stdout, /Program Control/);
+    assert.match(result.stdout, /Auth Hub 状态中枢/);
+    assert.match(result.stdout, /平台授权连接器 P0.2/);
+    assert.match(result.stdout, /#22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28/);
     assert.match(result.stdout, /v0\.1 local public baseline/);
     assert.match(result.stdout, /v0\.2 real provider acceptance/);
     assert.match(result.stdout, /Later SDK and ecosystem/);

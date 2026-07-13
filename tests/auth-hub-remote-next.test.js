@@ -447,7 +447,8 @@ describe("Auth Hub remote next report", () => {
         "-ExecutorId", "test-executor-b"
       ]);
       assert.equal(differentTarget.status, 1);
-      assert.match(`${differentTarget.stdout}\n${differentTarget.stderr}`, /already running for a different/);
+      const compactError = `${differentTarget.stdout}\n${differentTarget.stderr}`.replace(/\s+/g, "");
+      assert.match(compactError, /alreadyrunningforadifferenttarget/);
     } finally {
       await rm(executorProcessStatePath, { force: true });
     }
