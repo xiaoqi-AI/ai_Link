@@ -172,6 +172,151 @@ describe("executor capability heartbeat", () => {
     assert.equal(staleXhs.canRunReal, false);
   });
 
+  it("keeps unresolved actions visible across newer unrelated probes", () => {
+    const report = summarizeConnectorAuthStatus({
+      connectors: [{
+        platform: "github",
+        status: "available",
+        mode: "private",
+        source: "executor",
+        runtime: { status: "online" },
+        operationalStatus: "verified",
+        canRunReal: true,
+        verifiedOperations: ["check_auth:repo_read:target_bound"],
+        probe: {
+          status: "verified",
+          checkedAt: "2026-07-12T12:01:00.000Z",
+          expiresAt: "2026-07-12T12:16:00.000Z",
+          operations: []
+        }
+      }],
+      actionTasks: [{
+        id: "github-actions-action",
+        status: "action_required",
+        updatedAt: "2026-07-12T12:00:00.000Z",
+        input: {
+          platform: "github",
+          operation: "check_auth",
+          scope: "actions_read"
+        },
+        error: { platform: "github", code: "credential_invalid" }
+      }]
+    });
+
+    assert.equal(report.items[0].status, "needs_action");
+    assert.equal(report.items[0].reason, "credential_invalid");
+    assert.deepEqual(report.items[0].relatedTaskIds, ["github-actions-action"]);
+    assert.equal(report.summary.ready, 0);
+    assert.equal(report.summary.next_actions, 1);
+  });
+
+  it("keeps every unresolved action visible beside a blocked probe", () => {
+    const report = summarizeConnectorAuthStatus({
+      connectors: [{
+        platform: "github",
+        status: "available",
+        mode: "private",
+        source: "executor",
+        runtime: { status: "online" },
+        operationalStatus: "blocked",
+        canRunReal: false,
+        verifiedOperations: [],
+        probe: {
+          status: "blocked",
+          issueCode: "platform_unavailable",
+          checkedAt: "2026-07-12T12:01:00.000Z",
+          expiresAt: "2026-07-12T12:16:00.000Z",
+          operations: []
+        }
+      }],
+      actionTasks: [
+        {
+          id: "same-code-task",
+          status: "action_required",
+          input: { platform: "github" },
+          error: { platform: "github", code: "platform_unavailable" }
+        },
+        {
+          id: "login-task",
+          status: "action_required",
+          input: { platform: "github" },
+          error: { platform: "github", code: "login_expired" }
+        },
+        {
+          id: "credential-task",
+          status: "action_required",
+          input: { platform: "github" },
+          error: { platform: "github", code: "credential_invalid" }
+        }
+      ]
+    });
+
+    assert.equal(report.schemaVersion, "2");
+    assert.equal(report.items[0].status, "blocked");
+    assert.equal(report.items[0].reason, "platform_unavailable");
+    assert.deepEqual(report.items[0].relatedTaskIds, ["same-code-task"]);
+    assert.deepEqual(
+      report.nextActions.map((action) => action.reason).sort(),
+      ["credential_invalid", "login_expired", "platform_unavailable"]
+    );
+    assert.equal(report.nextActions.find((action) => action.reason === "login_expired").relatedTaskIds[0], "login-task");
+    assert.equal(report.summary.next_actions, 3);
+  });
+
+  it("fails closed for expired, unknown, and truncated action coverage", () => {
+    const connector = {
+      platform: "xiaohongshu",
+      status: "available",
+      mode: "private",
+      source: "executor",
+      runtime: { status: "online" },
+      operationalStatus: "verified",
+      canRunReal: true,
+      verifiedOperations: ["check_session"],
+      probe: {
+        status: "verified",
+        checkedAt: "2026-07-12T12:01:00.000Z",
+        expiresAt: "2026-07-12T12:16:00.000Z",
+        operations: []
+      }
+    };
+
+    const expired = summarizeConnectorAuthStatus({
+      connectors: [connector],
+      actionTasks: [{
+        id: "expired-approval",
+        status: "action_required",
+        input: { platform: "xiaohongshu" },
+        error: { code: "approval_expired", platform: "xiaohongshu" }
+      }]
+    });
+    assert.equal(expired.items[0].status, "needs_action");
+    assert.equal(expired.nextActions[0].reason, "approval_expired");
+    assert.equal(expired.nextActions[0].severity, "approval");
+
+    const unknown = summarizeConnectorAuthStatus({
+      connectors: [connector],
+      actionTasks: [{
+        id: "unknown-action",
+        status: "action_required",
+        input: { platform: "xiaohongshu" },
+        error: { code: "future_action_code", platform: "xiaohongshu" }
+      }]
+    });
+    assert.equal(unknown.items[0].status, "needs_action");
+    assert.equal(unknown.nextActions[0].reason, "unknown_action_required");
+    assert.equal(unknown.nextActions[0].severity, "blocked");
+
+    const truncated = summarizeConnectorAuthStatus({
+      connectors: [connector],
+      actionTasksTruncated: true
+    });
+    assert.equal(truncated.items[0].status, "unverified");
+    assert.equal(truncated.items[0].reason, "action_task_list_truncated");
+    assert.equal(truncated.summary.action_tasks_complete, false);
+    assert.equal(truncated.summary.action_tasks_truncated, true);
+  });
+
   it("lets the real local executor report a snapshot without exposing private state", async () => {
     const result = await runExecutorOnce({
       baseUrl,

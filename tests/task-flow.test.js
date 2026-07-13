@@ -905,7 +905,9 @@ describe("AI Link task flow", () => {
     assert.equal(xiaohongshu.reason, "login_expired");
     assert.equal(xiaohongshu.relatedTaskIds[0], created.data.task.id);
     assert.ok(xiaohongshu.relatedTaskIds.includes(created.data.task.id));
-    const nextAction = status.data.authStatus.nextActions.find((action) => action.platform === "xiaohongshu");
+    const nextAction = status.data.authStatus.nextActions.find((action) => (
+      action.platform === "xiaohongshu" && action.reason === "login_expired"
+    ));
     assert.equal(nextAction.owner, "account_owner");
     assert.equal(nextAction.severity, "manual");
     assert.equal(nextAction.retryAfterAction, true);
@@ -1022,6 +1024,45 @@ describe("AI Link task flow", () => {
     assert.equal(value.nested.cookie, "[redacted]");
     assert.equal(value.nested.rawHtml, "[redacted-content]");
     assert.equal(value.nested.safe, "visible");
+  });
+
+  it("marks Auth Status coverage incomplete when the 51st action task exists", async () => {
+    const coverageServer = await startTestServer();
+    const addActionTask = async (index) => {
+      const task = await coverageServer.store.createTask({
+        workflow: "read_detect",
+        input: { text: `coverage-${index}`, platform: "github" },
+        targets: ["github"],
+        options: {},
+        createdBy: "coverage-test"
+      });
+      await coverageServer.store.markTaskNeedsAction({
+        taskId: task.id,
+        summary: "coverage boundary",
+        result: { platform: "github" },
+        error: { code: "credential_missing", platform: "github" },
+        actor: "coverage-test"
+      });
+    };
+
+    try {
+      for (let index = 0; index < 50; index += 1) {
+        await addActionTask(index);
+      }
+      const complete = await requestJson(coverageServer.baseUrl, "/api/auth-status", { token: "codex-token" });
+      assert.equal(complete.data.authStatus.schemaVersion, "2");
+      assert.equal(complete.data.authStatus.summary.action_tasks_complete, true);
+      assert.equal(complete.data.authStatus.summary.action_tasks_truncated, false);
+
+      await addActionTask(50);
+      const truncated = await requestJson(coverageServer.baseUrl, "/api/auth-status", { token: "codex-token" });
+      assert.equal(truncated.response.status, 200);
+      assert.equal(truncated.data.authStatus.summary.action_tasks_complete, false);
+      assert.equal(truncated.data.authStatus.summary.action_tasks_truncated, true);
+      assert.equal(truncated.data.authStatus.items.some((item) => item.status === "ready"), false);
+    } finally {
+      await coverageServer.close();
+    }
   });
 
   it("fails closed when Cloudflare Access JWT validation is not configured", async () => {

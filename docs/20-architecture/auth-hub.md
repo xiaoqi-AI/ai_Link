@@ -267,12 +267,20 @@ Authorization: Bearer <token with connectors:read>
 
 该入口的目标不是替代真实平台会话探测，而是把“合同声明、执行器在线证据、已经被执行器发现且需要人处理或批准的事项”集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试；普通代码和文档任务不需要轮询该接口。
 
-依赖项目应只检查自己需要的平台，避免被无关平台状态阻断：
+依赖项目应声明自己需要的精确操作，避免被无关平台状态阻断，也避免把同平台某一个成功 probe 扩大解释为其他能力可用：
 
 ```powershell
-npm run auth-hub:status:strict -- --platform github
-npm run auth-hub:status:strict -- --platform wechat_official
-npm run auth-hub:status:strict -- --platform xiaohongshu
+npm run auth-hub:status:strict -- --require-operation "github=check_auth:repo_read:target_bound"
+npm run auth-hub:status:strict -- --require-operation "wechat_official=check_health"
+npm run auth-hub:status:strict -- --require-operation "xiaohongshu=check_session"
 ```
+
+状态客户端返回稳定的顶层 `schemaVersion="1"` 和 `operationRequirements`；服务端 `authStatus` 合同版本为 `schemaVersion="2"`。strict、watch 和 operation gate 只接受 `action_tasks_complete=true`、`action_tasks_truncated=false` 的版本 2 覆盖，旧合同、缺字段或矛盾状态返回 `action_task_coverage_unverified`。每项要求只有在目标平台为 `ready` 且 `verifiedOperations` 存在精确字符串时才是 `verified`；缺平台、平台未就绪、证据过期或只验证了其他 scope 都失败关闭。GitHub 目标仓库继续只以服务端 HMAC 绑定，消费端只能要求 `target_bound`，不能读取 owner/repo 或内部摘要。
+
+未解决的 `action_required` / `approval_required` 任务是独立的控制面事实，不会因为同平台出现较新的 probe 而自动消失。只有原任务被重试、取消或结算后，人工事项才可移除；这避免 `repo_read` 证据掩盖 `actions_read` 问题。平台主状态只表达当前最严格结论，所有不同错误码的未解决事项仍分别保留在 `nextActions`，blocked probe 不能隐藏续登、换凭据或审批事项。`approval_expired` 与未知人工错误码都失败关闭。API 对每类人工任务用第 51 条检测截断；一旦超过 50 条，`summary.action_tasks_truncated=true`，任何平台都不得保持 `ready`，没有更严重可见事项的平台降为 `unverified`，依赖项目必须先恢复完整覆盖。
+
+watcher 私有快照使用 schema 3，以 `platform + kind + operation` 区分信号；人工动作使用 `kind=action`，每项精确能力使用 `kind=operation`，因此同一平台的多项 operation 和人工待办可以同时存在。版本 2 快照不会静默迁移或覆盖，读取时返回 `state_unreadable`；维护者确认无并发 watcher 后删除或改名旧快照，再建立一次安静基线。
+
+当前 `check_auth:<scope>:target_bound` 只证明该 scope 存在一个服务端目标绑定证据，不向消费端暴露目标，也不能证明它就是调用方当前仓库。需要仓库级放行时，必须等待后续服务端目标核验合同，不能仅凭本轮 operation 字符串继续。
 
 严格模式对 `unverified`、`needs_action`、`reserved`、`blocked`、缺失平台和过期 probe 都返回非零退出码。它只读取状态，不会自动发起探测或平台调用。

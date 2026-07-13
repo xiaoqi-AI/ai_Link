@@ -46,6 +46,18 @@ async function runStatus({ baseUrl = "http://127.0.0.1:1", env = {}, args = ["--
   };
 }
 
+function completeAuthStatus(authStatus) {
+  return {
+    schemaVersion: "2",
+    ...authStatus,
+    summary: {
+      action_tasks_complete: true,
+      action_tasks_truncated: false,
+      ...authStatus.summary
+    }
+  };
+}
+
 describe("Auth status next action client", () => {
   it("renders public-safe next actions from Auth Hub", async () => {
     await withServer((req, res) => {
@@ -53,7 +65,7 @@ describe("Auth status next action client", () => {
       if (req.url === "/api/auth-status") {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({
-          authStatus: {
+          authStatus: completeAuthStatus({
             summary: {
               total: 2,
               ready: 1,
@@ -88,7 +100,7 @@ describe("Auth status next action client", () => {
                 cookie: "private-cookie"
               }
             ]
-          }
+          })
         }));
         return;
       }
@@ -130,11 +142,11 @@ describe("Auth status next action client", () => {
       assert.equal(req.headers["cf-access-client-secret"], undefined);
       res.setHeader("content-type", "application/json");
       res.end(JSON.stringify({
-        authStatus: {
+        authStatus: completeAuthStatus({
           summary: { total: 0, ready: 0, next_actions: 0 },
           items: [],
           nextActions: []
-        }
+        })
       }));
     }, async (baseUrl) => {
       const result = await runStatus({
@@ -192,7 +204,7 @@ describe("Auth status next action client", () => {
       if (req.url === "/api/auth-status") {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({
-          authStatus: {
+          authStatus: completeAuthStatus({
             summary: { total: 1, ready: 0, unverified: 1, needs_action: 0, reserved: 0, blocked: 0, next_actions: 0 },
             items: [{
               platform: "xiaohongshu",
@@ -208,7 +220,7 @@ describe("Auth status next action client", () => {
               relatedTaskIds: []
             }],
             nextActions: []
-          }
+          })
         }));
         return;
       }
@@ -236,7 +248,7 @@ describe("Auth status next action client", () => {
       if (req.url === "/api/auth-status") {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({
-          authStatus: {
+          authStatus: completeAuthStatus({
             summary: { total: 2, ready: 1, unverified: 1, next_actions: 0 },
             items: [
               {
@@ -266,7 +278,7 @@ describe("Auth status next action client", () => {
               }
             ],
             nextActions: []
-          }
+          })
         }));
         return;
       }
@@ -291,11 +303,219 @@ describe("Auth status next action client", () => {
         needs_action: 0,
         reserved: 0,
         blocked: 0,
-        next_actions: 0
+        next_actions: 0,
+        action_tasks_complete: true,
+        action_tasks_truncated: false
       });
       assert.deepEqual(report.authStatus.items[0].verifiedOperations, ["check_auth"]);
       assert.equal(report.authStatus.items[0].probe.status, "verified");
       assert.equal(result.stdout.includes("must-not-leak"), false);
+    });
+  });
+
+  it("fails closed unless every dependent-project operation is exactly verified", async () => {
+    await withServer((req, res) => {
+      if (req.url !== "/api/auth-status") {
+        res.statusCode = 404;
+        res.end("not found");
+        return;
+      }
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({
+        authStatus: completeAuthStatus({
+          summary: { total: 2, ready: 1, unverified: 1, next_actions: 0 },
+          items: [
+            {
+              platform: "github",
+              status: "ready",
+              verifiedOperations: ["check_auth:repo_read:target_bound"],
+              reason: "probe_verified"
+            },
+            {
+              platform: "xiaohongshu",
+              status: "unverified",
+              verifiedOperations: [],
+              reason: "probe_not_run"
+            }
+          ],
+          nextActions: []
+        })
+      }));
+    }, async (baseUrl) => {
+      const verified = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:repo_read:target_bound"
+        ]
+      });
+      const verifiedReport = JSON.parse(verified.stdout);
+      assert.equal(verified.status, 0, verified.stderr);
+      assert.equal(verifiedReport.schemaVersion, "1");
+      assert.deepEqual(verifiedReport.target.platforms, ["github"]);
+      assert.deepEqual(verifiedReport.target.requiredOperations, [{
+        platform: "github",
+        operation: "check_auth:repo_read:target_bound"
+      }]);
+      assert.deepEqual(verifiedReport.operationRequirements, [{
+        platform: "github",
+        operation: "check_auth:repo_read:target_bound",
+        status: "verified",
+        reason: "probe_verified"
+      }]);
+
+      const wrongScope = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:actions_read:target_bound"
+        ]
+      });
+      const wrongScopeReport = JSON.parse(wrongScope.stdout);
+      assert.equal(wrongScope.status, 1, wrongScope.stderr);
+      assert.equal(wrongScopeReport.summary.ok, false);
+      assert.deepEqual(wrongScopeReport.blockers, [
+        "github: required_operation_unverified:check_auth:actions_read:target_bound"
+      ]);
+      assert.equal(wrongScopeReport.operationRequirements[0].status, "operation_unverified");
+      assert.match(wrongScopeReport.summary.recommendedNext, /every required operation/);
+    });
+  });
+
+  it("rejects malformed operation requirements", async () => {
+    await withServer((req, res) => {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({
+        authStatus: completeAuthStatus({
+          summary: { total: 0, ready: 0, next_actions: 0 },
+          items: [],
+          nextActions: []
+        })
+      }));
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--require-operation", "github/check_auth"]
+      });
+      const report = JSON.parse(result.stdout);
+      assert.equal(result.status, 1, result.stderr);
+      assert.deepEqual(report.blockers, ["invalid_operation_requirement"]);
+    });
+  });
+
+  it("rejects a dangling operation requirement instead of silently ignoring it", async () => {
+    await withServer((req, res) => {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({
+        authStatus: completeAuthStatus({
+          summary: { total: 0, ready: 0, next_actions: 0 },
+          items: [],
+          nextActions: []
+        })
+      }));
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--require-operation"]
+      });
+      const report = JSON.parse(result.stdout);
+      assert.equal(result.status, 1, result.stderr);
+      assert.deepEqual(report.blockers, ["invalid_operation_requirement"]);
+    });
+  });
+
+  it("fails closed for old, missing, or contradictory action-task coverage", async () => {
+    let authStatus = {
+      schemaVersion: "1",
+      summary: { total: 1, ready: 1, next_actions: 0, action_tasks_complete: true, action_tasks_truncated: false },
+      items: [{ platform: "github", status: "ready", reason: "probe_verified" }],
+      nextActions: []
+    };
+    await withServer((req, res) => {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ authStatus }));
+    }, async (baseUrl) => {
+      const runStrict = () => runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--platform", "github"]
+      });
+
+      const oldSchemaResult = await runStrict();
+      const oldSchema = JSON.parse(oldSchemaResult.stdout);
+      assert.equal(oldSchemaResult.status, 1, oldSchemaResult.stderr);
+      assert.deepEqual(oldSchema.blockers, ["auth_hub: action_task_coverage_unverified"]);
+
+      authStatus = {
+        schemaVersion: "2",
+        summary: { total: 1, ready: 1, next_actions: 0 },
+        items: authStatus.items,
+        nextActions: []
+      };
+      const missingCoverageResult = await runStrict();
+      const missingCoverage = JSON.parse(missingCoverageResult.stdout);
+      assert.equal(missingCoverageResult.status, 1, missingCoverageResult.stderr);
+      assert.deepEqual(missingCoverage.blockers, ["auth_hub: action_task_coverage_unverified"]);
+
+      authStatus.summary = {
+        total: 1,
+        ready: 1,
+        next_actions: 0,
+        action_tasks_complete: true,
+        action_tasks_truncated: true
+      };
+      const contradictoryResult = await runStrict();
+      const contradictory = JSON.parse(contradictoryResult.stdout);
+      assert.equal(contradictoryResult.status, 1, contradictoryResult.stderr);
+      assert.deepEqual(contradictory.blockers, ["auth_hub: action_task_list_truncated"]);
+    });
+  });
+
+  it("fails closed when Auth Hub action coverage is truncated", async () => {
+    await withServer((req, res) => {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({
+        authStatus: completeAuthStatus({
+          summary: {
+            total: 1,
+            ready: 1,
+            next_actions: 0,
+            action_tasks_complete: false,
+            action_tasks_truncated: true
+          },
+          items: [{
+            platform: "github",
+            status: "ready",
+            verifiedOperations: ["check_auth:repo_read:target_bound"],
+            reason: "probe_verified"
+          }],
+          nextActions: []
+        })
+      }));
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: [
+          "--json",
+          "--strict",
+          "--require-operation",
+          "github=check_auth:repo_read:target_bound"
+        ]
+      });
+      const report = JSON.parse(result.stdout);
+      assert.equal(result.status, 1, result.stderr);
+      assert.equal(report.summary.ok, false);
+      assert.deepEqual(report.blockers, ["auth_hub: action_task_list_truncated"]);
+      assert.equal(report.authStatus.summary.action_tasks_complete, false);
     });
   });
 
@@ -304,7 +524,7 @@ describe("Auth status next action client", () => {
       if (req.url === "/api/auth-status") {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({
-          authStatus: {
+          authStatus: completeAuthStatus({
             summary: { total: 1, ready: 0, needs_action: 1, next_actions: 1 },
             items: [{ platform: "github", status: "needs_action", reason: "credential_missing" }],
             nextActions: [{
@@ -313,7 +533,7 @@ describe("Auth status next action client", () => {
               reason: "credential_missing",
               severity: "manual"
             }]
-          }
+          })
         }));
         return;
       }
@@ -351,11 +571,11 @@ describe("Auth status next action client", () => {
       if (req.url === "/api/auth-status") {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify({
-          authStatus: {
+          authStatus: completeAuthStatus({
             summary: { total: 1, ready: 1, needs_action: 0, reserved: 0, blocked: 0, next_actions: 0 },
             items: [{ platform: "google_search_console", status: "ready", reason: "private-api-client+public-check", action: "无需处理" }],
             nextActions: []
-          }
+          })
         }));
         return;
       }
@@ -374,6 +594,19 @@ describe("Auth status next action client", () => {
       assert.match(result.stdout, /google_search_console/);
       assert.equal(result.stdout.includes("secret-codex-token"), false);
     });
+  });
+
+  it("documents a real executable cross-project handoff without reusing the content-site domain", async () => {
+    const [guide, handoff] = await Promise.all([
+      readFile("docs/user-guide.md", "utf8"),
+      readFile("docs/project-ledger/session-2026-07-12-auth-status-client-handoff.md", "utf8")
+    ]);
+
+    assert.match(guide, /--require-operation/);
+    assert.match(guide, /operationRequirements\[\]\.status=verified/);
+    assert.match(handoff, /npm\.cmd --prefix \$env:AI_LINK_HOME/);
+    assert.match(handoff, /<approved-auth-hub-url>/);
+    assert.doesNotMatch(handoff, /AI_LINK_BASE_URL="https:\/\/voice\.xiao-qi-ai\.com"/);
   });
 
   it("creates a quiet baseline and alerts only for a new normalized next action", async () => {
@@ -399,7 +632,7 @@ describe("Auth status next action client", () => {
           return;
         }
         res.setHeader("content-type", "application/json");
-        res.end(JSON.stringify(response));
+        res.end(JSON.stringify({ ...response, authStatus: completeAuthStatus(response.authStatus) }));
       }, async (baseUrl) => {
         const runWatch = () => runStatus({
           baseUrl,
@@ -466,6 +699,8 @@ describe("Auth status next action client", () => {
         assert.equal(alert.reason, "new_attention_required");
         assert.deepEqual(alert.newSignals, [{
           platform: "xiaohongshu",
+          kind: "action",
+          operation: "",
           status: "needs_action",
           severity: "manual",
           reason: "login_expired"
@@ -495,6 +730,80 @@ describe("Auth status next action client", () => {
     }
   });
 
+  it("tracks multiple operation failures and a manual action for one platform independently", async () => {
+    const stateFile = path.join("runtime", "tmp", `auth-status-multi-signal-${process.pid}-${Date.now()}.json`);
+    let response = {
+      authStatus: {
+        summary: { total: 1, ready: 1, next_actions: 0 },
+        items: [{
+          platform: "github",
+          status: "ready",
+          reason: "probe_verified",
+          verifiedOperations: []
+        }],
+        nextActions: []
+      }
+    };
+    try {
+      await withServer((req, res) => {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ ...response, authStatus: completeAuthStatus(response.authStatus) }));
+      }, async (baseUrl) => {
+        const runWatch = () => runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: [
+            "--watch",
+            "--json",
+            "--state-file",
+            stateFile,
+            "--require-operation",
+            "github=check_auth:repo_read:target_bound",
+            "--require-operation",
+            "github=check_auth:actions_read:target_bound"
+          ]
+        });
+
+        const baseline = JSON.parse((await runWatch()).stdout);
+        assert.equal(baseline.baseline, true);
+        assert.equal(baseline.summary.activeSignals, 2);
+        const storedBaseline = JSON.parse(await readFile(stateFile, "utf8"));
+        assert.equal(storedBaseline.schemaVersion, 3);
+        assert.deepEqual(storedBaseline.signals.map((signal) => signal.operation), [
+          "check_auth:actions_read:target_bound",
+          "check_auth:repo_read:target_bound"
+        ]);
+
+        response = {
+          authStatus: completeAuthStatus({
+            summary: { total: 1, needs_action: 1, next_actions: 1 },
+            items: [{ platform: "github", status: "needs_action", reason: "credential_missing" }],
+            nextActions: [{
+              platform: "github",
+              status: "needs_action",
+              severity: "manual",
+              reason: "credential_missing"
+            }]
+          })
+        };
+        const changed = JSON.parse((await runWatch()).stdout);
+        assert.equal(changed.notify, true);
+        assert.equal(changed.summary.activeSignals, 3);
+        assert.deepEqual(changed.newSignals, [{
+          platform: "github",
+          kind: "action",
+          operation: "",
+          status: "needs_action",
+          severity: "manual",
+          reason: "credential_missing"
+        }]);
+        assert.equal(changed.summary.updatedSignals, 2);
+      });
+    } finally {
+      await rm(stateFile, { force: true });
+    }
+  });
+
   it("alerts on worsening but not same-rank reason changes or improvement", async () => {
     const stateFile = path.join("runtime", "tmp", `auth-status-direction-${process.pid}-${Date.now()}.json`);
     let response = {
@@ -507,7 +816,7 @@ describe("Auth status next action client", () => {
     try {
       await withServer((req, res) => {
         res.setHeader("content-type", "application/json");
-        res.end(JSON.stringify(response));
+        res.end(JSON.stringify({ ...response, authStatus: completeAuthStatus(response.authStatus) }));
       }, async (baseUrl) => {
         const runWatch = () => runStatus({
           baseUrl,
@@ -523,6 +832,22 @@ describe("Auth status next action client", () => {
         assert.equal(changed.notify, false);
         assert.equal(changed.reason, "changed_without_alert");
         assert.equal(changed.summary.updatedSignals, 1);
+
+        response.authStatus.nextActions[0] = {
+          platform: "xiaohongshu",
+          status: "needs_action",
+          severity: "approval",
+          reason: "interactive_approval_required"
+        };
+        response.authStatus.items[0] = {
+          platform: "xiaohongshu",
+          status: "needs_action",
+          reason: "interactive_approval_required"
+        };
+        const approval = JSON.parse((await runWatch()).stdout);
+        assert.equal(approval.notify, true);
+        assert.equal(approval.reason, "worsened_attention_required");
+        assert.equal(approval.summary.worsenedSignals, 1);
 
         response.authStatus.nextActions[0] = {
           platform: "xiaohongshu",
@@ -579,11 +904,11 @@ describe("Auth status next action client", () => {
     const stateFile = path.join("runtime", "tmp", `auth-status-invalid-response-${process.pid}-${Date.now()}.json`);
     let response = {
       body: JSON.stringify({
-        authStatus: {
+        authStatus: completeAuthStatus({
           summary: { total: 1, ready: 1, next_actions: 0 },
           items: [{ platform: "github", status: "ready", reason: "probe_verified" }],
           nextActions: []
-        }
+        })
       }),
       contentType: "application/json"
     };
@@ -636,6 +961,7 @@ describe("Auth status next action client", () => {
 
     const stateFile = path.join("runtime", "tmp", `auth-status-corrupt-${process.pid}-${Date.now()}.json`);
     const tamperedFile = path.join("runtime", "tmp", `auth-status-tampered-${process.pid}-${Date.now()}.json`);
+    const operationStateFile = path.join("runtime", "tmp", `auth-status-operation-${process.pid}-${Date.now()}.json`);
     let response = {
       authStatus: {
         summary: { total: 2, ready: 2, next_actions: 0 },
@@ -649,7 +975,7 @@ describe("Auth status next action client", () => {
     try {
       await withServer((req, res) => {
         res.setHeader("content-type", "application/json");
-        res.end(JSON.stringify(response));
+        res.end(JSON.stringify({ ...response, authStatus: completeAuthStatus(response.authStatus) }));
       }, async (baseUrl) => {
         const runWatch = (file, platforms = []) => runStatus({
           baseUrl,
@@ -665,6 +991,18 @@ describe("Auth status next action client", () => {
         assert.equal(mismatch.monitoringAlert, true);
         assert.equal(mismatch.notify, false);
         assert.equal(mismatch.reason, "state_scope_mismatch");
+
+        const runOperationWatch = (operation) => runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: ["--watch", "--json", "--state-file", operationStateFile, "--require-operation", `github=${operation}`]
+        });
+        const operationBaseline = JSON.parse((await runOperationWatch("check_auth:repo_read:target_bound")).stdout);
+        assert.equal(operationBaseline.baseline, true);
+        const operationMismatchResult = await runOperationWatch("check_auth:actions_read:target_bound");
+        const operationMismatch = JSON.parse(operationMismatchResult.stdout);
+        assert.equal(operationMismatchResult.status, 1);
+        assert.equal(operationMismatch.reason, "state_scope_mismatch");
 
         await writeFile(stateFile, "{not-json", "utf8");
         const corruptResult = await runWatch(stateFile, ["github"]);
@@ -697,6 +1035,7 @@ describe("Auth status next action client", () => {
     } finally {
       await rm(stateFile, { force: true });
       await rm(tamperedFile, { force: true });
+      await rm(operationStateFile, { force: true });
       await rm(outside, { force: true });
     }
   });

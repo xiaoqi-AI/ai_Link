@@ -13,10 +13,20 @@ const watch = args.includes("--watch");
 const baseUrl = trimSlash(valueAfter("--base-url") || process.env.AI_LINK_BASE_URL || "http://127.0.0.1:10000");
 const token = valueAfter("--token") || process.env.AI_LINK_CODEX_TOKEN || process.env.AI_LINK_ADMIN_TOKEN || "";
 const rawRequestedPlatforms = valuesAfter("--platform");
-const requestedPlatforms = normalizePlatforms(rawRequestedPlatforms);
-const platformFilterApplied = rawRequestedPlatforms.length > 0;
+const rawRequiredOperations = valuesAfter("--require-operation");
+const requiredOperationInput = normalizeRequiredOperations(rawRequiredOperations);
+const requestedPlatforms = normalizePlatforms([
+  ...rawRequestedPlatforms,
+  ...requiredOperationInput.values.map((item) => item.platform)
+]);
+const platformFilterApplied = rawRequestedPlatforms.length > 0 || rawRequiredOperations.length > 0;
 const invalidPlatformFilter = rawRequestedPlatforms.some((value) => !/^[a-z0-9_]{1,80}$/.test(String(value || "").trim()));
-const scopeFingerprint = buildScopeFingerprint({ baseUrl, requestedPlatforms, platformFilterApplied });
+const scopeFingerprint = buildScopeFingerprint({
+  baseUrl,
+  requestedPlatforms,
+  platformFilterApplied,
+  requiredOperations: requiredOperationInput.values
+});
 let stateFile = "";
 
 if (watch) {
@@ -28,7 +38,18 @@ if (watch) {
   }
 }
 
-const report = await buildReport({ baseUrl, token, requestedPlatforms, platformFilterApplied, invalidPlatformFilter });
+const report = {
+  schemaVersion: "1",
+  ...await buildReport({
+    baseUrl,
+    token,
+    requestedPlatforms,
+    platformFilterApplied,
+    invalidPlatformFilter,
+    requiredOperations: requiredOperationInput.values,
+    invalidOperationRequirement: requiredOperationInput.invalid
+  })
+};
 
 if (watch) {
   const watchReport = await buildWatchReport({ report, stateFile, scopeFingerprint });
@@ -55,13 +76,16 @@ async function buildReport({
   token: bearerToken,
   requestedPlatforms: platformFilter,
   platformFilterApplied,
-  invalidPlatformFilter
+  invalidPlatformFilter,
+  requiredOperations,
+  invalidOperationRequirement
 }) {
   const generatedAt = new Date().toISOString();
   const target = {
     baseUrl: targetBaseUrl,
     authStatusUrl: `${targetBaseUrl}/api/auth-status`,
-    platforms: platformFilter
+    platforms: platformFilter,
+    requiredOperations
   };
 
   if (!bearerToken) {
@@ -106,6 +130,8 @@ async function buildReport({
   }
 
   const authStatus = response.data?.authStatus || {};
+  const actionCoverage = evaluateActionCoverage(authStatus);
+  const actionCoverageIssue = actionCoverage.issue;
   const allItems = Array.isArray(authStatus.items) ? authStatus.items.map(publicItem) : [];
   const items = platformFilterApplied
     ? allItems.filter((item) => platformFilter.includes(item.platform))
@@ -115,12 +141,34 @@ async function buildReport({
     ? allActions.filter((action) => platformFilter.includes(action.platform))
     : allActions;
   const missingPlatforms = platformFilter.filter((platform) => !allItems.some((item) => item.platform === platform));
+  const operationRequirements = requiredOperations.map((requirement) => {
+    const item = items.find((candidate) => candidate.platform === requirement.platform);
+    if (!item) {
+      return { ...requirement, status: "platform_missing", reason: "missing_from_auth_status" };
+    }
+    if (actionCoverageIssue) {
+      return { ...requirement, status: "coverage_unverified", reason: actionCoverageIssue };
+    }
+    if (item.status !== "ready") {
+      return { ...requirement, status: "platform_not_ready", reason: item.reason || item.status || "unverified" };
+    }
+    if (!item.verifiedOperations.includes(requirement.operation)) {
+      return { ...requirement, status: "operation_unverified", reason: "required_operation_unverified" };
+    }
+    return { ...requirement, status: "verified", reason: "probe_verified" };
+  });
+  const failedOperationRequirements = operationRequirements.filter((item) => item.status !== "verified");
   const blockers = unique([
     ...items
       .filter((item) => item.status !== "ready")
       .map((item) => `${item.platform}: ${item.reason || item.status || "unverified"}`),
     ...missingPlatforms.map((platform) => `${platform}: missing_from_auth_status`),
-    ...(invalidPlatformFilter ? ["invalid_platform_filter"] : [])
+    ...failedOperationRequirements
+      .filter((item) => item.status === "operation_unverified")
+      .map((item) => `${item.platform}: ${item.reason}:${item.operation}`),
+    ...(actionCoverageIssue ? [`auth_hub: ${actionCoverageIssue}`] : []),
+    ...(invalidPlatformFilter ? ["invalid_platform_filter"] : []),
+    ...(invalidOperationRequirement ? ["invalid_operation_requirement"] : [])
   ]);
   const manualCount = nextActions.filter((action) => action.severity !== "blocked").length;
   const filteredSummary = summarizeItems(items, nextActions);
@@ -133,13 +181,19 @@ async function buildReport({
       blockingCount: blockers.length,
       manualCount,
       monitoringIssue: "",
-      recommendedNext: recommendedNext({ nextActions, blockers })
+      recommendedNext: recommendedNext({ nextActions, blockers, failedOperationRequirements })
     },
     target,
     authStatus: {
-      summary: filteredSummary,
+      schemaVersion: stringValue(authStatus.schemaVersion),
+      summary: {
+        ...filteredSummary,
+        action_tasks_complete: actionCoverage.complete,
+        action_tasks_truncated: actionCoverage.truncated
+      },
       items
     },
+    operationRequirements,
     nextActions,
     blockers,
     safety: safetyNotes()
@@ -291,7 +345,10 @@ function stringValue(value) {
   return typeof value === "string" ? value : "";
 }
 
-function recommendedNext({ nextActions, blockers }) {
+function recommendedNext({ nextActions, blockers, failedOperationRequirements = [] }) {
+  if (failedOperationRequirements.length > 0) {
+    return "Obtain fresh evidence for every required operation before the dependent project continues real-platform automation.";
+  }
   if (blockers.length > 0) {
     return "Resolve blocked actions or obtain fresh executor/probe evidence before dependent projects continue real-platform automation.";
   }
@@ -323,6 +380,9 @@ function renderMarkdown(report) {
   if (report.target.platforms.length > 0) {
     lines.push(`- Platform filter: ${report.target.platforms.join(", ")}`);
   }
+  if (report.target.requiredOperations.length > 0) {
+    lines.push(`- Required operations: ${report.target.requiredOperations.map((item) => `${item.platform}=${item.operation}`).join(", ")}`);
+  }
   lines.push(`- Reachable: ${report.summary.reachable ? "yes" : "no"}`);
   lines.push(`- Next actions: ${report.summary.nextActions}`);
   lines.push(`- Blocking count: ${report.summary.blockingCount}`);
@@ -350,6 +410,17 @@ function renderMarkdown(report) {
     lines.push("| --- | --- | --- | --- | --- | --- | --- |");
     for (const item of report.authStatus.items) {
       lines.push(`| ${cell(item.platform)} | ${cell(item.status)} | ${cell(item.verifiedOperations.join(", ") || "-")} | ${cell(item.probe?.status || "-")} | ${cell(item.reason)} | ${cell(item.action)} | ${cell(item.relatedTaskIds.join(", ") || "-")} |`);
+    }
+    lines.push("");
+  }
+
+  if (report.operationRequirements?.length > 0) {
+    lines.push("## Operation Requirements");
+    lines.push("");
+    lines.push("| Platform | Required operation | Status | Reason |");
+    lines.push("| --- | --- | --- | --- |");
+    for (const requirement of report.operationRequirements) {
+      lines.push(`| ${cell(requirement.platform)} | ${cell(requirement.operation)} | ${cell(requirement.status)} | ${cell(requirement.reason)} |`);
     }
     lines.push("");
   }
@@ -387,28 +458,28 @@ async function buildWatchReport({ report, stateFile: targetStateFile, scopeFinge
   }
 
   const baseline = previous === null;
-  const previousByPlatform = new Map((previous?.signals || []).map((signal) => [signal.platform, signal]));
-  const currentByPlatform = new Map(snapshot.signals.map((signal) => [signal.platform, signal]));
+  const previousByIdentity = new Map((previous?.signals || []).map((signal) => [signalIdentity(signal), signal]));
+  const currentByIdentity = new Map(snapshot.signals.map((signal) => [signalIdentity(signal), signal]));
   const newSignals = baseline
     ? []
-    : snapshot.signals.filter((signal) => !previousByPlatform.has(signal.platform));
+    : snapshot.signals.filter((signal) => !previousByIdentity.has(signalIdentity(signal)));
   const worsenedSignals = baseline
     ? []
     : snapshot.signals.filter((signal) => {
-      const oldSignal = previousByPlatform.get(signal.platform);
+      const oldSignal = previousByIdentity.get(signalIdentity(signal));
       return oldSignal && attentionRank(signal) > attentionRank(oldSignal);
     });
   const updatedSignals = baseline
     ? []
     : snapshot.signals.filter((signal) => {
-      const oldSignal = previousByPlatform.get(signal.platform);
+      const oldSignal = previousByIdentity.get(signalIdentity(signal));
       return oldSignal
         && attentionRank(signal) <= attentionRank(oldSignal)
         && signalKey(signal) !== signalKey(oldSignal);
     });
   const resolvedSignals = baseline
     ? []
-    : previous.signals.filter((signal) => !currentByPlatform.has(signal.platform));
+    : previous.signals.filter((signal) => !currentByIdentity.has(signalIdentity(signal)));
   const changed = !baseline && snapshot.fingerprint !== previous.fingerprint;
   const notify = changed && (newSignals.length > 0 || worsenedSignals.length > 0);
   const reason = baseline
@@ -490,6 +561,9 @@ function monitoringFailureReason(report) {
       || (report.summary.reachable ? "auth_status_access_failed" : "auth_hub_unreachable");
   }
   if ((report.blockers || []).includes("invalid_platform_filter")) return "invalid_platform_filter";
+  if ((report.blockers || []).includes("invalid_operation_requirement")) return "invalid_operation_requirement";
+  if ((report.blockers || []).includes("auth_hub: action_task_list_truncated")) return "action_task_list_truncated";
+  if ((report.blockers || []).includes("auth_hub: action_task_coverage_unverified")) return "action_task_coverage_unverified";
   if ((report.blockers || []).some((blocker) => blocker.endsWith(": missing_from_auth_status"))) return "missing_platform";
   return "";
 }
@@ -500,7 +574,7 @@ function buildSnapshot(report, expectedScopeFingerprint) {
     .update(JSON.stringify(signals))
     .digest("hex");
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     scopeFingerprint: expectedScopeFingerprint,
     lastSuccessfulCheckAt: report.generatedAt,
     fingerprint,
@@ -512,18 +586,21 @@ function attentionSignals(report) {
   const signals = new Map();
   const add = (signal) => {
     const normalized = normalizeSignal(signal);
-    const current = signals.get(normalized.platform);
+    const identity = signalIdentity(normalized);
+    const current = signals.get(identity);
     if (
       !current
       || attentionRank(normalized) > attentionRank(current)
       || (attentionRank(normalized) === attentionRank(current) && signalKey(normalized) < signalKey(current))
     ) {
-      signals.set(normalized.platform, normalized);
+      signals.set(identity, normalized);
     }
   };
 
   for (const action of report.nextActions || []) {
     add({
+      kind: "action",
+      operation: "",
       platform: action.platform || "auth_hub",
       status: action.status || "needs_action",
       severity: action.severity || "manual",
@@ -531,20 +608,39 @@ function attentionSignals(report) {
     });
   }
 
-  return [...signals.values()].sort((left, right) => left.platform.localeCompare(right.platform));
+  for (const requirement of report.operationRequirements || []) {
+    if (requirement.status === "verified") continue;
+    add({
+      kind: "operation",
+      operation: requirement.operation || "",
+      platform: requirement.platform || "auth_hub",
+      status: "blocked",
+      severity: "blocked",
+      reason: requirement.reason || "required_operation_unverified"
+    });
+  }
+
+  return [...signals.values()].sort((left, right) => signalIdentity(left).localeCompare(signalIdentity(right)));
 }
 
 function normalizeSignal(signal) {
   const platform = boundedCode(signal.platform, "auth_hub");
+  const kind = signal.kind === "operation" ? "operation" : "action";
+  const operation = kind === "operation" ? boundedOperation(signal.operation) : "";
   const status = boundedCode(signal.status, "unverified");
   const severity = boundedCode(signal.severity, severityForStatus(status));
   const reason = boundedCode(signal.reason, status);
-  return { platform, status, severity, reason };
+  return { platform, kind, operation, status, severity, reason };
 }
 
 function boundedCode(value, fallback) {
   const normalized = String(value || "").trim().toLowerCase();
   return /^[a-z0-9_.:-]{1,120}$/.test(normalized) ? normalized : fallback;
+}
+
+function boundedOperation(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return /^[a-z0-9_.:-]{1,160}$/.test(normalized) ? normalized : "unknown_operation";
 }
 
 function severityForStatus(status) {
@@ -554,13 +650,17 @@ function severityForStatus(status) {
 }
 
 function attentionRank(signal) {
-  const severity = { info: 0, manual: 20, warning: 30, blocked: 40 }[signal.severity] ?? 20;
+  const severity = { info: 0, manual: 20, approval: 30, warning: 30, blocked: 40 }[signal.severity] ?? 20;
   const status = { ready: 0, unverified: 10, needs_action: 20, reserved: 30, blocked: 40 }[signal.status] ?? 20;
   return severity + status;
 }
 
 function signalKey(signal) {
-  return [signal.platform, signal.status, signal.severity, signal.reason].join("|");
+  return [signalIdentity(signal), signal.status, signal.severity, signal.reason].join("|");
+}
+
+function signalIdentity(signal) {
+  return [signal.platform, signal.kind, signal.operation].join("|");
 }
 
 async function readSnapshot(targetStateFile, expectedScopeFingerprint) {
@@ -580,7 +680,7 @@ async function readSnapshot(targetStateFile, expectedScopeFingerprint) {
     throw snapshotError("state_unreadable");
   }
   const allowedSnapshotKeys = ["fingerprint", "lastSuccessfulCheckAt", "schemaVersion", "scopeFingerprint", "signals"];
-  const allowedSignalKeys = ["platform", "reason", "severity", "status"];
+  const allowedSignalKeys = ["kind", "operation", "platform", "reason", "severity", "status"];
   const sanitizedSignals = Array.isArray(snapshot?.signals)
     ? snapshot.signals.map((signal) => normalizeSignal(signal))
     : [];
@@ -594,7 +694,7 @@ async function readSnapshot(targetStateFile, expectedScopeFingerprint) {
     .update(JSON.stringify(sanitizedSignals))
     .digest("hex");
   if (
-    snapshot?.schemaVersion !== 2
+    snapshot?.schemaVersion !== 3
     || JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(allowedSnapshotKeys)
     || typeof snapshot.scopeFingerprint !== "string"
     || !/^[a-f0-9]{64}$/.test(snapshot.scopeFingerprint)
@@ -653,7 +753,7 @@ function watchSafetyNotes() {
     "Business notify=true is derived only from new or worsened public-safe Auth Hub nextActions.",
     "Monitoring failures use monitoringAlert=true, exit non-zero, and never create or advance a baseline.",
     "Resolved, improved, or same-rank reason changes update the baseline without sending a business alert.",
-    "The snapshot stores only a hashed scope, platform, status, severity, reason, successful-check time, and fingerprints in the local private runtime.",
+    "The snapshot stores only a hashed scope, signal kind, platform, required-operation code, status, severity, reason, successful-check time, and fingerprints in the local private runtime.",
     "No token, Cookie, Profile, QR code, screenshot, account identifier, task identifier, raw response, target URL, title, or runbook is stored."
   ];
 }
@@ -676,16 +776,16 @@ function renderWatchMarkdown(report) {
     ""
   ];
   if (report.newSignals.length > 0) {
-    lines.push("## New Attention Signals", "", "| Platform | Status | Severity | Reason |", "| --- | --- | --- | --- |");
+    lines.push("## New Attention Signals", "", "| Kind | Platform | Operation | Status | Severity | Reason |", "| --- | --- | --- | --- | --- | --- |");
     for (const signal of report.newSignals) {
-      lines.push(`| ${cell(signal.platform)} | ${cell(signal.status)} | ${cell(signal.severity)} | ${cell(signal.reason)} |`);
+      lines.push(`| ${cell(signal.kind)} | ${cell(signal.platform)} | ${cell(signal.operation)} | ${cell(signal.status)} | ${cell(signal.severity)} | ${cell(signal.reason)} |`);
     }
     lines.push("");
   }
   if (report.worsenedSignals.length > 0) {
-    lines.push("## Worsened Attention Signals", "", "| Platform | Status | Severity | Reason |", "| --- | --- | --- | --- |");
+    lines.push("## Worsened Attention Signals", "", "| Kind | Platform | Operation | Status | Severity | Reason |", "| --- | --- | --- | --- | --- | --- |");
     for (const signal of report.worsenedSignals) {
-      lines.push(`| ${cell(signal.platform)} | ${cell(signal.status)} | ${cell(signal.severity)} | ${cell(signal.reason)} |`);
+      lines.push(`| ${cell(signal.kind)} | ${cell(signal.platform)} | ${cell(signal.operation)} | ${cell(signal.status)} | ${cell(signal.severity)} | ${cell(signal.reason)} |`);
     }
     lines.push("");
   }
@@ -693,9 +793,18 @@ function renderWatchMarkdown(report) {
   return `${lines.join("\n")}\n`;
 }
 
-function buildScopeFingerprint({ baseUrl: targetBaseUrl, requestedPlatforms: platforms, platformFilterApplied: filterApplied }) {
+function buildScopeFingerprint({
+  baseUrl: targetBaseUrl,
+  requestedPlatforms: platforms,
+  platformFilterApplied: filterApplied,
+  requiredOperations
+}) {
   return createHash("sha256")
-    .update(JSON.stringify({ targetBaseUrl, platforms: filterApplied ? platforms : ["*"] }))
+    .update(JSON.stringify({
+      targetBaseUrl,
+      platforms: filterApplied ? platforms : ["*"],
+      requiredOperations
+    }))
     .digest("hex");
 }
 
@@ -707,8 +816,8 @@ function valueAfter(name) {
 
 function valuesAfter(name) {
   const values = [];
-  for (let index = 0; index < args.length - 1; index += 1) {
-    if (args[index] === name) values.push(args[index + 1]);
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === name) values.push(args[index + 1] || "");
   }
   return values;
 }
@@ -718,6 +827,45 @@ function normalizePlatforms(values) {
     .map((value) => String(value || "").trim())
     .filter((value) => /^[a-z0-9_]{1,80}$/.test(value)))]
     .sort();
+}
+
+function evaluateActionCoverage(authStatus) {
+  const summary = authStatus?.summary;
+  const truncated = summary?.action_tasks_truncated === true;
+  const complete = authStatus?.schemaVersion === "2"
+    && summary?.action_tasks_complete === true
+    && summary?.action_tasks_truncated === false;
+  return {
+    complete,
+    truncated,
+    issue: truncated ? "action_task_list_truncated" : (complete ? "" : "action_task_coverage_unverified")
+  };
+}
+
+function normalizeRequiredOperations(values) {
+  let invalid = false;
+  const normalized = [];
+  const seen = new Set();
+  for (const raw of values) {
+    const value = String(raw || "").trim();
+    const separator = value.indexOf("=");
+    const platform = separator > 0 ? value.slice(0, separator) : "";
+    const operation = separator > 0 ? value.slice(separator + 1) : "";
+    if (!/^[a-z0-9_]{1,80}$/.test(platform) || !/^[a-z0-9_.:-]{1,160}$/.test(operation)) {
+      invalid = true;
+      continue;
+    }
+    const key = `${platform}=${operation}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({ platform, operation });
+  }
+  return {
+    invalid,
+    values: normalized.sort((left, right) => (
+      left.platform.localeCompare(right.platform) || left.operation.localeCompare(right.operation)
+    ))
+  };
 }
 
 function unique(values) {

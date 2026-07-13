@@ -9,6 +9,9 @@ import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
 import { auditPage, connectorsPage, dashboardPage, loginPage, newTaskPage, taskPage } from "../ui/html.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
+const AUTH_STATUS_ACTION_LIMIT = 50;
+const DASHBOARD_ACTION_LIMIT = 20;
+
 export function createUiRouter() {
   const router = express.Router();
   const requireAuthenticatedCsrf = requireCsrfToken({ authenticated: true });
@@ -76,8 +79,8 @@ export function createUiRouter() {
   router.get("/dashboard", requireAppSession, async (req, res) => {
     const [tasks, actionTasks, approvalTasks, approvals, heartbeats, probes] = await Promise.all([
       req.app.locals.store.listTasks({ limit: 50 }),
-      req.app.locals.store.listTasks({ status: "action_required", limit: 20 }),
-      req.app.locals.store.listTasks({ status: "approval_required", limit: 20 }),
+      req.app.locals.store.listTasks({ status: "action_required", limit: AUTH_STATUS_ACTION_LIMIT + 1 }),
+      req.app.locals.store.listTasks({ status: "approval_required", limit: AUTH_STATUS_ACTION_LIMIT + 1 }),
       req.app.locals.store.listApprovals({ status: "pending" }),
       req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
       req.app.locals.store.listConnectorProbeEvidence({ limit: 100 })
@@ -88,13 +91,19 @@ export function createUiRouter() {
       probes
     });
     const { connectors } = connectorDescription;
+    const actionTasksTruncated = actionTasks.length > AUTH_STATUS_ACTION_LIMIT
+      || approvalTasks.length > AUTH_STATUS_ACTION_LIMIT;
     const authStatus = summarizeConnectorAuthStatus({
       connectors: connectorDescription.executorRuntime.connectors,
-      actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
+      actionTasks: [
+        ...actionTasks.slice(0, AUTH_STATUS_ACTION_LIMIT),
+        ...approvalTasks.slice(0, AUTH_STATUS_ACTION_LIMIT)
+      ].map(publicTask),
+      actionTasksTruncated
     });
     res.send(dashboardPage({
       tasks: tasks.map(publicTask),
-      actionTasks: actionTasks.map(publicTask),
+      actionTasks: actionTasks.slice(0, DASHBOARD_ACTION_LIMIT).map(publicTask),
       approvals,
       connectors,
       executorRuntime: connectorDescription.executorRuntime,
@@ -111,19 +120,25 @@ export function createUiRouter() {
     const [heartbeats, probes, actionTasks, approvalTasks] = await Promise.all([
       req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
       req.app.locals.store.listConnectorProbeEvidence({ limit: 100 }),
-      req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
-      req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
+      req.app.locals.store.listTasks({ status: "action_required", limit: AUTH_STATUS_ACTION_LIMIT + 1 }),
+      req.app.locals.store.listTasks({ status: "approval_required", limit: AUTH_STATUS_ACTION_LIMIT + 1 })
     ]);
     const connectorDescription = describeConnectorRuntime({
       registry: req.app.locals.connectorRegistry,
       heartbeats,
       probes
     });
+    const actionTasksTruncated = actionTasks.length > AUTH_STATUS_ACTION_LIMIT
+      || approvalTasks.length > AUTH_STATUS_ACTION_LIMIT;
     res.send(connectorsPage({
       ...connectorDescription,
       authStatus: summarizeConnectorAuthStatus({
         connectors: connectorDescription.executorRuntime.connectors,
-        actionTasks: [...actionTasks, ...approvalTasks].map(publicTask)
+        actionTasks: [
+          ...actionTasks.slice(0, AUTH_STATUS_ACTION_LIMIT),
+          ...approvalTasks.slice(0, AUTH_STATUS_ACTION_LIMIT)
+        ].map(publicTask),
+        actionTasksTruncated
       }),
       csrfToken: issueAuthenticatedPageCsrf(req, res)
     }));

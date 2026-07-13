@@ -22,10 +22,13 @@ PR #16 合并后，Auth Hub 的 `/api/auth-status` 已能返回 `nextActions`，
 其他项目如果需要知道是否能继续自动化，只需要配置：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_HOME="D:\codex_workplace\ai_Link"
+$env:AI_LINK_BASE_URL="<approved-auth-hub-url>"
 $env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
-npm run auth-hub:status:json
+npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:strict -- --require-operation "github=check_auth:repo_read:target_bound"
 ```
+
+远程 hostname 还必须显式加入当前进程的 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`。`voice.xiao-qi-ai.com` 是内容站，不是 Auth Hub，不能作为该客户端目标。
 
 处理规则：
 
@@ -33,6 +36,9 @@ npm run auth-hub:status:json
 - `severity=manual`：暂停相关平台任务，找 `owner` 对应负责人处理，处理后按 `retryAfterAction` 决定是否 retry。
 - `severity=approval`：需要维护者先在 Auth Hub 审批，不能由业务项目直接触发本机交互登录。
 - `severity=blocked`：先修 AI Link/平台授权/连接器合同，不要在业务项目里盲目重试。
+- 平台级 `ready` 不足以放行；必须同时确认所需 `operationRequirements[].status=verified`。
+- `action_tasks_truncated=true` 时暂停所有真实平台自动化；先恢复 Auth Hub 的完整人工事项覆盖。
+- GitHub `target_bound` 当前只证明某个服务端目标已绑定，不能证明是调用方当前仓库；仓库级放行等待后续服务端目标核验。
 
 ## 安全边界
 
