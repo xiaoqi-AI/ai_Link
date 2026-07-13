@@ -15,11 +15,24 @@ import {
 import { requireApiScope } from "../security/auth.js";
 import { publicAuditEvent, publicLeasedTask, publicTask, redact } from "../security/redact.js";
 import { validateTaskInput } from "../domain/workflow.js";
+import {
+  PROJECT_TOKEN_PREFIX,
+  projectClientPolicyForActor,
+  validateProjectTaskPolicy
+} from "../authHub/projectPolicy.js";
 
 const AUTH_STATUS_ACTION_LIMIT = 50;
 
 function actorName(req) {
   return req.actor?.name || "unknown";
+}
+
+function isProjectActor(req) {
+  return actorName(req).startsWith(PROJECT_TOKEN_PREFIX);
+}
+
+function taskBelongsToActor(req, task) {
+  return !isProjectActor(req) || task?.createdBy === actorName(req);
 }
 
 export function createApiRouter() {
@@ -38,27 +51,46 @@ export function createApiRouter() {
       res.status(403).json({ error: "connector_probe_approval_required" });
       return;
     }
-    const task = await req.app.locals.store.createTask({
+    const actor = actorName(req);
+    if (actor.startsWith(PROJECT_TOKEN_PREFIX)) {
+      const policyResult = validateProjectTaskPolicy(
+        projectClientPolicyForActor(req.app.locals.config, actor),
+        parsed
+      );
+      if (policyResult.error) {
+        res.status(policyResult.error === "project_request_id_required" ? 400 : 403).json(policyResult);
+        return;
+      }
+    }
+    const creation = await req.app.locals.store.createTaskIdempotent({
       workflow: parsed.workflow,
       input: parsed.input,
       targets: parsed.targets,
       options: parsed.options,
-      createdBy: actorName(req)
+      createdBy: actor
     });
-    res.status(201).json({ task: publicTask(task) });
+    if (creation.conflict) {
+      res.status(409).json({ error: "idempotency_conflict" });
+      return;
+    }
+    res.status(creation.replayed ? 200 : 201).json({
+      task: publicTask(creation.task),
+      replayed: creation.replayed
+    });
   });
 
   router.get("/tasks", requireApiScope("tasks:read"), async (req, res) => {
     const tasks = await req.app.locals.store.listTasks({
       limit: Number(req.query.limit || 50),
-      status: req.query.status || ""
+      status: req.query.status || "",
+      createdBy: isProjectActor(req) ? actorName(req) : ""
     });
     res.json({ tasks: tasks.map(publicTask) });
   });
 
   router.get("/tasks/:id", requireApiScope("tasks:read"), async (req, res) => {
     const task = await req.app.locals.store.getTask(req.params.id);
-    if (!task) {
+    if (!task || !taskBelongsToActor(req, task)) {
       res.status(404).json({ error: "task_not_found" });
       return;
     }
@@ -114,7 +146,7 @@ export function createApiRouter() {
 
   router.post("/tasks/:id/retry", requireApiScope("tasks:approve"), async (req, res) => {
     const task = await req.app.locals.store.getTask(req.params.id);
-    if (!task) {
+    if (!task || !taskBelongsToActor(req, task)) {
       res.status(404).json({ error: "task_not_found" });
       return;
     }

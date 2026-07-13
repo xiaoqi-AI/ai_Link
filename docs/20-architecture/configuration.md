@@ -166,6 +166,30 @@ routes:
 
 AI Link 会把任务信息作为 stdin JSON 传给本机命令。命令可以返回纯文本，也可以返回 `{ "output": "..." }` JSON。公开配置不要写 Coze 登录态、token、私有 workspace ID 或本机路径。
 
+### Auth Hub 项目客户端配置
+
+共享 Auth Hub 为每个调用项目配置独立身份。`AI_LINK_PROJECT_CLIENTS_JSON` 只声明项目 id、token 环境变量名、允许的只读 operation，以及 GitHub operation 对应的精确仓库与 scope；它不直接内嵌 token：
+
+```json
+[
+  {
+    "id": "parentinggame",
+    "tokenEnv": "AI_LINK_PROJECT_PARENTINGGAME_TOKEN",
+    "operations": ["github/check_auth", "wechat_official/check_health"],
+    "githubTargets": [
+      {
+        "repository": "owner/repository",
+        "scopes": ["repo_read"]
+      }
+    ]
+  }
+]
+```
+
+服务端启动时从 `tokenEnv` 指向的环境变量读取强随机 token，映射成 `project.<id>` 身份和固定 `tasks:create,tasks:read` scope。项目 id、tokenEnv、token 值均须唯一；operation 必须显式列出，不能使用通配符。启用 `github/check_auth` 时必须同时配置 1-20 个 `githubTargets`，服务端按大小写无关的精确 `owner/repository + scope` 校验，不能只依赖客户端参数。没有 GitHub operation 的项目必须省略 `githubTargets`。当前项目客户端只允许四个非交互 operation：`xiaohongshu/check_session`、`xiaohongshu/search_content`、`wechat_official/check_health`、`github/check_auth`。`project.` 是配置托管 token 的保留前缀，删除项目配置后会在启动对账时撤销旧 token。
+
+调用项目使用 `AI_LINK_AUTH_HUB_URL`、`AI_LINK_PROJECT_TOKEN`，远程场景再配置 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`。Cloudflare Access Service Auth 使用 `CF_ACCESS_CLIENT_ID` 与 `CF_ACCESS_CLIENT_SECRET`，必须成对设置；需要把缺失 Service Auth 视为本地配置错误时设置 `AI_LINK_AUTH_HUB_REQUIRE_SERVICE_AUTH=true`。这些值只放当前进程环境或 secret manager，不写入 YAML、仓库或知识库。
+
 ## 密钥管理
 
 默认推荐进入 BWS 密钥托管模式：个人密码、网站链接和恢复码放 Bitwarden Password Manager，API key、token 和自动化凭据放 Bitwarden Secrets Manager。Codex 或 AI Link 运行时通过 `bws run` 临时注入环境变量，不把真实密钥写入仓库、知识库、issue、PR 或聊天记录。

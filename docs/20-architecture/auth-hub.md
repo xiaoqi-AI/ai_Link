@@ -1,6 +1,6 @@
 # 统一授权中枢 MVP
 
-状态：公开骨架、执行器能力心跳和显式只读探测证据闭环已实现；真实账号探测与远程部署仍需独立人工门禁。
+状态：公开骨架、执行器能力心跳、显式只读探测证据和项目任务客户端已实现；真实账号探测与远程部署仍需独立人工门禁。
 
 ## 目标
 
@@ -63,9 +63,9 @@ npm run auth-hub:local:stop
 
 ## API 契约
 
-- `POST /api/tasks`：创建任务，支持 `full_chain`、`read_detect`、`draft_only`、`metrics`。
-- `GET /api/tasks`：读取脱敏任务列表，可用 `status` 查询参数筛选。
-- `GET /api/tasks/:id`：读取脱敏任务状态。
+- `POST /api/tasks`：创建任务，支持 `full_chain`、`read_detect`、`draft_only`、`metrics`、`gsc_monitor` 和 `platform_auth_collect`；项目身份额外受 workflow、operation 与 request id 门禁。
+- `GET /api/tasks`：读取脱敏任务列表，可用 `status` 查询参数筛选；普通 token 只读取自身任务，`tasks:approve` 管理 token 保留全局视图。
+- `GET /api/tasks/:id`：读取脱敏任务状态；其他项目的任务统一返回 `404 task_not_found`。
 - `GET /api/connectors`：用 `connectors:read` 权限读取公开安全的连接器状态和能力契约，不返回密钥、Cookie、登录态或平台内容。
 - `GET /api/auth-status`：用 `connectors:read` 权限读取完整、脱敏的平台授权状态和人工关注项。
 - `POST /api/auth-status/verify-targets`：同时要求 `connectors:read` 与独立 `connectors:verify-target` 权限，在服务端核验 GitHub 精确目标与已有 probe 绑定，只返回通用结论。
@@ -80,6 +80,18 @@ npm run auth-hub:local:stop
 执行器回传结果时可以带顶层 `audit` 字段，或在 `result.audit` / `result.aiLinkAudit` 中带 AI Link 审计摘要。服务端会按白名单规范化为 `task.result.aiLinkAudit`，同时追加一条 `ai_link.audit` 审计事件。Codex 也可以通过 `POST /api/tasks/:id/audit` 或 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 把本地 run record 的审计摘要追加到任务审计日志。控制台任务详情和 `/dashboard/audit` 会把 AI Link 审计摘要渲染为 provider/model/policy/预算/用量表格，审计页支持按 task id、event type 和数量筛选；`GET /api/audit?eventType=ai_link.audit` 可只读取这类事件。本地可用 `npm run auth-hub:audit-smoke` 验证 dry-run record、审计提交和脱敏读取整条链路。该摘要只保留 provider、model、policy、审批状态、数据分类、审计标签、预算和 usage estimate，不保存原始输入、原始输出、密钥或 token。
 
 所有 API 使用 Bearer token；token 只以哈希形式入库。
+
+### 项目任务客户端合同
+
+`ai-link-auth-hub` 是业务项目使用的公开薄客户端，只负责三件事：提交允许的 `platform_auth_collect` 任务、按 task id 查询，以及在固定上限内等待。它不实现连接器逻辑，不在客户端审批，也不自动续登。
+
+服务端通过 `AI_LINK_PROJECT_CLIENTS_JSON` 建立 `project.<id>` 身份，真实 token 从清单指定的独立环境变量读取。项目 token 固定为 `tasks:create,tasks:read`，并由服务端强制只允许清单中的非交互 operation。`project.` 为托管前缀，移除清单项后旧凭据在启动对账中撤销。普通项目任务查询以 `createdBy` 做行级过滤；管理 token 因拥有 `tasks:approve` 可查看全部任务。
+
+所有项目提交必须带 1 至 120 字符的公开安全 `requestId`。MemoryStore 在进程内串行检查，Postgres 使用事务级 advisory lock；二者都按 `createdBy + workflow + requestId` 查重，并比较规范化 `input/targets/options`。相同载荷返回原 task 与 `replayed=true`；不同载荷返回 `409 idempotency_conflict`。客户端不会在网络结果未知时自行生成新 request id。
+
+客户端只输出任务 id、workflow、状态、平台、operation、规范化公开 connector result、稳定错误码和服务端时间；忽略任务详情中的审批、artifact、审计、input、options、owner/repo、query 和未知字段。响应必须是 JSON、符合版本化合同且不超过 512 KiB。3xx 不跟随，401/403/404/409/429/5xx 映射为稳定错误码，错误正文不进入输出。
+
+远程请求只允许显式批准的 HTTPS hostname 和 443 端口；URL 内嵌凭据、IP 字面量、未批准 host、非标准远程端口和不完整 Service Auth 在发送 Bearer 前失败。loopback 仅用于本地开发，不附加 Cloudflare Service Auth。当前 hostname allowlist 不做 DNS 解析地址审计；生产 DNS、Cloudflare 和 origin 网络边界仍由部署负责人验收。
 
 ## 三层状态证据
 
@@ -151,6 +163,7 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
 - `AI_LINK_CLOUDFLARE_TEAM_DOMAIN` 或 `AI_LINK_CLOUDFLARE_ACCESS_ISSUER`
 - 可选：`AI_LINK_CODEX_TOKEN`
+- 可选：`AI_LINK_PROJECT_CLIENTS_JSON` 与每个清单项 `tokenEnv` 指向的独立项目 token；启用 GitHub operation 时还必须配置精确仓库/scope 的 `githubTargets`
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
 生产模式缺少 `DATABASE_URL` 会在配置加载阶段拒绝启动，不允许退回 `MemoryStore`。公开蓝图中的数据库使用当前可新建的 `basic-256mb` 规格并设置 `ipAllowList: []`，只允许 Render 私网连接；Web Service 使用 `autoDeployTrigger: checksPass` 并固定 `numInstances: 1`。单实例约束来自当前登录限流使用进程内有界状态；若要横向扩容，必须先迁移到 Postgres、Cloudflare 或其他共享限流层。`AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN` 使用 `sync: false`，必须由部署负责人明确选择，不能因模板默认值静默开放。Render service 与数据库 region 创建后不可修改，蓝图暂不替负责人选择，部署前必须确认。
@@ -183,7 +196,7 @@ npm run auth-hub:remote:smoke
 `auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、执行器在线心跳、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。应用密码、Admin token 和受限 Codex token 缺失会直接失败；Executor token 只有在显式 `-SkipExecutor` 时可省略。脚本会在 smoke 进程中显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，确保不接入真实微信、小红书、公众号、GitHub 或其他平台账号。
 `auth-hub:remote:next` 是更轻量的 go/no-go 检查，只读取 `/healthz`、公开 `render.yaml` 和当前进程环境变量是否存在，不打印任何 secret 值；它会告诉维护者下一步应先修域名/Render、补 secret，还是可以进入 `auth-hub:remote:smoke`。
 
-状态客户端、本地执行器和远程 smoke 共享同一出站目标规则：远程目标必须使用 HTTPS，hostname 必须显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`，不提供任何隐式批准域名或通配符；loopback 仅用于本地开发且永不携带 Cloudflare Service Auth；所有携带 Bearer 或 Service Auth 的请求都使用手动重定向并把 3xx 视为失败。批准邮箱的浏览器登录仍是独立人工验收，不能由 Service Auth 代替。
+状态客户端、项目任务客户端、本地执行器和远程 smoke 共享同一出站目标规则：远程目标必须使用 HTTPS，hostname 必须显式列入 `AI_LINK_AUTH_HUB_ALLOWED_HOSTS`，不提供任何隐式批准域名或通配符；项目任务客户端额外要求远程 443 端口并拒绝 IP 字面量。loopback 仅用于本地开发且永不携带 Cloudflare Service Auth；所有携带 Bearer 或 Service Auth 的请求都使用手动重定向并把 3xx 视为失败。批准邮箱的浏览器登录仍是独立人工验收，不能由 Service Auth 代替。
 
 生产验收时建议在当前终端临时注入真实值，值本身不要写入文件或聊天记录：
 
@@ -233,6 +246,7 @@ npm audit --audit-level=high
 - 显式 probe：在普通结算边界上增加 private heartbeat 与服务端重验；GitHub 证据按 scope 与目标 HMAC 隔离，mock 不可领取，最新失败覆盖，TTL 失败关闭且敏感内部字段不外泄。
 - 远程访问：Access JWT 签名/issuer/audience 校验、邮件身份绑定、服务令牌分类、缺失配置失败关闭，以及控制台会话服务端绝对过期。
 - 出站凭据：远程 host 必须显式批准，loopback 不携带 Service Auth，Bearer/Service Auth 请求不跟随重定向。
+- 项目客户端：独立 token policy、operation 与 GitHub 精确资源白名单、数据库持久化幂等键、仅 `project.*` 的 own-task 读取隔离、有界总预算轮询、请求/响应绑定、严格终态投影和包安装烟测。客户端将任务“已接受”与授权“已就绪”分开，只有 `completed + result.status=ready` 才视为成功。
 - 浏览器写入防护：同源校验、会话绑定 CSRF、登录失败限流、安全本地跳转、POST 退出、非法/重复审批拒绝，以及不可重试状态拒绝。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。

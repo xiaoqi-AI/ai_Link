@@ -196,6 +196,8 @@ npm run auth-hub:executor:start
 
 平台授权 P0.2 已具备 `platform_auth_collect` 合同、人工登录审批门禁、小红书只读命令适配器脚手架，以及 GitHub、公众号、小红书三套私有适配器的安全组合生成器。GitHub 的 `repo_read`、`actions_read`、`pull_request_read` 分别使用只读分支、workflow runs 和 pull requests 列表端点，不再用仓库元数据代替 scope 验证；真实验收应使用经审查的非关键私有仓。小红书只允许会话检查、批准后的可见登录和只读搜索；公众号首批只增加官方 API 健康检查。受信任代码必须位于 `runtime/private/`，组合后由 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 仅注入本地执行器；公开结果只保留稳定状态、1 至 4 条具体链接、数量和有限诊断。脚手架不等于真实账号已验收，真实扫码、验证码、凭据和平台调用仍需独立人工门禁。完整范围见 `docs/10-product/platform-auth-connectors-p0.md` 与 `docs/20-architecture/connector-contracts.md`。
 
+其他项目不再需要自行拼接 Auth Hub HTTP 请求。维护者可为每个项目配置独立 token、只读 operation 白名单和 GitHub 精确仓库/scope 白名单，调用方使用打包后的 `ai-link-auth-hub` 提交、查询或有限等待 `platform_auth_collect` 任务。只有 `project.*` token 被限制为读取自己创建的任务；相同 `requestId` 重试会通过持久化唯一键复用原任务，不同载荷复用同一 id 会返回冲突。客户端区分“任务已接受”和“授权已就绪”，只有 `completed + result.status=ready` 才输出 `ok=true`。它不支持 `begin_login`、审批、probe、发布或平台写操作，也不会输出 token、GitHub 目标、小红书查询或原始响应。完整中文接入步骤见 `docs/user-guide.md` 的“项目任务客户端”与 `docs/20-architecture/auth-hub.md`。
+
 本地执行器每轮领取任务前会以最小白名单向 `POST /api/executor/heartbeat` 报告“执行器在线且已加载哪些方法”。`GET /api/connectors` 的顶层 `connectors` 始终是服务端静态合同，`executorRuntime` 才是带过期时间的执行器证据；心跳不调用真实平台，不读取或上传 Cookie、token、Profile、路径、账号或原始响应。只有显式标记 `options.evidenceIntent=connector_probe` 的 `xiaohongshu/check_session`、`wechat_official/check_health`、`github/check_auth` 任务才可能生成只读证据；它们必须通过 token/executor/session/一次性 lease 全链绑定和 Hub 服务端重验。成功只写入 `verifiedOperations`，默认 15 分钟后失败关闭，不代表整个平台、写权限或发布能力可用。
 
 依赖项目只检查自己需要的平台，避免为无关平台浪费请求或被错误阻断。GitHub 仓库级门禁必须把目标放在环境变量中，并只把环境变量名传给命令：

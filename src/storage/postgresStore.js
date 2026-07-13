@@ -18,6 +18,22 @@ function json(value) {
   return value == null ? null : JSON.stringify(value);
 }
 
+function sameTaskRequest(left, right) {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
+function taskRequestHash(value) {
+  return crypto.createHash("sha256").update(canonicalJson(value)).digest("hex");
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function rowTask(row) {
   if (!row) return null;
   return {
@@ -236,6 +252,18 @@ export class PostgresStore {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
 
+      CREATE TABLE IF NOT EXISTS task_idempotency_keys (
+        created_by text NOT NULL,
+        workflow text NOT NULL,
+        request_id text NOT NULL,
+        request_hash text NOT NULL,
+        task_id uuid NOT NULL UNIQUE REFERENCES tasks(id) ON DELETE CASCADE,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (created_by, workflow, request_id),
+        CONSTRAINT task_idempotency_request_id CHECK (length(request_id) BETWEEN 1 AND 120),
+        CONSTRAINT task_idempotency_request_hash CHECK (request_hash ~ '^[a-f0-9]{64}$')
+      );
+
       CREATE TABLE IF NOT EXISTS approvals (
         id uuid PRIMARY KEY,
         task_id uuid NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -332,6 +360,17 @@ export class PostgresStore {
       CREATE INDEX IF NOT EXISTS idx_executor_heartbeats_expires ON executor_heartbeats(expires_at);
       CREATE INDEX IF NOT EXISTS idx_connector_probe_expires ON connector_probe_evidence(expires_at);
     `);
+    const duplicateIdempotencyKeys = await this.pool.query(`
+      SELECT 1
+        FROM tasks
+       WHERE COALESCE(options->>'requestId', '') <> ''
+       GROUP BY created_by, workflow, options->>'requestId'
+      HAVING count(*) > 1
+       LIMIT 1
+    `);
+    if (duplicateIdempotencyKeys.rowCount > 0) {
+      throw new Error("Duplicate legacy task idempotency keys require operator cleanup.");
+    }
   }
 
   async close() {
@@ -371,9 +410,10 @@ export class PostgresStore {
   }
 
   async syncConfiguredApiTokens(snapshot) {
-    const { managedNames, activeTokens } = normalizeConfiguredApiTokenSnapshot(snapshot);
+    const { managedNames, managedNamePrefixes, activeTokens } = normalizeConfiguredApiTokenSnapshot(snapshot);
     const activeNames = activeTokens.map((record) => record.name);
     const activeHashes = activeTokens.map((record) => record.tokenHash);
+    const managedNamePatterns = managedNamePrefixes.map((prefix) => `${prefix}%`);
     const client = await this.pool.connect();
     const summary = { active: activeTokens.length, inserted: 0, rotated: 0, preserved: 0, revoked: 0 };
     try {
@@ -383,9 +423,11 @@ export class PostgresStore {
       );
       const existingRows = await client.query(
         `SELECT * FROM api_tokens
-         WHERE name = ANY($1::text[]) OR token_hash = ANY($2::text[])
+         WHERE name = ANY($1::text[])
+            OR name LIKE ANY($2::text[])
+            OR token_hash = ANY($3::text[])
          FOR UPDATE`,
-        [managedNames, activeHashes]
+        [managedNames, managedNamePatterns, activeHashes]
       );
       const existingByName = new Map(existingRows.rows.map((row) => [row.name, row]));
       const existingByHash = new Map(existingRows.rows.map((row) => [row.token_hash, row]));
@@ -440,11 +482,11 @@ export class PostgresStore {
       const revokedRows = await client.query(
         `UPDATE api_tokens
          SET revoked_at = COALESCE(revoked_at, now()), updated_at = now()
-         WHERE name = ANY($1::text[])
-           AND NOT (name = ANY($2::text[]))
+         WHERE (name = ANY($1::text[]) OR name LIKE ANY($2::text[]))
+           AND NOT (name = ANY($3::text[]))
            AND revoked_at IS NULL
          RETURNING name`,
-        [managedNames, activeNames]
+        [managedNames, managedNamePatterns, activeNames]
       );
       summary.revoked = revokedRows.rows.length;
       await client.query("COMMIT");
@@ -550,6 +592,11 @@ export class PostgresStore {
   }
 
   async createTask({ workflow, input, targets, options, createdBy }) {
+    if (String(options?.requestId || "")) {
+      const creation = await this.createTaskIdempotent({ workflow, input, targets, options, createdBy });
+      if (creation.conflict) throw idempotencyConflictError();
+      return creation.task;
+    }
     const id = crypto.randomUUID();
     const { rows } = await this.pool.query(
       `INSERT INTO tasks (id, workflow, status, current_step, input, targets, options, created_by)
@@ -561,18 +608,109 @@ export class PostgresStore {
     return rowTask(rows[0]);
   }
 
+  async createTaskIdempotent({ workflow, input, targets, options, createdBy }) {
+    const requestId = String(options?.requestId || "");
+    if (!requestId) {
+      return {
+        task: await this.createTask({ workflow, input, targets, options, createdBy }),
+        replayed: false,
+        conflict: false
+      };
+    }
+
+    const client = await this.pool.connect();
+    const lockKey = `${createdBy}\u0000${workflow}\u0000${requestId}`;
+    const request = { input, targets, options };
+    const requestHash = taskRequestHash(request);
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtext('ai-link-task-idempotency-v1'), hashtext($1))",
+        [lockKey]
+      );
+      const existingResult = await client.query(
+        `SELECT tasks.*, task_idempotency_keys.request_hash AS idempotency_request_hash
+           FROM task_idempotency_keys
+           JOIN tasks ON tasks.id = task_idempotency_keys.task_id
+          WHERE task_idempotency_keys.created_by = $1
+            AND task_idempotency_keys.workflow = $2
+            AND task_idempotency_keys.request_id = $3
+          FOR UPDATE OF task_idempotency_keys, tasks`,
+        [createdBy, workflow, requestId]
+      );
+      if (existingResult.rows[0]) {
+        const task = rowTask(existingResult.rows[0]);
+        const matches = existingResult.rows[0].idempotency_request_hash === requestHash
+          && sameTaskRequest({ input: task.input, targets: task.targets, options: task.options }, request);
+        await client.query("COMMIT");
+        return { task, replayed: matches, conflict: !matches };
+      }
+
+      const legacyResult = await client.query(
+        `SELECT * FROM tasks
+          WHERE created_by = $1 AND workflow = $2 AND options->>'requestId' = $3
+          ORDER BY created_at ASC
+          LIMIT 2
+          FOR UPDATE`,
+        [createdBy, workflow, requestId]
+      );
+      if (legacyResult.rows.length > 1) {
+        throw new Error("Duplicate legacy task idempotency keys require operator cleanup.");
+      }
+      if (legacyResult.rows[0]) {
+        const task = rowTask(legacyResult.rows[0]);
+        const legacyRequest = { input: task.input, targets: task.targets, options: task.options };
+        const legacyHash = taskRequestHash(legacyRequest);
+        await client.query(
+          `INSERT INTO task_idempotency_keys (created_by, workflow, request_id, request_hash, task_id)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [createdBy, workflow, requestId, legacyHash, task.id]
+        );
+        const matches = legacyHash === requestHash && sameTaskRequest(legacyRequest, request);
+        await client.query("COMMIT");
+        return { task, replayed: matches, conflict: !matches };
+      }
+
+      const id = crypto.randomUUID();
+      const inserted = await client.query(
+        `INSERT INTO tasks (id, workflow, status, current_step, input, targets, options, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [id, workflow, TASK_STATUSES.QUEUED, options?.startStep || "process", json(input), json(targets), json(options), createdBy]
+      );
+      await client.query(
+        `INSERT INTO task_idempotency_keys (created_by, workflow, request_id, request_hash, task_id)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [createdBy, workflow, requestId, requestHash, id]
+      );
+      await client.query(
+        `INSERT INTO audit_events (id, task_id, actor, event_type, detail)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [crypto.randomUUID(), id, createdBy, "task.created", json({ workflow, targets })]
+      );
+      await client.query("COMMIT");
+      return { task: rowTask(inserted.rows[0]), replayed: false, conflict: false };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async getTask(id) {
     const { rows } = await this.pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
     return rowTask(rows[0]);
   }
 
-  async listTasks({ limit = 50, status = "" } = {}) {
+  async listTasks({ limit = 50, status = "", createdBy = "" } = {}) {
     const { rows } = await this.pool.query(
       `SELECT * FROM tasks
        WHERE ($1::text = '' OR status = $1)
+         AND ($2::text = '' OR created_by = $2)
        ORDER BY created_at DESC
-       LIMIT $2`,
-      [status || "", limit]
+       LIMIT $3`,
+      [status || "", createdBy || "", limit]
     );
     return rows.map(rowTask);
   }
@@ -1340,4 +1478,10 @@ async function insertApprovalExpiredAudit(client, records, request) {
      FROM unnest($1::uuid[], $2::uuid[], $3::jsonb[]) AS victim(id, task_id, detail)`,
     [ids, taskIds, details, request.actor, request.asOf]
   );
+}
+
+function idempotencyConflictError() {
+  return Object.assign(new Error("Task idempotency key conflicts with an existing request."), {
+    code: "idempotency_conflict"
+  });
 }

@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import { APPROVAL_STATUSES, TASK_STATUSES } from "../domain/workflow.js";
 import { normalizeConnectorProbeEvidence } from "../connectors/probeEvidence.js";
-import { normalizeConfiguredApiTokenSnapshot } from "../security/apiTokenLifecycle.js";
+import {
+  configuredApiTokenNameIsManaged,
+  normalizeConfiguredApiTokenSnapshot
+} from "../security/apiTokenLifecycle.js";
 import {
   approvalExpiresAt,
   emptyRetentionCounts,
@@ -18,6 +21,18 @@ function clone(value) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function sameTaskRequest(left, right) {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export class MemoryStore {
@@ -62,7 +77,7 @@ export class MemoryStore {
   }
 
   async syncConfiguredApiTokens(snapshot) {
-    const { managedNames, activeTokens } = normalizeConfiguredApiTokenSnapshot(snapshot);
+    const { managedNames, managedNamePrefixes, activeTokens } = normalizeConfiguredApiTokenSnapshot(snapshot);
     const nextTokens = new Map(
       [...this.apiTokens.entries()].map(([tokenHash, record]) => [tokenHash, clone(record)])
     );
@@ -112,7 +127,11 @@ export class MemoryStore {
     }
 
     for (const [tokenHash, record] of nextTokens) {
-      if (!managedSet.has(record.name) || activeNames.has(record.name) || record.revokedAt) continue;
+      if (
+        !configuredApiTokenNameIsManaged(record.name, managedSet, managedNamePrefixes)
+        || activeNames.has(record.name)
+        || record.revokedAt
+      ) continue;
       nextTokens.set(tokenHash, { ...record, revokedAt: now, updatedAt: now });
       summary.revoked += 1;
     }
@@ -172,6 +191,15 @@ export class MemoryStore {
   }
 
   async createTask({ workflow, input, targets, options, createdBy }) {
+    if (String(options?.requestId || "")) {
+      const creation = await this.createTaskIdempotent({ workflow, input, targets, options, createdBy });
+      if (creation.conflict) throw idempotencyConflictError();
+      return creation.task;
+    }
+    return this.#insertTask({ workflow, input, targets, options, createdBy });
+  }
+
+  async #insertTask({ workflow, input, targets, options, createdBy }) {
     const id = crypto.randomUUID();
     const task = {
       id,
@@ -198,13 +226,42 @@ export class MemoryStore {
     return clone(task);
   }
 
+  async createTaskIdempotent({ workflow, input, targets, options, createdBy }) {
+    const requestId = String(options?.requestId || "");
+    if (!requestId) {
+      return {
+        task: await this.createTask({ workflow, input, targets, options, createdBy }),
+        replayed: false,
+        conflict: false
+      };
+    }
+    const existing = [...this.tasks.values()].find((item) =>
+      item.createdBy === createdBy
+      && item.workflow === workflow
+      && item.options?.requestId === requestId
+    );
+    if (existing) {
+      const matches = sameTaskRequest(
+        { input: existing.input, targets: existing.targets, options: existing.options },
+        { input, targets, options }
+      );
+      return { task: clone(existing), replayed: matches, conflict: !matches };
+    }
+    return {
+      task: await this.#insertTask({ workflow, input, targets, options, createdBy }),
+      replayed: false,
+      conflict: false
+    };
+  }
+
   async getTask(id) {
     return clone(this.tasks.get(id));
   }
 
-  async listTasks({ limit = 50, status = "" } = {}) {
+  async listTasks({ limit = 50, status = "", createdBy = "" } = {}) {
     return [...this.tasks.values()]
       .filter((item) => !status || item.status === status)
+      .filter((item) => !createdBy || item.createdBy === createdBy)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, limit)
       .map(clone);
@@ -778,4 +835,10 @@ function connectorProbeEvidenceKey(evidence) {
     evidence.qualifier,
     evidence.subjectKey
   ].join(":");
+}
+
+function idempotencyConflictError() {
+  return Object.assign(new Error("Task idempotency key conflicts with an existing request."), {
+    code: "idempotency_conflict"
+  });
 }

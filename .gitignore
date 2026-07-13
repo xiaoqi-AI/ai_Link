@@ -47,6 +47,8 @@ tools/security-scan.js
 !src/server.js
 !src/audit/
 !src/audit/*.js
+!src/authHub/
+!src/authHub/*.js
 !src/connectors/
 !src/connectors/*.js
 !src/domain/

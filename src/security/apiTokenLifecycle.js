@@ -1,13 +1,15 @@
 export const CONFIGURED_API_TOKEN_NAMES = Object.freeze(["admin", "executor", "codex"]);
+export const CONFIGURED_API_TOKEN_PREFIXES = Object.freeze(["project."]);
 
 const TOKEN_HASH_PATTERN = /^[a-f0-9]{64}$/;
 const TOKEN_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 
 export function normalizeConfiguredApiTokenSnapshot({
   managedNames = CONFIGURED_API_TOKEN_NAMES,
+  managedNamePrefixes = [],
   activeTokens = []
 } = {}) {
-  if (!Array.isArray(managedNames) || !Array.isArray(activeTokens)) {
+  if (!Array.isArray(managedNames) || !Array.isArray(managedNamePrefixes) || !Array.isArray(activeTokens)) {
     throw new Error("Configured API token snapshot must use arrays.");
   }
 
@@ -17,9 +19,13 @@ export function normalizeConfiguredApiTokenSnapshot({
   }
 
   const managedSet = new Set(normalizedManagedNames);
+  const normalizedManagedNamePrefixes = managedNamePrefixes.map(normalizePrefix);
+  if (new Set(normalizedManagedNamePrefixes).size !== normalizedManagedNamePrefixes.length) {
+    throw new Error("Configured API token managed name prefixes must be unique.");
+  }
   const normalizedTokens = activeTokens.map((record) => {
     const name = normalizeName(record?.name);
-    if (!managedSet.has(name)) {
+    if (!configuredApiTokenNameIsManaged(name, managedSet, normalizedManagedNamePrefixes)) {
       throw new Error("Configured API token name is not managed by this snapshot.");
     }
     const tokenHash = String(record?.tokenHash || "").toLowerCase();
@@ -52,8 +58,14 @@ export function normalizeConfiguredApiTokenSnapshot({
 
   return {
     managedNames: normalizedManagedNames,
+    managedNamePrefixes: normalizedManagedNamePrefixes,
     activeTokens: normalizedTokens
   };
+}
+
+export function configuredApiTokenNameIsManaged(name, managedNames, managedNamePrefixes = []) {
+  const exact = managedNames instanceof Set ? managedNames : new Set(managedNames);
+  return exact.has(name) || managedNamePrefixes.some((prefix) => name.startsWith(prefix));
 }
 
 function normalizeName(value) {
@@ -62,4 +74,12 @@ function normalizeName(value) {
     throw new Error("Configured API token name has an invalid format.");
   }
   return name;
+}
+
+function normalizePrefix(value) {
+  const prefix = String(value || "").trim();
+  if (!TOKEN_NAME_PATTERN.test(prefix)) {
+    throw new Error("Configured API token managed name prefix has an invalid format.");
+  }
+  return prefix;
 }
