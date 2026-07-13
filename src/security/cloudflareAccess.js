@@ -41,7 +41,8 @@ async function verifyAccessJwt(assertion, accessConfig) {
 
   const verified = await jwtVerify(assertion, jwksForIssuer(issuer), {
     audience: accessConfig.audience,
-    issuer
+    issuer,
+    algorithms: ["RS256"]
   });
   return { verified: true, payload: verified.payload, reason: "" };
 }
@@ -53,7 +54,7 @@ export function requireCloudflareAccess(config) {
       return;
     }
 
-    let email = String(req.get("cf-access-authenticated-user-email") || "").trim().toLowerCase();
+    const forwardedEmail = normalizeIdentity(req.get("cf-access-authenticated-user-email"));
     const assertion = String(req.get("cf-access-jwt-assertion") || "").trim();
 
     if (!assertion) {
@@ -61,33 +62,50 @@ export function requireCloudflareAccess(config) {
       return;
     }
 
-    if (!email && !config.access.allowServiceTokens) {
-      forbidden(req, res, "missing_cloudflare_access_email");
-      return;
-    }
-
-    let verifiedPayload = null;
+    let verification = null;
     try {
-      const verification = await verifyAccessJwt(assertion, config.access);
-      verifiedPayload = verification.payload;
-      if (verification.verified) {
-        const payloadEmail = String(verifiedPayload.email || verifiedPayload.common_name || "").trim().toLowerCase();
-        if (!email && payloadEmail) {
-          email = payloadEmail;
-        }
-      }
+      verification = await verifyAccessJwt(assertion, config.access);
     } catch {
       forbidden(req, res, "invalid_cloudflare_access_jwt");
       return;
     }
-
-    const allowedEmails = config.access.allowedEmails || [];
-    const isServiceToken = !email && config.access.allowServiceTokens && Boolean(verifiedPayload);
-    if (!email && config.access.allowServiceTokens && !isServiceToken) {
-      forbidden(req, res, "service_token_jwt_not_verified");
+    if (!verification.verified || !verification.payload) {
+      forbidden(req, res, verification.reason || "invalid_cloudflare_access_jwt");
       return;
     }
 
+    const verifiedPayload = verification.payload;
+    if (verifiedPayload.type !== "app") {
+      forbidden(req, res, "invalid_cloudflare_access_token_type");
+      return;
+    }
+
+    const payloadEmail = normalizeIdentity(verifiedPayload.email);
+    const serviceCommonName = normalizeIdentity(verifiedPayload.common_name);
+    if (forwardedEmail && forwardedEmail !== payloadEmail) {
+      forbidden(req, res, "cloudflare_access_identity_mismatch");
+      return;
+    }
+
+    let email = payloadEmail;
+    let isServiceToken = false;
+    if (!email && serviceCommonName) {
+      if (forwardedEmail) {
+        forbidden(req, res, "cloudflare_access_identity_mismatch");
+        return;
+      }
+      if (!config.access.allowServiceTokens) {
+        forbidden(req, res, "service_token_not_allowed");
+        return;
+      }
+      isServiceToken = true;
+    }
+    if (!email && !isServiceToken) {
+      forbidden(req, res, "verified_cloudflare_access_identity_missing");
+      return;
+    }
+
+    const allowedEmails = config.access.allowedEmails || [];
     if (allowedEmails.length > 0 && !isServiceToken && !allowedEmails.includes(email)) {
       forbidden(req, res, "email_not_allowed");
       return;
@@ -96,8 +114,13 @@ export function requireCloudflareAccess(config) {
     req.cloudflareAccess = {
       email,
       serviceToken: isServiceToken,
-      jwtVerified: Boolean(verifiedPayload)
+      jwtVerified: true
     };
     next();
   };
+}
+
+function normalizeIdentity(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.length <= 320 ? normalized : "";
 }

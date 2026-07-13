@@ -26,6 +26,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Private connector bundle generator that safely combines the GitHub, WeChat Official and Xiaohongshu adapters while rejecting missing modules and duplicate platform ownership.
 - Auth Hub executor capability heartbeat with strict allowlists, server-side TTL, static-contract/runtime-evidence separation, fail-closed unverified states, and mock-only remote smoke enforcement.
 - Auth Hub explicit connector probe evidence for GitHub, WeChat Official, and Xiaohongshu health operations, with token-bound executor identity, process-session binding, one-time leases, atomic Postgres settlement, server-side TTL, operation-scoped status, and platform-filtered strict checks.
+- Auth Hub remote origin hardening with fail-closed Cloudflare Access JWT verification, verified user/service identity binding, and signed server-side console session expiry.
 - 5-minute public quickstart for trying AI Link without provider keys or live model calls.
 - Next-action report for local baseline, GitHub hardening, Bitwarden setup, provider-live, and v0.1 release decisions.
 - Ordered setup handoff for Bitwarden, GitHub provider-live, GitHub hardening, release decisions, provider-live cost approval, and release-channel choice.
@@ -49,6 +50,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - Exact query-free Xiaohongshu note URLs are preserved by redaction while tokenized URLs, account fields and raw bridge output remain blocked.
 - Executor heartbeats never invoke platform methods or carry hostnames, private paths, credentials, login state, account details, or raw responses; without a separate read-only probe, `canRunReal` remains false.
 - Connector probes are never inferred from mock, heartbeat, status reads, search, login, or historical tasks; replayed/expired/mismatched attempts are rejected, and public API/UI omit executor sessions, lease IDs, heartbeat revisions, client timestamps, raw results, credentials, and platform account details.
+- Cloudflare Access enforcement never trusts forwarded identity headers without a valid RS256 application JWT for the configured issuer and audience; console sessions carry a signed absolute expiry and malformed cookies fail closed.
 - The Render blueprint no longer hard-codes the existing `voice.xiao-qi-ai.com` application as the Auth Hub target; production deployment requires an explicitly confirmed dedicated hostname.
 - `package:check` uses `npm pack --dry-run` and does not publish.
 - `package:install-smoke` installs a local tarball into a temporary empty project and does not publish.

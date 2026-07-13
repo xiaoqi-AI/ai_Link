@@ -128,7 +128,7 @@ npm run auth-hub:audit-smoke
 npm run auth-hub:executor:start
 ```
 
-本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
+本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。启用后必须同时配置应用 AUD tag 和 team domain/issuer；应用会验证 JWT 签名、issuer、audience 与用户/服务令牌身份，参数缺失时直接拒绝，不信任可伪造的邮件头。应用内控制台会话默认 8 小时，并由服务端校验签名载荷中的绝对过期时间；可用 `AI_LINK_SESSION_MAX_AGE_SECONDS` 在 5 分钟至 24 小时内调整。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
 
 控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 的顶层 `connectors` 是服务端静态能力契约，`executorRuntime` 是本地执行器带过期时间的能力与探测证据。静态契约只能说明代码合同存在，执行器心跳只能说明进程在线且方法已加载；只有显式 `connector_probe` 任务在绑定 executor/session/lease 下成功完成后，对应操作才会进入 `verifiedOperations`。这仍不代表整个平台、写权限或发布能力可用。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
 

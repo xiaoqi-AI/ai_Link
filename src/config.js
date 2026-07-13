@@ -31,6 +31,16 @@ export function loadConfig(env = process.env) {
     throw new Error("AI_LINK_EXECUTOR_ID has an invalid format.");
   }
   const codexToken = env.AI_LINK_CODEX_TOKEN || (isProduction ? "" : "dev-codex-token");
+  const requireCloudflareAccess = ["1", "true", "yes"].includes(
+    String(env.AI_LINK_REQUIRE_CLOUDFLARE_ACCESS || "").toLowerCase()
+  );
+  const allowedAccessEmails = readCsv(env.AI_LINK_ALLOWED_ACCESS_EMAILS).map((item) => item.toLowerCase());
+  const allowCloudflareServiceTokens = ["1", "true", "yes"].includes(
+    String(env.AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN || "").toLowerCase()
+  );
+  const cloudflareAccessAudience = String(env.AI_LINK_CLOUDFLARE_ACCESS_AUD || "").trim();
+  const cloudflareAccessIssuer = String(env.AI_LINK_CLOUDFLARE_ACCESS_ISSUER || "").trim();
+  const cloudflareTeamDomain = String(env.AI_LINK_CLOUDFLARE_TEAM_DOMAIN || "").trim();
 
   if (isProduction) {
     const missing = [];
@@ -39,6 +49,19 @@ export function loadConfig(env = process.env) {
     if (!adminToken) missing.push("AI_LINK_ADMIN_TOKEN");
     if (!executorToken) missing.push("AI_LINK_EXECUTOR_TOKEN");
     if (!executorId) missing.push("AI_LINK_EXECUTOR_ID");
+    if (requireCloudflareAccess && !cloudflareAccessAudience) {
+      missing.push("AI_LINK_CLOUDFLARE_ACCESS_AUD");
+    }
+    if (requireCloudflareAccess && !cloudflareAccessIssuer && !cloudflareTeamDomain) {
+      missing.push("AI_LINK_CLOUDFLARE_TEAM_DOMAIN or AI_LINK_CLOUDFLARE_ACCESS_ISSUER");
+    }
+    if (
+      requireCloudflareAccess
+      && allowedAccessEmails.length === 0
+      && !allowCloudflareServiceTokens
+    ) {
+      missing.push("AI_LINK_ALLOWED_ACCESS_EMAILS or AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN");
+    }
     if (missing.length > 0) {
       throw new Error(`Missing required production secrets: ${missing.join(", ")}`);
     }
@@ -52,6 +75,12 @@ export function loadConfig(env = process.env) {
     databaseUrl: env.DATABASE_URL || "",
     appPassword,
     sessionSecret,
+    sessionMaxAgeSeconds: boundedInteger(
+      env.AI_LINK_SESSION_MAX_AGE_SECONDS,
+      28800,
+      300,
+      86400
+    ),
     leaseMs: Number(env.AI_LINK_LEASE_MS || 120000),
     executorHeartbeatTtlMs: boundedInteger(
       env.AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS,
@@ -70,12 +99,12 @@ export function loadConfig(env = process.env) {
       auditDays: Number(env.AI_LINK_AUDIT_RETENTION_DAYS || 180)
     },
     access: {
-      requireCloudflareAccess: ["1", "true", "yes"].includes(String(env.AI_LINK_REQUIRE_CLOUDFLARE_ACCESS || "").toLowerCase()),
-      allowedEmails: readCsv(env.AI_LINK_ALLOWED_ACCESS_EMAILS).map((item) => item.toLowerCase()),
-      allowServiceTokens: ["1", "true", "yes"].includes(String(env.AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN || "").toLowerCase()),
-      audience: env.AI_LINK_CLOUDFLARE_ACCESS_AUD || "",
-      issuer: env.AI_LINK_CLOUDFLARE_ACCESS_ISSUER || "",
-      teamDomain: env.AI_LINK_CLOUDFLARE_TEAM_DOMAIN || ""
+      requireCloudflareAccess,
+      allowedEmails: allowedAccessEmails,
+      allowServiceTokens: allowCloudflareServiceTokens,
+      audience: cloudflareAccessAudience,
+      issuer: cloudflareAccessIssuer,
+      teamDomain: cloudflareTeamDomain
     },
     email: {
       smtpUrl: env.SMTP_URL || "",

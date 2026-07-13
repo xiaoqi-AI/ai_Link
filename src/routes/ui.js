@@ -26,13 +26,14 @@ export function createUiRouter() {
     res.setHeader("Set-Cookie", createSessionCookie({
       actor: "console",
       secret: req.app.locals.config.sessionSecret,
-      secure: req.app.locals.config.isProduction
+      secure: req.app.locals.config.isProduction,
+      maxAgeSeconds: req.app.locals.config.sessionMaxAgeSeconds
     }));
     res.redirect(req.body?.next || "/dashboard");
   });
 
   router.get("/logout", (req, res) => {
-    res.setHeader("Set-Cookie", clearSessionCookie());
+    res.setHeader("Set-Cookie", clearSessionCookie({ secure: req.app.locals.config.isProduction }));
     res.redirect("/login");
   });
 

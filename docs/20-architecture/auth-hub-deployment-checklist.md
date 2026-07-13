@@ -33,6 +33,7 @@ npm run auth-hub:local:stop
 - `DATABASE_URL`
 - `AI_LINK_APP_PASSWORD`
 - `AI_LINK_SESSION_SECRET`
+- `AI_LINK_SESSION_MAX_AGE_SECONDS=28800`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
 - `AI_LINK_EXECUTOR_ID=local-executor`（或另一个受限公开标识，必须与本地执行器一致）
@@ -58,7 +59,7 @@ npm run auth-hub:local:stop
 powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl "https://auth.xiao-qi-ai.com"
 ```
 
-生产检查会要求应用自身开启 Cloudflare Access origin guard，并配置 Access JWT 校验所需的 AUD tag 和 team domain/issuer。
+生产检查会要求应用自身开启 Cloudflare Access origin guard，并配置 Access JWT 校验所需的 AUD tag 和 team domain/issuer。生产进程也会在启动配置阶段失败关闭：缺少 AUD、issuer/team domain，或既没有授权邮箱又未明确允许 service token 时拒绝启动。
 
 ## 3. Cloudflare Access
 
@@ -71,7 +72,11 @@ powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Pr
 - 保留应用内登录作为第二层门禁。
 - DNS 指向 Render 后，确认 HTTPS 可用。
 - 记录应用 AUD tag 到 `AI_LINK_CLOUDFLARE_ACCESS_AUD`。
+- 确认源站验证 JWT 的 RS256 签名、issuer 和 audience；不得把 `Cf-Access-Authenticated-User-Email` 当成独立凭据。
+- 用户 JWT 的 `email` 必须与转发邮件头一致；服务令牌 JWT 的 `common_name` 不得当作用户邮箱。
 - 本地执行器如需穿过 Cloudflare Access，创建 Service Auth 凭据，并只在本机或 Bitwarden 中保存 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。
+
+官方参考：[验证 Access JWT](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)、[Application token claims](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)、[Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)。
 
 ## 4. 本地执行器
 
@@ -113,7 +118,9 @@ npm run auth-hub:executor:start
 
 - 已确认的独立 Auth Hub 域名 `/healthz` 在 Cloudflare Access 后可用，并返回 `service=ai-link-auth-hub`。
 - 未授权浏览器无法进入控制台。
+- 缺少 JWT 校验参数、签名无效、audience/issuer 错误或邮件身份不一致的请求均被源站拒绝。
 - 应用内登录可进入 dashboard。
+- 应用内签名会话在 `AI_LINK_SESSION_MAX_AGE_SECONDS` 到期后由服务端拒绝，不能靠手工重放 Cookie 延长。
 - 本地执行器能领取任务并回传结果。
 - `GET /api/connectors` 显示至少一个 online executor heartbeat；没有显式只读 probe 时，真实能力仍显示 `unverified` 和 `canRunReal=false`。
 - 显式 probe 只允许三项健康操作，并验证 token/executor/session/lease 绑定、重放拒绝、服务端 TTL 与 `verifiedOperations` 操作级口径。
