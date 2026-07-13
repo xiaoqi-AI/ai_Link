@@ -211,7 +211,11 @@ export function createUiRouter() {
       return;
     }
     if (!decision.changed) {
-      res.status(409).send("Approval already decided.");
+      const message = {
+        approval_expired: "Approval expired.",
+        approval_context_stale: "Approval no longer matches the task state."
+      }[decision.reason] || "Approval already decided.";
+      res.status(409).send(message);
       return;
     }
     res.redirect(303, `/dashboard/tasks/${req.params.id}`);

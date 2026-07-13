@@ -190,7 +190,7 @@ npm run auth-hub:executor:start
 
 默认本地开发令牌和内存存储只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `DATABASE_URL`、`AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN`、`AI_LINK_EXECUTOR_ID`、`AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS`、`AI_LINK_CONNECTOR_PROBE_TTL_MS` 和 Cloudflare Access origin guard。生产缺少数据库会拒绝启动，避免重启后丢失任务、审批和审计。Access guard 会验证签名、issuer、audience 和用户/服务令牌身份，不会退化为信任转发邮件头；service token 必须由部署负责人显式允许，控制台会话还会执行服务端绝对过期，默认 8 小时。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
-控制台所有写表单都要求同源 `Origin`/`Referer` 和与当前浏览器、当前会话绑定的签名 CSRF token；登录前 token 不能在登录后重放，token 默认 15 分钟过期。登录失败默认在 15 分钟窗口内最多 5 次，随后锁定 15 分钟并返回 `429` 与 `Retry-After`。当前限流状态只保存在单个进程内，因此公开 Render 蓝图固定 `numInstances: 1`；横向扩容前必须先改为共享限流存储。任务只有在 `action_required` 或 `failed` 时可以重试，审批必须显式选择批准或拒绝，重复审批返回冲突且不改变状态。
+控制台所有写表单都要求同源 `Origin`/`Referer` 和与当前浏览器、当前会话绑定的签名 CSRF token；登录前 token 不能在登录后重放，token 默认 15 分钟过期。登录失败默认在 15 分钟窗口内最多 5 次，随后锁定 15 分钟并返回 `429` 与 `Retry-After`。当前限流状态只保存在单个进程内，因此公开 Render 蓝图固定 `numInstances: 1`；横向扩容前必须先改为共享限流存储。任务只有在 `action_required` 或 `failed` 时可以重试；审批必须显式选择批准或拒绝，并且任务仍为 `approval_required`，重复、过期或上下文已失效的审批返回冲突且不改变终态任务。
 
 第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。`auth-hub:audit-smoke` 会启动或复用本地授权中枢，创建测试任务，运行 AI Link dry-run workflow 生成本地 run record，再用 `runs submit-audit` 回传审计并验证 `GET /api/audit?eventType=ai_link.audit`。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同基线；真实平台连接器应放在私有配置或私有仓中实现。
 
@@ -207,6 +207,8 @@ npm run auth-hub:status:strict -- --platform github
 该命令只读取 `GET /api/auth-status`，不会自动发起 probe 或调用平台。
 
 远程 Auth Hub 必须使用独立域名，避免覆盖当前承载其他应用的 `voice.xiao-qi-ai.com`；建议候选为 `auth.xiao-qi-ai.com`，最终地址仍需人工确认。公开 Render 蓝图使用 `basic-256mb` Postgres、`ipAllowList: []` 和 `autoDeployTrigger: checksPass`；region 创建后不可修改，部署前必须由负责人决定。域名确认并部署后，先用 `auth-hub:remote:next` 检查远端 `/healthz`、公开部署蓝图和当前进程的环境变量存在性；再用 `auth-hub:remote:smoke` 通过 `full_chain` mock 任务验收远端闭环。远程 smoke 会显式禁用私有连接器模块，并要求应用密码、Admin token、受限 Codex token 和执行器 token，只验证 mock 链路，不读取真实平台账号、不保存浏览器 Profile、不上传截图或 Cookie。
+
+Auth Hub 的配置托管 token 采用原子对账：轮换后旧 hash 立即失效、配置删除会撤销托管 token、同一 hash 重启不会复活已撤销凭据。长期运行数据使用 `auth-hub:retention` 先做只读预览；真正执行必须加 `--apply --confirm-backup`，每类单批默认最多 500 行，并且不会删除任务、API token、平台账号或私有登录态。中文操作与恢复边界见 `docs/20-architecture/auth-hub-data-lifecycle.md`。
 
 停止本地服务：
 

@@ -104,8 +104,13 @@ export function loadConfig(env = process.env) {
       86400000
     ),
     retention: {
-      artifactDays: Number(env.AI_LINK_ARTIFACT_RETENTION_DAYS || 7),
-      auditDays: Number(env.AI_LINK_AUDIT_RETENTION_DAYS || 180)
+      artifactDays: boundedInteger(env.AI_LINK_ARTIFACT_RETENTION_DAYS, 7, 1, 365),
+      approvalDays: boundedInteger(env.AI_LINK_APPROVAL_RETENTION_DAYS, 7, 1, 90),
+      auditDays: boundedInteger(env.AI_LINK_AUDIT_RETENTION_DAYS, 180, 30, 3650),
+      maintenanceAuditDays: boundedInteger(env.AI_LINK_MAINTENANCE_AUDIT_RETENTION_DAYS, 365, 90, 3650),
+      heartbeatGraceHours: boundedInteger(env.AI_LINK_HEARTBEAT_RETENTION_GRACE_HOURS, 24, 1, 168),
+      probeGraceDays: boundedInteger(env.AI_LINK_PROBE_RETENTION_GRACE_DAYS, 7, 1, 90),
+      maxRowsPerTable: boundedInteger(env.AI_LINK_RETENTION_MAX_ROWS_PER_TABLE, 500, 1, 1000)
     },
     access: {
       requireCloudflareAccess,

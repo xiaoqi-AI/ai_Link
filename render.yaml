@@ -43,8 +43,24 @@ services:
         value: "60000"
       - key: AI_LINK_CONNECTOR_PROBE_TTL_MS
         value: "900000"
+      - key: AI_LINK_ARTIFACT_RETENTION_DAYS
+        value: "7"
+      - key: AI_LINK_APPROVAL_RETENTION_DAYS
+        value: "7"
+      - key: AI_LINK_AUDIT_RETENTION_DAYS
+        value: "180"
+      - key: AI_LINK_MAINTENANCE_AUDIT_RETENTION_DAYS
+        value: "365"
+      - key: AI_LINK_HEARTBEAT_RETENTION_GRACE_HOURS
+        value: "24"
+      - key: AI_LINK_PROBE_RETENTION_GRACE_DAYS
+        value: "7"
+      - key: AI_LINK_RETENTION_MAX_ROWS_PER_TABLE
+        value: "500"
       - key: AI_LINK_CODEX_TOKEN
         sync: false
+      - key: AI_LINK_CODEX_SCOPES
+        value: "tasks:create,tasks:read,connectors:read,audit:write"
       - key: AI_LINK_REQUIRE_CLOUDFLARE_ACCESS
         value: "true"
       - key: AI_LINK_ALLOWED_ACCESS_EMAILS

@@ -102,7 +102,7 @@ export function createApiRouter() {
       return;
     }
     if (!decision.changed) {
-      res.status(409).json({ error: "approval_already_decided" });
+      res.status(409).json({ error: decision.reason || "approval_already_decided" });
       return;
     }
     res.json({ task: publicTask(decision.task), approval: decision.approval });

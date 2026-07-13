@@ -9,12 +9,15 @@ param(
   [string]$CfAccessJwt = "",
   [string]$CfAccessEmail = "",
   [switch]$SkipExecutor,
+  [switch]$SkipAppLogin,
+  [switch]$AccessGateOnly,
   [switch]$ExpectAccessGate,
   [ValidateSet("full_chain", "read_detect")]
   [string]$Workflow = "full_chain"
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Net.Http
 
 if (-not $BaseUrl) {
   $BaseUrl = $env:AI_LINK_BASE_URL
@@ -22,6 +25,10 @@ if (-not $BaseUrl) {
 
 if (-not $BaseUrl) {
   throw "BaseUrl is required. Pass -BaseUrl or set AI_LINK_BASE_URL."
+}
+
+if ($AccessGateOnly -and -not $ExpectAccessGate) {
+  throw "-AccessGateOnly requires -ExpectAccessGate so a public login page cannot be reported as a successful edge-gate check."
 }
 
 $BaseUrl = $BaseUrl.TrimEnd("/")
@@ -79,6 +86,15 @@ function New-CommonHeaders {
   return $headers
 }
 
+function New-UserAccessHeaders {
+  $headers = @{}
+  if ($CfAccessJwt -and $CfAccessEmail) {
+    $headers["cf-access-jwt-assertion"] = $CfAccessJwt
+    $headers["cf-access-authenticated-user-email"] = $CfAccessEmail
+  }
+  return $headers
+}
+
 function New-AuthHeaders {
   param([string]$Token)
   $headers = New-CommonHeaders
@@ -94,43 +110,75 @@ function Invoke-HttpStatus {
     [string]$Method = "Get",
     [hashtable]$Headers = @{},
     [object]$Body = $null,
-    [string]$ContentType = "application/json",
-    [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession = $null
+    [string]$ContentType = "application/json"
   )
 
-  $parameters = @{
-    Uri = $Uri
-    Method = $Method
-    Headers = $Headers
-    TimeoutSec = 30
-    UseBasicParsing = $true
-    MaximumRedirection = 0
-    ErrorAction = "Stop"
-  }
-  if ($WebSession) {
-    $parameters["WebSession"] = $WebSession
-  }
-  if ($null -ne $Body) {
-    $parameters["ContentType"] = $ContentType
-    $parameters["Body"] = $Body
-  }
-
+  $handler = New-Object System.Net.Http.HttpClientHandler
+  $handler.AllowAutoRedirect = $false
+  $client = New-Object System.Net.Http.HttpClient($handler)
+  $client.Timeout = [TimeSpan]::FromSeconds(30)
+  $request = New-Object System.Net.Http.HttpRequestMessage(
+    (New-Object System.Net.Http.HttpMethod($Method.ToUpperInvariant())),
+    $Uri
+  )
   try {
-    $response = Invoke-WebRequest @parameters
+    foreach ($name in $Headers.Keys) {
+      $request.Headers.TryAddWithoutValidation([string]$name, [string]$Headers[$name]) | Out-Null
+    }
+    if ($null -ne $Body) {
+      $request.Content = New-Object System.Net.Http.StringContent(
+        [string]$Body,
+        [System.Text.Encoding]::UTF8,
+        $ContentType
+      )
+    }
+
+    $response = $client.SendAsync($request).GetAwaiter().GetResult()
+    $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
     return [ordered]@{
       statusCode = [int]$response.StatusCode
-      content = [string]$response.Content
+      content = [string]$content
+      location = [string]$response.Headers.Location
+      cfRay = Get-HttpResponseHeaderValue $response "CF-Ray"
     }
-  } catch {
-    $response = $_.Exception.Response
+  } finally {
     if ($response) {
-      return [ordered]@{
-        statusCode = [int]$response.StatusCode
-        content = ""
-      }
+      $response.Dispose()
     }
-    throw
+    $request.Dispose()
+    $client.Dispose()
+    $handler.Dispose()
   }
+}
+
+function Get-HttpResponseHeaderValue {
+  param([System.Net.Http.HttpResponseMessage]$Response, [string]$Name)
+
+  try {
+    return [string]::Join(",", @($Response.Headers.GetValues($Name)))
+  } catch {
+    return ""
+  }
+}
+
+function Get-CloudflareAccessGateEvidence {
+  param([object]$Response)
+
+  $location = ([string]$Response.location).ToLowerInvariant()
+  if ($Response.statusCode -in @(301, 302, 303, 307, 308) -and
+      $location -match '^https://[^/]+\.cloudflareaccess\.com/cdn-cgi/access/') {
+    return "Cloudflare Access login redirect"
+  }
+
+  $content = ([string]$Response.content).ToLowerInvariant()
+  $cfRay = [string]$Response.cfRay
+  $looksLikeAccessPage = $content -match 'cloudflare access|cdn-cgi/access|access denied[^<]{0,120}cloudflare'
+  $looksLikeApplicationGuard = $content -match 'cloudflare_access_(required|invalid|forbidden)|missing cloudflare access|cloudflare access verification required'
+  if ($Response.statusCode -in @(401, 403) -and $cfRay -and $looksLikeAccessPage -and -not $looksLikeApplicationGuard) {
+    return "Cloudflare Access edge response"
+  }
+
+  return ""
 }
 
 function Invoke-Json {
@@ -181,10 +229,11 @@ try {
   $loginHeaders = if ($ExpectAccessGate) { New-CommonHeaders -WithoutAccess } else { New-CommonHeaders }
   $login = Invoke-HttpStatus -Uri "$BaseUrl/login" -Headers $loginHeaders
   if ($ExpectAccessGate) {
-    if ($login.statusCode -in @(302, 401, 403)) {
-      Add-Check "access gate" "pass" "Unauthenticated login request was blocked or redirected before app login."
+    $gateEvidence = Get-CloudflareAccessGateEvidence $login
+    if ($gateEvidence) {
+      Add-Check "access gate" "pass" "Unauthenticated login request produced verified edge evidence: $gateEvidence."
     } else {
-      Add-Check "access gate" "fail" "Unauthenticated login request returned HTTP $($login.statusCode); verify Cloudflare Access policy."
+      Add-Check "access gate" "fail" "HTTP $($login.statusCode) did not prove a Cloudflare Access edge decision; an application-origin 401/403 is not sufficient."
     }
   } elseif ($login.statusCode -eq 200) {
     Add-Check "login page" "pass" "Application login page is reachable."
@@ -195,12 +244,32 @@ try {
   Add-Check "login page" "fail" $_.Exception.Message
 }
 
-if ($AppPassword) {
+if ($AccessGateOnly) {
+  $failed = @($result.checks | Where-Object { $_.status -eq "fail" })
+  $result.ok = $failed.Count -eq 0
+  $result | ConvertTo-Json -Depth 6
+  if ($failed.Count -gt 0) {
+    exit 1
+  }
+  exit 0
+}
+
+if ($SkipAppLogin) {
+  if ($CfAccessClientId -and $CfAccessClientSecret) {
+    Add-Check "app login" "warn" "Browser login was intentionally left for the approved-email interactive acceptance; a service token is not a browser identity."
+  } else {
+    Add-Check "app login" "fail" "-SkipAppLogin is reserved for a Service Auth remote smoke and requires both Cloudflare service credentials."
+  }
+} elseif ($AppPassword) {
+  if (($CfAccessClientId -or $CfAccessClientSecret) -and -not ($CfAccessJwt -and $CfAccessEmail)) {
+    Add-Check "app login" "fail" "Service Auth cannot prove browser login. Use -SkipAppLogin for the API/executor smoke and complete approved-email login manually."
+  } else {
   try {
     $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $userAccessHeaders = New-UserAccessHeaders
     $loginPage = Invoke-WebRequest `
       -Uri "$BaseUrl/login" `
-      -Headers (New-CommonHeaders) `
+      -Headers $userAccessHeaders `
       -WebSession $session `
       -UseBasicParsing `
       -TimeoutSec 30
@@ -210,7 +279,7 @@ if ($AppPassword) {
     }
     $csrfToken = $csrfMatch.Groups[1].Value
     $form = "password=$([uri]::EscapeDataString($AppPassword))&next=%2Fdashboard&csrfToken=$([uri]::EscapeDataString($csrfToken))"
-    $loginPostHeaders = New-CommonHeaders
+    $loginPostHeaders = New-UserAccessHeaders
     $loginPostHeaders["Origin"] = $BaseUrl
     $loginResult = Invoke-WebRequest `
       -Uri "$BaseUrl/login" `
@@ -223,7 +292,7 @@ if ($AppPassword) {
       -TimeoutSec 30
 
     if ($loginResult.StatusCode -eq 200) {
-      $dashboard = Invoke-WebRequest -Uri "$BaseUrl/dashboard" -Headers (New-CommonHeaders) -WebSession $session -UseBasicParsing -TimeoutSec 30
+      $dashboard = Invoke-WebRequest -Uri "$BaseUrl/dashboard" -Headers (New-UserAccessHeaders) -WebSession $session -UseBasicParsing -TimeoutSec 30
       if ($dashboard.StatusCode -eq 200 -and $dashboard.Content -match "AI Link") {
         Add-Check "app login" "pass" "Application login reaches dashboard with session cookie."
       } else {
@@ -234,6 +303,7 @@ if ($AppPassword) {
     }
   } catch {
     Add-Check "app login" "fail" $_.Exception.Message
+  }
   }
 } else {
   Add-Check "app login" "fail" "App password is required for a complete remote smoke."
