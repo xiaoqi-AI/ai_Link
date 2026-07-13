@@ -6,6 +6,29 @@ const outputJson = args.has("--json");
 
 const actions = [
   {
+    id: "merge-auth-hub-program-stack",
+    title: "Merge Auth Hub program stack in dependency order",
+    status: "manual",
+    owner: "Repository maintainer",
+    intent: "Move modules 2, 5, and 6 into main without flattening stacked ancestry or bypassing protected-branch checks.",
+    background: "PR #21 is merged. PR #22 and #23 are ready, PR #26 is an independent GitHub-scope branch, and PR #24/#25/#27/#28 form the remaining remote Auth Hub stack.",
+    recommendation: "Authorize one merge at a time in the order #22 -> #23 -> #26 -> #24 -> #25 -> #27 -> #28, using merge commits and rerunning checks after each retarget.",
+    value: "Makes the status center, precise connector evidence, remote security, and lifecycle controls land in a reviewable order.",
+    risk: "Merging out of order can duplicate ancestry, hide conflicting changes, or make later PR checks prove a different diff than the one merged.",
+    commands: [
+      "gh pr view 22 --repo xiaoqi-AI/ai_Link --json state,isDraft,mergeable,statusCheckRollup",
+      "gh pr checks 22 --repo xiaoqi-AI/ai_Link",
+      "npm run auth-hub:test"
+    ],
+    evidence: [
+      "PR #21 is merged into main.",
+      "PR #22 is open, Ready, mergeable, and Verify passes.",
+      "Every later stacked PR remains open until its parent is merged and its base is retargeted.",
+      "No merge is performed by this report; each merge requires explicit maintainer authorization."
+    ],
+    secretBoundary: "PR metadata and public CI checks only; no token value, platform login state, or runtime/private content is read or printed."
+  },
+  {
     id: "keep-local-baseline-green",
     title: "Keep local baseline green",
     status: "ready",
@@ -29,11 +52,34 @@ const actions = [
     secretBoundary: "No real provider key, bootstrap token, .env file, login state, or runtime/private file is needed."
   },
   {
-    id: "configure-github-hardening",
-    title: "Configure GitHub hardening",
+    id: "accept-platform-readonly-p0-2",
+    title: "Approve platform read-only P0.2 acceptance",
     status: "manual",
+    owner: "Connector owner and account owner",
+    intent: "Move the merged GitHub, WeChat, and Xiaohongshu scaffolds from public engineering confidence to operation-specific real-account evidence.",
+    background: "Contracts, interactive approval, private adapter generators, and the combined executor entry are merged; no public artifact proves the real accounts are currently usable.",
+    recommendation: "Merge and review PR #26, then approve GitHub read-only first, Xiaohongshu read-only second, and WeChat health third. Keep draft creation and publish outside this acceptance.",
+    value: "Validates the least interactive and easiest-to-revoke platform first, then reuses the same Auth Hub evidence boundary for higher-friction accounts.",
+    risk: "Real calls can consume quota, trigger platform controls, or expose account state if the local private boundary is bypassed.",
+    commands: [
+      "npm run auth-status:next:json",
+      "npm run auth-hub:private-bundle:print",
+      "gh pr view 26 --repo xiaoqi-AI/ai_Link --json state,isDraft,mergeable,statusCheckRollup"
+    ],
+    evidence: [
+      "PR #9, #13, and #18-#21 are merged.",
+      "PR #26 contains operation-specific GitHub read-scope probes and remains a separate review item.",
+      "The account owner approves platform, account, scope, frequency, time window, and stop conditions before any real call.",
+      "A successful result records only stable operation evidence and redacted next actions."
+    ],
+    secretBoundary: "Credentials, cookies, QR codes, browser profiles, AppSecret values, raw platform responses, and real account identifiers stay in the local private runtime or secret manager."
+  },
+  {
+    id: "configure-github-hardening",
+    title: "Keep recorded GitHub hardening green",
+    status: "ready",
     owner: "Repository maintainer",
-    intent: "Turn the public repository safety recommendations into remote GitHub settings.",
+    intent: "Preserve the approved public repository ruleset, Verify requirement, secret scanning, and push protection baseline.",
     commands: [
       "npm run github:hardening",
       "npm run github:hardening:next",
@@ -41,25 +87,28 @@ const actions = [
       "npm run github:safety:json"
     ],
     evidence: [
-      "GitHub hardening worksheet is reviewed by the repository maintainer.",
-      "npm run github:hardening:next shows UI links, verification commands, and public-safe decision update previews.",
-      "main has branch protection or a repository ruleset.",
-      "Verify is a required status check.",
-      "Secret scanning and push protection are enabled.",
-      "npm run github:safety:json reports remote protection as pass when gh, GH_TOKEN, or GITHUB_TOKEN can verify it."
+      "The Protect main ruleset is active and targets main.",
+      "Verify is a required status check; deletion and non-fast-forward updates are restricted.",
+      "Public repository secret scanning and push protection are enabled.",
+      "npm run github:safety:json reports strictOk=true; requiring PRs remains intentionally deferred until external contributions begin."
     ],
     secretBoundary: "Do not paste sample secrets into GitHub issues, PRs, docs, screenshots, or test commits."
   },
   {
     id: "configure-auth-hub-remote-mock-dry-run",
     title: "Configure Auth Hub remote mock dry-run",
-    status: "manual",
+    status: "gated",
     owner: "Infrastructure maintainer and secret owner",
     intent: "Deploy the private console behind Cloudflare Access and verify the full mock task loop without real platform accounts.",
+    background: "The deployment code and handoff are implemented, but PR #22/#23/#24/#25/#27/#28 have not all entered main and the ten deployment decisions are not approved.",
+    recommendation: "Keep deployment NO-GO until the complete stack is merged. Then approve the decision card and replace the URL placeholder in a temporary terminal.",
+    value: "Prevents paid resources, DNS, and secrets from being created against code that is not yet the protected main baseline.",
+    risk: "Starting early can deploy an incomplete identity or lifecycle chain and make later rollback harder.",
     commands: [
+      "$env:AI_LINK_BASE_URL=\"<confirmed-auth-hub-url>\"",
       "npm run auth-hub:remote:next",
       "npm run auth-hub:deploy:check",
-      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://auth.xiao-qi-ai.com\"",
+      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl $env:AI_LINK_BASE_URL",
       "npm run auth-hub:secrets:new",
       "npm run auth-hub:remote:smoke",
       "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -ExpectAccessGate"
@@ -78,21 +127,20 @@ const actions = [
   },
   {
     id: "record-v0-1-release-decisions",
-    title: "Record v0.1 release decisions",
-    status: "manual",
+    title: "Keep recorded v0.1 release decisions current",
+    status: "ready",
     owner: "Release owner",
-    intent: "Turn the manual release gates into a public-safe decision record that scripts can verify before tag, npm publish, or provider-live claims.",
+    intent: "Preserve the approved repository-local release, GitHub protection, and secret-scanning decisions while provider-live remains a separate pending gate.",
     commands: [
       "npm run release:decisions",
       "npm run release:decisions:json",
       "npm run release:decisions:next",
-      "npm run release:decisions:update -- --id npm-publish-decision --status approved --selected-channel repository-local --evidence \"Release owner selected repository-local after package smoke checks.\"",
-      "npm run release:decisions:strict"
+      "npm run release:decisions:next"
     ],
     evidence: [
       "docs/releases/v0.1.0-decisions.json has one entry for each required v0.1 decision.",
-      "Approved decisions cite only public-safe evidence.",
-      "npm run release:decisions:strict passes before creating a release tag, publishing npm, or claiming live provider verification."
+      "GitHub protection, secret scanning, and repository-local release decisions are approved with public-safe evidence.",
+      "Only provider-live credentials and cost approval remain pending, and they are tracked by separate actions."
     ],
     secretBoundary: "Do not record API keys, token values, Bitwarden values, provider responses, screenshots, QR codes, login state, or runtime/private paths."
   },
@@ -161,20 +209,19 @@ const actions = [
   },
   {
     id: "decide-v0-1-release-channel",
-    title: "Decide v0.1 release channel",
-    status: "manual",
+    title: "Keep v0.1 repository-local",
+    status: "ready",
     owner: "Release owner",
-    intent: "Decide whether v0.1 stays repository-local or becomes a public npm/GitHub Release.",
+    intent: "Honor the approved repository-local channel unless the release owner explicitly opens a new release-channel decision.",
     commands: [
       "npm run release:plan",
       "npm run release:manual-gates",
-      "npm run release:decisions:next",
-      "npm publish --dry-run --access public"
+      "npm run release:decisions:json"
     ],
     evidence: [
-      "Release owner chooses repository-local usage or npm publish.",
-      "If publishing, package ownership, rollback policy, and dry-run output are reviewed.",
-      "Git tag and GitHub Release are created only after manual gates are accepted."
+      "npm-publish-decision is approved with selectedChannel=repository-local.",
+      "npm publish is not selected and is not part of the current Auth Hub program.",
+      "A GitHub Release or npm publish requires a new explicit release-owner decision."
     ],
     secretBoundary: "This report never creates tags, publishes npm packages, or changes release settings."
   }
@@ -184,7 +231,7 @@ const report = {
   generatedAt: new Date().toISOString(),
   summary: {
     ok: true,
-    nextOpen: actions.filter((action) => action.status === "manual").length,
+    nextOpen: actions.filter((action) => action.status !== "ready").length,
     counts: summarize(actions)
   },
   repository: {
@@ -270,6 +317,16 @@ function renderMarkdown(nextReport) {
     lines.push("");
     lines.push(`Intent: ${action.intent}`);
     lines.push("");
+    if (action.background) {
+      lines.push(`Background: ${action.background}`);
+      lines.push("");
+    }
+    if (action.recommendation) {
+      lines.push(`Recommendation: ${action.recommendation}`);
+      lines.push(`Value: ${action.value}`);
+      lines.push(`Risk: ${action.risk}`);
+      lines.push("");
+    }
     pushList(lines, "Evidence", action.evidence);
     lines.push("Commands:");
     lines.push("");
