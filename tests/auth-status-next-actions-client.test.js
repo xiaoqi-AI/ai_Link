@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
+import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -299,5 +301,280 @@ describe("Auth status next action client", () => {
       assert.match(result.stdout, /google_search_console/);
       assert.equal(result.stdout.includes("secret-codex-token"), false);
     });
+  });
+
+  it("creates a quiet baseline and alerts only for a new normalized next action", async () => {
+    const stateFile = path.join("runtime", "tmp", `auth-status-watch-${process.pid}-${Date.now()}.json`);
+    let response = {
+      authStatus: {
+        summary: { total: 1, ready: 1, next_actions: 0 },
+        items: [{
+          platform: "github",
+          status: "ready",
+          reason: "probe_verified",
+          probe: { status: "verified", checkedAt: "2026-07-13T01:00:00.000Z" }
+        }],
+        nextActions: []
+      }
+    };
+
+    try {
+      await withServer((req, res) => {
+        if (req.url !== "/api/auth-status") {
+          res.statusCode = 404;
+          res.end("not found");
+          return;
+        }
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(response));
+      }, async (baseUrl) => {
+        const runWatch = () => runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: ["--watch", "--json", "--state-file", stateFile]
+        });
+
+        const baseline = JSON.parse((await runWatch()).stdout);
+        assert.equal(baseline.baseline, true);
+        assert.equal(baseline.changed, false);
+        assert.equal(baseline.notify, false);
+        assert.equal(baseline.monitoringAlert, false);
+        assert.equal(baseline.reason, "baseline_created");
+
+        response = {
+          authStatus: {
+            summary: { total: 2, ready: 1, unverified: 1, next_actions: 0 },
+            items: [
+              {
+                platform: "xiaohongshu",
+                status: "unverified",
+                reason: "probe_not_run"
+              },
+              {
+                ...response.authStatus.items[0],
+                probe: { status: "verified", checkedAt: "2026-07-13T01:05:00.000Z" }
+              }
+            ],
+            nextActions: []
+          }
+        };
+        const unchanged = JSON.parse((await runWatch()).stdout);
+        assert.equal(unchanged.changed, false);
+        assert.equal(unchanged.notify, false);
+        assert.equal(unchanged.reason, "unchanged");
+
+        response = {
+          authStatus: {
+            summary: { total: 2, ready: 1, needs_action: 1, next_actions: 1 },
+            items: [
+              {
+                platform: "xiaohongshu",
+                status: "needs_action",
+                reason: "login_expired",
+                account: "must-not-be-stored"
+              },
+              response.authStatus.items[1]
+            ],
+            nextActions: [{
+              platform: "xiaohongshu",
+              status: "needs_action",
+              reason: "login_expired",
+              severity: "manual",
+              title: "must-not-be-stored",
+              runbook: "must-not-be-stored",
+              relatedTaskIds: ["task_private"],
+              cookie: "must-not-be-stored"
+            }]
+          }
+        };
+        const alert = JSON.parse((await runWatch()).stdout);
+        assert.equal(alert.changed, true);
+        assert.equal(alert.notify, true);
+        assert.equal(alert.reason, "new_attention_required");
+        assert.deepEqual(alert.newSignals, [{
+          platform: "xiaohongshu",
+          status: "needs_action",
+          severity: "manual",
+          reason: "login_expired"
+        }]);
+
+        const stored = await readFile(stateFile, "utf8");
+        for (const secret of ["secret-codex-token", "must-not-be-stored", "task_private", baseUrl]) {
+          assert.equal(stored.includes(secret), false);
+          assert.equal(alert.newSignals.some((signal) => JSON.stringify(signal).includes(secret)), false);
+        }
+
+        response = {
+          authStatus: {
+            summary: { total: 1, ready: 1, next_actions: 0 },
+            items: [response.authStatus.items[1]],
+            nextActions: []
+          }
+        };
+        const resolved = JSON.parse((await runWatch()).stdout);
+        assert.equal(resolved.changed, true);
+        assert.equal(resolved.notify, false);
+        assert.equal(resolved.reason, "resolved_without_alert");
+        assert.equal(resolved.summary.resolvedSignals, 1);
+      });
+    } finally {
+      await rm(stateFile, { force: true });
+    }
+  });
+
+  it("alerts on worsening but not same-rank reason changes or improvement", async () => {
+    const stateFile = path.join("runtime", "tmp", `auth-status-direction-${process.pid}-${Date.now()}.json`);
+    let response = {
+      authStatus: {
+        summary: { total: 1, needs_action: 1, next_actions: 1 },
+        items: [{ platform: "xiaohongshu", status: "needs_action", reason: "login_expired" }],
+        nextActions: [{ platform: "xiaohongshu", status: "needs_action", severity: "manual", reason: "login_expired" }]
+      }
+    };
+    try {
+      await withServer((req, res) => {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(response));
+      }, async (baseUrl) => {
+        const runWatch = () => runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: ["--watch", "--json", "--state-file", stateFile]
+        });
+        assert.equal(JSON.parse((await runWatch()).stdout).notify, false);
+
+        response.authStatus.nextActions[0].reason = "session_expired";
+        response.authStatus.items[0].reason = "session_expired";
+        const changed = JSON.parse((await runWatch()).stdout);
+        assert.equal(changed.changed, true);
+        assert.equal(changed.notify, false);
+        assert.equal(changed.reason, "changed_without_alert");
+        assert.equal(changed.summary.updatedSignals, 1);
+
+        response.authStatus.nextActions[0] = {
+          platform: "xiaohongshu",
+          status: "blocked",
+          severity: "blocked",
+          reason: "account_risk_control"
+        };
+        response.authStatus.items[0] = {
+          platform: "xiaohongshu",
+          status: "blocked",
+          reason: "account_risk_control"
+        };
+        const worsened = JSON.parse((await runWatch()).stdout);
+        assert.equal(worsened.notify, true);
+        assert.equal(worsened.reason, "worsened_attention_required");
+        assert.equal(worsened.summary.worsenedSignals, 1);
+
+        response.authStatus.nextActions[0] = {
+          platform: "xiaohongshu",
+          status: "needs_action",
+          severity: "manual",
+          reason: "login_expired"
+        };
+        response.authStatus.items[0] = {
+          platform: "xiaohongshu",
+          status: "needs_action",
+          reason: "login_expired"
+        };
+        const improved = JSON.parse((await runWatch()).stdout);
+        assert.equal(improved.changed, true);
+        assert.equal(improved.notify, false);
+        assert.equal(improved.reason, "changed_without_alert");
+      });
+    } finally {
+      await rm(stateFile, { force: true });
+    }
+  });
+
+  it("does not establish a baseline when the read-only monitor cannot authenticate", async () => {
+    const stateFile = path.join("runtime", "tmp", `auth-status-failed-${process.pid}-${Date.now()}.json`);
+    const result = await runStatus({
+      args: ["--watch", "--json", "--state-file", stateFile]
+    });
+    const report = JSON.parse(result.stdout);
+    assert.equal(result.status, 1);
+    assert.equal(report.monitoringOk, false);
+    assert.equal(report.monitoringAlert, true);
+    assert.equal(report.notify, false);
+    assert.equal(report.reason, "missing_read_token");
+    await assert.rejects(readFile(stateFile, "utf8"), { code: "ENOENT" });
+  });
+
+  it("rejects public paths, scope reuse, corrupt snapshots, and unexpected fields", async () => {
+    const outside = `auth-status-public-${process.pid}.json`;
+    const rejected = await runStatus({
+      env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+      args: ["--watch", "--json", "--state-file", outside]
+    });
+    assert.equal(rejected.status, 1);
+    assert.match(rejected.stderr, /state file must stay under runtime\/private or runtime\/tmp/);
+
+    const stateFile = path.join("runtime", "tmp", `auth-status-corrupt-${process.pid}-${Date.now()}.json`);
+    const tamperedFile = path.join("runtime", "tmp", `auth-status-tampered-${process.pid}-${Date.now()}.json`);
+    let response = {
+      authStatus: {
+        summary: { total: 2, ready: 2, next_actions: 0 },
+        items: [
+          { platform: "github", status: "ready", reason: "probe_verified" },
+          { platform: "xiaohongshu", status: "ready", reason: "probe_verified" }
+        ],
+        nextActions: []
+      }
+    };
+    try {
+      await withServer((req, res) => {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(response));
+      }, async (baseUrl) => {
+        const runWatch = (file, platforms = []) => runStatus({
+          baseUrl,
+          env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+          args: ["--watch", "--json", "--state-file", file, ...platforms.flatMap((platform) => ["--platform", platform])]
+        });
+
+        const scopedBaseline = JSON.parse((await runWatch(stateFile, ["github"])).stdout);
+        assert.equal(scopedBaseline.baseline, true);
+        const mismatchResult = await runWatch(stateFile, ["xiaohongshu"]);
+        const mismatch = JSON.parse(mismatchResult.stdout);
+        assert.equal(mismatchResult.status, 1);
+        assert.equal(mismatch.monitoringAlert, true);
+        assert.equal(mismatch.notify, false);
+        assert.equal(mismatch.reason, "state_scope_mismatch");
+
+        await writeFile(stateFile, "{not-json", "utf8");
+        const corruptResult = await runWatch(stateFile, ["github"]);
+        const corrupt = JSON.parse(corruptResult.stdout);
+        assert.equal(corruptResult.status, 1);
+        assert.equal(corrupt.monitoringAlert, true);
+        assert.equal(corrupt.notify, false);
+        assert.equal(corrupt.reason, "state_unreadable");
+        assert.equal(await readFile(stateFile, "utf8"), "{not-json");
+
+        response = {
+          authStatus: {
+            summary: { total: 1, needs_action: 1, next_actions: 1 },
+            items: [{ platform: "github", status: "needs_action", reason: "credential_missing" }],
+            nextActions: [{ platform: "github", status: "needs_action", severity: "manual", reason: "credential_missing" }]
+          }
+        };
+        assert.equal(JSON.parse((await runWatch(tamperedFile, ["github"])).stdout).baseline, true);
+        const snapshot = JSON.parse(await readFile(tamperedFile, "utf8"));
+        snapshot.signals[0].unexpectedField = "must-never-be-echoed";
+        await writeFile(tamperedFile, JSON.stringify(snapshot), "utf8");
+        const tamperedResult = await runWatch(tamperedFile, ["github"]);
+        const tampered = JSON.parse(tamperedResult.stdout);
+        assert.equal(tamperedResult.status, 1);
+        assert.equal(tampered.monitoringAlert, true);
+        assert.equal(tampered.notify, false);
+        assert.equal(tampered.reason, "state_unreadable");
+        assert.equal(tamperedResult.stdout.includes("must-never-be-echoed"), false);
+      });
+    } finally {
+      await rm(stateFile, { force: true });
+      await rm(tamperedFile, { force: true });
+      await rm(outside, { force: true });
+    }
   });
 });
