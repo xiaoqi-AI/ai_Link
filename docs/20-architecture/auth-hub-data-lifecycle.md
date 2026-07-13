@@ -35,6 +35,8 @@ Auth Hub 启动时把 `admin`、`executor`、`codex` 视为配置托管名称，
 
 单次每类最多处理 500 行，最多可配置为 1000 行。还有候选时报告 `hasMore=true`，一次命令不会无限循环。
 
+审批决定还会校验关联任务仍为 `approval_required`。如果任务已经完成、取消或进入其他状态，Hub 返回 `approval_context_stale`，不会重新排队任务，也不会改变旧审批。
+
 永不由该命令自动删除：
 
 - 任何任务记录

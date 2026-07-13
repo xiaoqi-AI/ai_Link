@@ -470,6 +470,14 @@ export class MemoryStore {
         reason: "approval_expired"
       };
     }
+    if (task.status !== TASK_STATUSES.APPROVAL_REQUIRED) {
+      return {
+        task: clone(task),
+        approval: clone(approval),
+        changed: false,
+        reason: "approval_context_stale"
+      };
+    }
 
     approval.status = approved ? APPROVAL_STATUSES.APPROVED : APPROVAL_STATUSES.REJECTED;
     approval.decidedBy = actor;

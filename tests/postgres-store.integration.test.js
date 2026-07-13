@@ -127,6 +127,37 @@ postgresDescribe("PostgresStore lifecycle integration", () => {
     }
   });
 
+  it("rejects current approvals whose task context is already terminal", async () => {
+    for (const status of ["completed", "cancelled"]) {
+      const taskId = crypto.randomUUID();
+      const approvalId = crypto.randomUUID();
+      await store.pool.query(
+        `INSERT INTO tasks (
+           id, workflow, status, current_step, input, targets, options, created_by
+         ) VALUES ($1, 'full_chain', $2, 'publish', '{}'::jsonb, '[]'::jsonb, '{}'::jsonb, 'integration')`,
+        [taskId, status]
+      );
+      await store.pool.query(
+        `INSERT INTO approvals (
+           id, task_id, type, title, summary, next_step, status, requested_by, expires_at
+         ) VALUES ($1, $2, 'publish', 'Confirm', '', 'publish', 'pending', 'integration', now() + interval '1 day')`,
+        [approvalId, taskId]
+      );
+
+      const decision = await store.decideApproval({
+        taskId,
+        approvalId,
+        approved: true,
+        actor: "integration",
+        note: "stale"
+      });
+
+      assert.equal(decision.reason, "approval_context_stale");
+      assert.equal(decision.task.status, status);
+      assert.equal(decision.approval.status, "pending");
+    }
+  });
+
   it("rolls back earlier lifecycle changes when a later delete fails", async () => {
     const fixture = await seedRetentionFixture(store);
     await store.pool.query(`
@@ -175,9 +206,15 @@ function validateTestDatabase(connectionString, allowed) {
   if (!["127.0.0.1", "localhost"].includes(url.hostname)) {
     throw new Error("Postgres integration refuses non-local and non-CI-service hosts.");
   }
+  if (url.search || url.hash) {
+    throw new Error("Postgres integration refuses connection-string query parameters and fragments.");
+  }
   const databaseName = decodeURIComponent(url.pathname.replace(/^\//, ""));
   if (!databaseName.endsWith("_test")) {
     throw new Error("Postgres integration database name must end with _test.");
+  }
+  if (!decodeURIComponent(url.username).endsWith("_test")) {
+    throw new Error("Postgres integration database user must end with _test.");
   }
 }
 

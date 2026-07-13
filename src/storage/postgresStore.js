@@ -884,6 +884,15 @@ export class PostgresStore {
           };
         }
       }
+      if (taskRows.rows[0].status !== TASK_STATUSES.APPROVAL_REQUIRED) {
+        await client.query("COMMIT");
+        return {
+          task: rowTask(taskRows.rows[0]),
+          approval: rowApproval(approval),
+          changed: false,
+          reason: "approval_context_stale"
+        };
+      }
       const newApprovalStatus = approved ? "approved" : "rejected";
       const newTaskStatus = approved ? TASK_STATUSES.QUEUED : TASK_STATUSES.CANCELLED;
       const nextStep = approved ? approval.next_step || "publish" : taskRows.rows[0].current_step;

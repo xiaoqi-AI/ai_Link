@@ -139,6 +139,40 @@ describe("Auth Hub retention lifecycle", () => {
     }
   });
 
+  it("rejects current approvals whose task context is already terminal", async () => {
+    for (const status of [TASK_STATUSES.COMPLETED, TASK_STATUSES.CANCELLED]) {
+      const store = new MemoryStore();
+      const taskRecord = await store.createTask({
+        workflow: "full_chain",
+        input: { title: status },
+        targets: ["mock"],
+        options: {},
+        createdBy: "test"
+      });
+      store.tasks.get(taskRecord.id).status = status;
+      const approval = await store.createApproval({
+        taskId: taskRecord.id,
+        type: "publish",
+        title: "Confirm",
+        summary: "",
+        nextStep: "publish",
+        requestedBy: "test"
+      });
+
+      const decision = await store.decideApproval({
+        taskId: taskRecord.id,
+        approvalId: approval.id,
+        approved: true,
+        actor: "test",
+        note: "stale"
+      });
+
+      assert.equal(decision.reason, "approval_context_stale");
+      assert.equal(decision.task.status, status);
+      assert.equal(decision.approval.status, APPROVAL_STATUSES.PENDING);
+    }
+  });
+
   it("bounds unsafe retention configuration", () => {
     assert.deepEqual(normalizeRetentionPolicy({
       artifactDays: -1,
@@ -240,6 +274,20 @@ describe("Auth Hub retention lifecycle", () => {
     const noBackup = runCli(["--apply"]);
     assert.equal(noBackup.status, 1);
     assert.match(noBackup.stderr, /requires --confirm-backup/);
+  });
+
+  it("rejects destructive Postgres test URLs with host override parameters", () => {
+    const result = spawnSync(process.execPath, ["tests/postgres-store.integration.test.js"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TEST_DATABASE_URL: "postgresql://ai_link_test:ai_link_test@127.0.0.1/ai_link_test?host=outside.invalid",
+        AI_LINK_ALLOW_DESTRUCTIVE_DB_TESTS: "1"
+      }
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /refuses connection-string query parameters/);
   });
 });
 
