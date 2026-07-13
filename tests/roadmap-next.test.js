@@ -69,6 +69,9 @@ describe("roadmap next report", () => {
       && module.decision.value
       && module.decision.risk
     )), true);
+    const authHubPhase = report.phases.find((phase) => phase.id === "v0-3-agent-connectors");
+    assert.equal(authHubPhase.nextCommands.includes("npm run auth-hub:status:json"), true);
+    assert.equal(authHubPhase.nextCommands.some((command) => command.includes("auth-status:next")), false);
     assert.equal(report.phases.some((phase) => phase.nextCommands.some((command) => command.includes("roadmap:next:json"))), true);
     assert.equal(report.phases.some((phase) => phase.openQuestions.some((question) => question.includes("PR #22"))), false);
     assert.equal(result.stdout.includes("Which real connector comes first"), false);

@@ -56,6 +56,8 @@ describe("next actions report", () => {
     assert.equal(remoteAction.commands.some((command) => command.includes("https://auth.xiao-qi-ai.com")), false);
     const platformAction = report.actions.find((action) => action.id === "accept-platform-readonly-p0-2");
     assert.match(platformAction.recommendation, /GitHub read-only first/);
+    assert.equal(platformAction.commands.includes("npm run auth-hub:status:json"), true);
+    assert.equal(platformAction.commands.some((command) => command.includes("auth-status:next")), false);
     assert.equal(report.actions.find((action) => action.id === "configure-github-hardening").status, "ready");
     assert.equal(report.actions.find((action) => action.id === "record-v0-1-release-decisions").status, "ready");
     assert.equal(report.actions.find((action) => action.id === "decide-v0-1-release-channel").status, "ready");

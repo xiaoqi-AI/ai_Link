@@ -220,7 +220,7 @@ const phases = [
     ],
     nextCommands: [
       "npm run next:actions:json",
-      "npm run auth-status:next:json",
+      "npm run auth-hub:status:json",
       "npm run auth-hub:remote:next:json",
       "npm run auth-hub:test"
     ],

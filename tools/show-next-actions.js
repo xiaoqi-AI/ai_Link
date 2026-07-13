@@ -39,7 +39,7 @@ const actions = [
     value: "Validates the least interactive and easiest-to-revoke platform first, then reuses the same Auth Hub evidence boundary for higher-friction accounts.",
     risk: "Real calls can consume quota, trigger platform controls, or expose account state if the local private boundary is bypassed.",
     commands: [
-      "npm run auth-status:next:json",
+      "npm run auth-hub:status:json",
       "npm run auth-hub:private-bundle:print",
       "npm run auth-hub:test"
     ],
