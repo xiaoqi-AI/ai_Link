@@ -1,4 +1,5 @@
 import { getPlatformAuthOperation } from "../connectors/platformAuthContracts.js";
+import { CONNECTOR_PROBE_INTENT, connectorProbeKey } from "../connectors/probeEvidence.js";
 
 export const TASK_STATUSES = Object.freeze({
   QUEUED: "queued",
@@ -92,11 +93,19 @@ function validatePlatformAuthCollectInput(input, options) {
     Object.assign(normalized, { owner, repo, scope });
   }
 
+  const sanitizedOptions = sanitizePlatformOptions(options);
+  if (options?.evidenceIntent === CONNECTOR_PROBE_INTENT) {
+    if (!connectorProbeKey(platform, operation)) {
+      return { error: "unsupported_probe_operation" };
+    }
+    sanitizedOptions.evidenceIntent = CONNECTOR_PROBE_INTENT;
+  }
+
   return {
     workflow: "platform_auth_collect",
     input: normalized,
     targets: [platform],
-    options: sanitizePlatformOptions(options)
+    options: sanitizedOptions
   };
 }
 

@@ -14,7 +14,8 @@ $requiredEnv = @(
   "AI_LINK_APP_PASSWORD",
   "AI_LINK_SESSION_SECRET",
   "AI_LINK_ADMIN_TOKEN",
-  "AI_LINK_EXECUTOR_TOKEN"
+  "AI_LINK_EXECUTOR_TOKEN",
+  "AI_LINK_EXECUTOR_ID"
 )
 
 $optionalEnv = @(
@@ -44,6 +45,7 @@ $weakValues = @(
   "replace-with-long-random-session-secret",
   "replace-with-admin-token",
   "replace-with-executor-token",
+  "replace-with-executor-id",
   "replace-with-codex-token"
 )
 
@@ -79,7 +81,9 @@ if (Test-Path -LiteralPath $renderPath) {
     "AI_LINK_SESSION_SECRET",
     "AI_LINK_ADMIN_TOKEN",
     "AI_LINK_EXECUTOR_TOKEN",
+    "AI_LINK_EXECUTOR_ID",
     "AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS",
+    "AI_LINK_CONNECTOR_PROBE_TTL_MS",
     "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
     "AI_LINK_ALLOWED_ACCESS_EMAILS",
     "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN",
@@ -115,7 +119,7 @@ foreach ($name in $requiredEnv) {
     continue
   }
 
-  if ($value.Length -lt 24 -and $name -ne "AI_LINK_BASE_URL") {
+  if ($value.Length -lt 24 -and $name -notin @("AI_LINK_BASE_URL", "AI_LINK_EXECUTOR_ID")) {
     $status = if ($Production) { "fail" } else { "warn" }
     Add-Result $results "env $name" $status "Set, but appears short for a production secret."
     continue

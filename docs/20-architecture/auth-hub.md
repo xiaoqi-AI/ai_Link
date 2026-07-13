@@ -1,6 +1,6 @@
 # 统一授权中枢 MVP
 
-状态：公开骨架与执行器能力心跳已实现；真实平台只读探测、账号验收和远程部署仍需独立人工门禁。
+状态：公开骨架、执行器能力心跳和显式只读探测证据闭环已实现；真实账号探测与远程部署仍需独立人工门禁。
 
 ## 目标
 
@@ -85,11 +85,33 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 
 1. `contract`：服务端公开 registry 的静态合同，只说明平台和方法在当前版本中被声明为已实现、预留或异常。
 2. `executor`：本地执行器心跳，只说明某个执行器进程在线，并且启动时加载了哪些方法和 capability mode。
-3. `probe`：真实平台的只读健康探测，例如 `checkSession`、`checkHealth` 或 `checkAuth`。本轮尚未自动执行，状态固定为 `not_run`。
+3. `probe`：绑定执行器身份、进程会话和一次性租约的显式只读健康探测，例如 `checkSession`、`checkHealth` 或 `checkAuth`。它不会由状态页、定时刷新或普通任务自动触发。
 
-`GET /api/connectors` 顶层 `connectors` 与 `issues` 保留服务端静态合同；`executorRuntime` 单独返回执行器证据、在线/过期计数和合并后的平台视图。没有新鲜执行器心跳时，不能用静态合同补成在线；没有成功的只读平台探测时，`operationalStatus` 必须为 `unverified`，`canRunReal` 必须为 `false`。
+`GET /api/connectors` 顶层 `connectors` 与 `issues` 保留服务端静态合同；`executorRuntime` 单独返回执行器证据、在线/过期计数和合并后的平台视图。没有新鲜执行器心跳时，不能用静态合同补成在线；没有新鲜成功探测时，`operationalStatus` 必须为 `unverified`，`canRunReal` 必须为 `false`。即使 `canRunReal=true`，它也只适用于 `verifiedOperations` 中列出的健康操作，不代表整个平台、写权限或发布能力可用。
 
-执行器心跳是 best-effort：它在每轮 lease 前发送，失败不会阻塞任务领取，也不会调用任何 connector 方法。心跳只允许 schema version、受限 executor id、平台、合同状态、模式、能力名、可用布尔值、capability mode 和稳定问题码；拒绝额外字段。服务端只保留每个 executor id 的最新快照，并用服务端时间设置 TTL。executor id 当前是同一 executor token 下的公开标签，不是设备证明，因此心跳只用于观察，不参与能力感知调度或安全授权。
+执行器心跳是 best-effort：它在每轮 lease 前发送，失败不会阻塞普通任务领取，也不会调用任何 connector 方法。心跳只允许 schema version、受限 executor id、进程级随机 session id、平台、合同状态、模式、能力名、可用布尔值、capability mode 和稳定问题码；拒绝额外字段。服务端只保留每个 executor id 的最新快照，并用服务端时间设置 TTL。
+
+显式 probe 使用更严格的可信链：生产环境把 `AI_LINK_EXECUTOR_TOKEN` 绑定到 `AI_LINK_EXECUTOR_ID`；执行器每次启动生成新的 session id；服务端仅把 probe 任务租给同一身份、同一在线 session 且已报告目标 private capability 的执行器，并签发一次性 `leaseId`。结果必须在租约过期前由相同身份和 session 回传，Hub 再按任务原始 platform/operation 重新规范化结果，并在同一存储事务中结算任务、写入最新证据和审计。重复提交、旧租约、错误 session、mock 心跳和未绑定 token 都不能刷新证据。
+
+首批允许生成证据的操作只有：`xiaohongshu/check_session`、`wechat_official/check_health`、`github/check_auth`。`begin_login`、`search_content`、普通 `platform_auth_collect` 任务、mock 远端烟测和历史任务均不会生成证据。证据只保存平台、操作、公开结论、公开问题码、任务 ID 和服务端有效期；内部租约、session/revision、客户端时间、结果载荷、账号信息与原始响应不进入 API 或 UI。默认 TTL 为 15 分钟；最新失败覆盖同操作旧成功，过期后不会回退到更旧成功。
+
+创建显式 probe 的请求示例：
+
+```json
+{
+  "workflow": "platform_auth_collect",
+  "input": {
+    "platform": "github",
+    "operation": "check_auth",
+    "scope": "repo_read"
+  },
+  "options": {
+    "evidenceIntent": "connector_probe"
+  }
+}
+```
+
+创建 probe 任务要求调用方同时具有 `tasks:create` 和管理端已有的 `tasks:approve` scope；默认受限 Codex token 会收到 `connector_probe_approval_required`。只有任务被绑定执行器领取时才调用对应私有只读方法；任何登录、验证码、费用、限流或写操作仍按原人工门禁停止。
 
 ## 数据与安全边界
 
@@ -111,7 +133,9 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
+- `AI_LINK_EXECUTOR_ID`，必须与本地执行器使用的 ID 一致
 - `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS`，默认 `60000`，允许范围为 15 秒至 10 分钟
+- `AI_LINK_CONNECTOR_PROBE_TTL_MS`，默认 `900000`，允许范围为 1 分钟至 24 小时
 - `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
 - `AI_LINK_ALLOWED_ACCESS_EMAILS`
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
@@ -151,6 +175,7 @@ npm run auth-hub:remote:smoke
 $env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:AI_LINK_EXECUTOR_ID="local-executor"
 $env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
 $env:AI_LINK_APP_PASSWORD="<app-password-from-secret-store>"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
@@ -188,6 +213,7 @@ npm audit --audit-level=high
 - 待人工审批状态：执行器可回传 `needs_approval`，控制台会创建 `approval_required` 任务；`platform_interactive_login` 审批通过后，才允许本机执行器进入交互式登录步骤。
 - 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
 - 执行器心跳：严格字段白名单、TTL 过期、缺失/过期失败关闭、旧版 Hub 兼容和心跳失败不阻塞 lease。
+- 显式 probe：token/executor/session/lease 全链绑定、mock 不可领取、服务端重验、结果重放拒绝、最新失败覆盖、TTL 失败关闭和敏感内部字段不外泄。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。
 
@@ -211,14 +237,24 @@ GET /api/auth-status
 Authorization: Bearer <token with connectors:read>
 ```
 
-返回内容包含 `connectors`、`issues`、`executorRuntime` 和 `authStatus`。`authStatus.summary` 给出 `ready`、`unverified`、`needs_action`、`reserved`、`blocked` 计数；`authStatus.items` 按平台给出状态、证据来源、执行器状态、是否能声称真实可运行、处理建议、公开原因码和最多 5 个关联任务 ID。
+返回内容包含 `connectors`、`issues`、`executorRuntime` 和 `authStatus`。`authStatus.summary` 给出 `ready`、`unverified`、`needs_action`、`reserved`、`blocked` 计数；`authStatus.items` 按平台给出状态、证据来源、执行器状态、`verifiedOperations`、探测有效期、处理建议、公开原因码和最多 5 个关联任务 ID。内部 `leaseId`、executor session 和 heartbeat revision 不会返回。
 
 状态口径：
 
-- `ready`：仅在未来同时具备新鲜执行器证据和成功只读平台探测时使用；当前心跳迭代不会产生该状态。
+- `ready`：同一绑定执行器 session 同时具备新鲜 private heartbeat 和新鲜成功 probe；只证明 `verifiedOperations` 中列出的操作。
 - `unverified`：合同或方法可能存在，但执行器心跳缺失/过期，或尚未执行真实只读健康探测；需要真实平台能力的上游应失败关闭。
 - `needs_action`：已有关联 `action_required` 或 `approval_required` 任务，例如 `login_expired`、`captcha_required`、`credential_missing`、`interactive_approval_required`。
 - `reserved`：公开仓仅预留合同位，暂未接入真实账号。
 - `blocked`：connector 契约缺失或配置异常，需要维护者修复。
 
 该入口的目标不是替代真实平台会话探测，而是把“合同声明、执行器在线证据、已经被执行器发现且需要人处理或批准的事项”集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试；普通代码和文档任务不需要轮询该接口。
+
+依赖项目应只检查自己需要的平台，避免被无关平台状态阻断：
+
+```powershell
+npm run auth-hub:status:strict -- --platform github
+npm run auth-hub:status:strict -- --platform wechat_official
+npm run auth-hub:status:strict -- --platform xiaohongshu
+```
+
+严格模式对 `unverified`、`needs_action`、`reserved`、`blocked`、缺失平台和过期 probe 都返回非零退出码。它只读取状态，不会自动发起探测或平台调用。

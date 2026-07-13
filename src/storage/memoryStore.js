@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { APPROVAL_STATUSES, TASK_STATUSES } from "../domain/workflow.js";
+import { normalizeConnectorProbeEvidence } from "../connectors/probeEvidence.js";
 
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -17,6 +18,7 @@ export class MemoryStore {
     this.auditEvents = [];
     this.apiTokens = new Map();
     this.executorHeartbeats = new Map();
+    this.connectorProbeEvidence = new Map();
   }
 
   async init() {}
@@ -30,6 +32,7 @@ export class MemoryStore {
       name: record.name,
       tokenHash: record.tokenHash,
       scopes: record.scopes,
+      executorId: record.executorId || "",
       expiresAt: record.expiresAt || null,
       revokedAt: null,
       createdAt: existing?.createdAt || nowIso(),
@@ -43,11 +46,14 @@ export class MemoryStore {
     return clone(this.apiTokens.get(tokenHash));
   }
 
-  async upsertExecutorHeartbeat({ executorId, actor, schemaVersion, connectors, ttlMs }) {
+  async upsertExecutorHeartbeat({ executorId, executorSessionId = "", actor, schemaVersion, connectors, ttlMs, trusted = false }) {
     const now = new Date();
     const heartbeat = {
       executorId,
+      executorSessionId,
       actor: actor || "executor",
+      trusted: trusted === true,
+      revision: crypto.randomUUID(),
       schemaVersion,
       connectors,
       lastSeenAt: now.toISOString(),
@@ -60,6 +66,27 @@ export class MemoryStore {
   async listExecutorHeartbeats({ limit = 50 } = {}) {
     return [...this.executorHeartbeats.values()]
       .sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt))
+      .slice(0, limit)
+      .map(clone);
+  }
+
+  async upsertConnectorProbeEvidence(value) {
+    const evidence = normalizeConnectorProbeEvidence(value);
+    if (!evidence) {
+      throw new Error("Invalid connector probe evidence.");
+    }
+    const key = [evidence.executorId, evidence.platform, evidence.operation].join(":");
+    const existing = this.connectorProbeEvidence.get(key);
+    if (!existing || existing.checkedAt <= evidence.checkedAt) {
+      this.connectorProbeEvidence.set(key, evidence);
+      return clone(evidence);
+    }
+    return clone(existing);
+  }
+
+  async listConnectorProbeEvidence({ limit = 100 } = {}) {
+    return [...this.connectorProbeEvidence.values()]
+      .sort((left, right) => right.checkedAt.localeCompare(left.checkedAt))
       .slice(0, limit)
       .map(clone);
   }
@@ -78,6 +105,9 @@ export class MemoryStore {
       summary: "",
       error: null,
       leasedBy: null,
+      leaseId: null,
+      leaseExecutorSessionId: null,
+      leaseHeartbeatRevision: null,
       leaseExpiresAt: null,
       createdBy,
       createdAt: nowIso(),
@@ -100,15 +130,28 @@ export class MemoryStore {
       .map(clone);
   }
 
-  async leaseTask({ executorId, leaseMs }) {
+  async leaseTask({ executorId, executorSessionId = "", leaseMs, connectorProbeKeys = [], heartbeatRevision = "" }) {
     const now = Date.now();
+    const allowedProbeKeys = new Set(connectorProbeKeys);
     const task = [...this.tasks.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .find((item) => item.status === TASK_STATUSES.QUEUED || (item.status === TASK_STATUSES.RUNNING && item.leaseExpiresAt && new Date(item.leaseExpiresAt).getTime() < now));
+      .find((item) => {
+        const available = item.status === TASK_STATUSES.QUEUED
+          || (item.status === TASK_STATUSES.RUNNING && item.leaseExpiresAt && new Date(item.leaseExpiresAt).getTime() < now);
+        if (!available) return false;
+        if (item.options?.evidenceIntent !== "connector_probe") return true;
+        return Boolean(heartbeatRevision)
+          && allowedProbeKeys.has(`${item.input?.platform}/${item.input?.operation}`);
+      });
 
     if (!task) return null;
     task.status = TASK_STATUSES.RUNNING;
     task.leasedBy = executorId;
+    task.leaseId = crypto.randomUUID();
+    task.leaseExecutorSessionId = executorSessionId || null;
+    task.leaseHeartbeatRevision = task.options?.evidenceIntent === "connector_probe"
+      ? heartbeatRevision
+      : null;
     task.leaseExpiresAt = new Date(now + leaseMs).toISOString();
     task.updatedAt = nowIso();
     await this.appendAudit({ taskId: task.id, actor: executorId, eventType: "task.leased", detail: { currentStep: task.currentStep } });
@@ -122,6 +165,9 @@ export class MemoryStore {
     task.summary = summary || task.summary;
     task.result = result || task.result;
     task.leasedBy = null;
+    task.leaseId = null;
+    task.leaseExecutorSessionId = null;
+    task.leaseHeartbeatRevision = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
 
@@ -147,6 +193,9 @@ export class MemoryStore {
     task.summary = summary || task.summary;
     task.result = result || task.result;
     task.leasedBy = null;
+    task.leaseId = null;
+    task.leaseExecutorSessionId = null;
+    task.leaseHeartbeatRevision = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
     for (const artifact of artifacts) {
@@ -164,6 +213,9 @@ export class MemoryStore {
     task.result = result || task.result;
     task.error = error || null;
     task.leasedBy = null;
+    task.leaseId = null;
+    task.leaseExecutorSessionId = null;
+    task.leaseHeartbeatRevision = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
     for (const artifact of artifacts) {
@@ -180,9 +232,78 @@ export class MemoryStore {
     task.error = error;
     task.result = result || task.result;
     task.leasedBy = null;
+    task.leaseId = null;
+    task.leaseExecutorSessionId = null;
+    task.leaseHeartbeatRevision = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
     await this.appendAudit({ taskId, actor, eventType: "task.failed", detail: { error } });
+    return clone(task);
+  }
+
+  async settleConnectorProbeTask({
+    taskId,
+    executorId,
+    leaseId,
+    taskStatus,
+    summary,
+    result,
+    error,
+    actor,
+    evidence
+  }) {
+    const task = this.tasks.get(taskId);
+    const normalizedEvidence = normalizeConnectorProbeEvidence(evidence);
+    if (
+      !task
+      || !normalizedEvidence
+      || task.status !== TASK_STATUSES.RUNNING
+      || task.leasedBy !== executorId
+      || task.leaseId !== leaseId
+      || !task.leaseExpiresAt
+      || new Date(task.leaseExpiresAt).getTime() <= Date.now()
+      || normalizedEvidence.taskId !== taskId
+      || normalizedEvidence.executorId !== executorId
+      || normalizedEvidence.executorSessionId !== task.leaseExecutorSessionId
+      || normalizedEvidence.attemptId !== leaseId
+      || normalizedEvidence.heartbeatRevision !== task.leaseHeartbeatRevision
+      || ![TASK_STATUSES.COMPLETED, TASK_STATUSES.ACTION_REQUIRED, TASK_STATUSES.FAILED].includes(taskStatus)
+    ) {
+      return null;
+    }
+
+    task.status = taskStatus;
+    task.summary = summary || "";
+    task.result = result || null;
+    task.error = error || null;
+    task.leasedBy = null;
+    task.leaseId = null;
+    task.leaseExecutorSessionId = null;
+    task.leaseHeartbeatRevision = null;
+    task.leaseExpiresAt = null;
+    task.updatedAt = nowIso();
+    const evidenceKey = [
+      normalizedEvidence.executorId,
+      normalizedEvidence.platform,
+      normalizedEvidence.operation
+    ].join(":");
+    const existingEvidence = this.connectorProbeEvidence.get(evidenceKey);
+    if (!existingEvidence || existingEvidence.checkedAt <= normalizedEvidence.checkedAt) {
+      this.connectorProbeEvidence.set(evidenceKey, normalizedEvidence);
+    }
+
+    await this.appendAudit({
+      taskId,
+      actor,
+      eventType: taskEventType(taskStatus),
+      detail: { status: taskStatus }
+    });
+    await this.appendAudit({
+      taskId,
+      actor,
+      eventType: "connector.probe_recorded",
+      detail: publicProbeAuditDetail(normalizedEvidence)
+    });
     return clone(task);
   }
 
@@ -192,6 +313,9 @@ export class MemoryStore {
     task.status = TASK_STATUSES.QUEUED;
     task.error = null;
     task.leasedBy = null;
+    task.leaseId = null;
+    task.leaseExecutorSessionId = null;
+    task.leaseHeartbeatRevision = null;
     task.leaseExpiresAt = null;
     task.updatedAt = nowIso();
     await this.appendAudit({ taskId, actor, eventType: "task.requeued", detail: { note } });
@@ -305,4 +429,25 @@ export class MemoryStore {
       .slice(0, limit)
       .map(clone);
   }
+}
+
+function taskEventType(status) {
+  return {
+    completed: "task.completed",
+    action_required: "task.action_required",
+    failed: "task.failed"
+  }[status] || "task.updated";
+}
+
+function publicProbeAuditDetail(evidence) {
+  return {
+    schemaVersion: evidence.schemaVersion,
+    platform: evidence.platform,
+    operation: evidence.operation,
+    capability: evidence.capability,
+    outcome: evidence.outcome,
+    issueCode: evidence.issueCode,
+    checkedAt: evidence.checkedAt,
+    expiresAt: evidence.expiresAt
+  };
 }

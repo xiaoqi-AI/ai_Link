@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import pg from "pg";
 import { TASK_STATUSES } from "../domain/workflow.js";
+import { normalizeConnectorProbeEvidence } from "../connectors/probeEvidence.js";
 
 const { Pool } = pg;
 
@@ -22,6 +23,9 @@ function rowTask(row) {
     summary: row.summary || "",
     error: row.error || null,
     leasedBy: row.leased_by,
+    leaseId: row.lease_id,
+    leaseExecutorSessionId: row.lease_executor_session_id,
+    leaseHeartbeatRevision: row.lease_heartbeat_revision,
     leaseExpiresAt: row.lease_expires_at?.toISOString?.() || row.lease_expires_at || null,
     createdBy: row.created_by,
     createdAt: row.created_at?.toISOString?.() || row.created_at,
@@ -75,16 +79,77 @@ function rowAudit(row) {
   };
 }
 
+function connectorProbeParams(evidence) {
+  return [
+    evidence.executorId,
+    evidence.executorSessionId,
+    evidence.platform,
+    evidence.operation,
+    evidence.schemaVersion,
+    evidence.capability,
+    evidence.outcome,
+    evidence.issueCode,
+    evidence.taskId,
+    evidence.attemptId,
+    evidence.heartbeatRevision,
+    evidence.checkedAt,
+    evidence.expiresAt
+  ];
+}
+
+function taskEventType(status) {
+  return {
+    completed: "task.completed",
+    action_required: "task.action_required",
+    failed: "task.failed"
+  }[status] || "task.updated";
+}
+
+function publicProbeAuditDetail(evidence) {
+  return {
+    schemaVersion: evidence.schemaVersion,
+    platform: evidence.platform,
+    operation: evidence.operation,
+    capability: evidence.capability,
+    outcome: evidence.outcome,
+    issueCode: evidence.issueCode,
+    checkedAt: evidence.checkedAt,
+    expiresAt: evidence.expiresAt
+  };
+}
+
 function rowExecutorHeartbeat(row) {
   if (!row) return null;
   return {
     executorId: row.executor_id,
+    executorSessionId: row.executor_session_id || "",
     actor: row.actor,
+    trusted: row.trusted === true,
+    revision: row.revision,
     schemaVersion: row.schema_version,
     connectors: row.connectors || [],
     lastSeenAt: row.last_seen_at?.toISOString?.() || row.last_seen_at,
     expiresAt: row.expires_at?.toISOString?.() || row.expires_at
   };
+}
+
+function rowConnectorProbeEvidence(row) {
+  if (!row) return null;
+  return normalizeConnectorProbeEvidence({
+    schemaVersion: row.schema_version,
+    executorId: row.executor_id,
+    executorSessionId: row.executor_session_id,
+    platform: row.platform,
+    operation: row.operation,
+    capability: row.capability,
+    outcome: row.outcome,
+    issueCode: row.issue_code || "",
+    taskId: row.task_id,
+    attemptId: row.attempt_id,
+    heartbeatRevision: row.heartbeat_revision,
+    checkedAt: row.checked_at?.toISOString?.() || row.checked_at,
+    expiresAt: row.expires_at?.toISOString?.() || row.expires_at
+  });
 }
 
 export class PostgresStore {
@@ -99,6 +164,7 @@ export class PostgresStore {
         name text NOT NULL UNIQUE,
         token_hash text NOT NULL UNIQUE,
         scopes jsonb NOT NULL,
+        executor_id text,
         expires_at timestamptz,
         revoked_at timestamptz,
         created_at timestamptz NOT NULL DEFAULT now(),
@@ -119,7 +185,10 @@ export class PostgresStore {
 
       CREATE TABLE IF NOT EXISTS executor_heartbeats (
         executor_id text PRIMARY KEY,
+        executor_session_id text,
         actor text NOT NULL,
+        trusted boolean NOT NULL DEFAULT false,
+        revision uuid NOT NULL,
         schema_version text NOT NULL,
         connectors jsonb NOT NULL,
         last_seen_at timestamptz NOT NULL,
@@ -141,6 +210,9 @@ export class PostgresStore {
         summary text NOT NULL DEFAULT '',
         error jsonb,
         leased_by text,
+        lease_id uuid,
+        lease_executor_session_id text,
+        lease_heartbeat_revision uuid,
         lease_expires_at timestamptz,
         created_by text NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
@@ -184,10 +256,45 @@ export class PostgresStore {
         created_at timestamptz NOT NULL DEFAULT now()
       );
 
+      CREATE TABLE IF NOT EXISTS connector_probe_evidence (
+        executor_id text NOT NULL,
+        executor_session_id text NOT NULL,
+        platform text NOT NULL,
+        operation text NOT NULL,
+        schema_version text NOT NULL,
+        capability text NOT NULL,
+        outcome text NOT NULL,
+        issue_code text NOT NULL DEFAULT '',
+        task_id uuid NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        attempt_id uuid NOT NULL,
+        heartbeat_revision uuid NOT NULL,
+        checked_at timestamptz NOT NULL,
+        expires_at timestamptz NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (executor_id, platform, operation),
+        CONSTRAINT connector_probe_outcome CHECK (outcome IN ('verified', 'action_required', 'blocked', 'unverified')),
+        CONSTRAINT connector_probe_expiry CHECK (expires_at > checked_at)
+      );
+
+      ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS executor_id text;
+      ALTER TABLE executor_heartbeats ADD COLUMN IF NOT EXISTS trusted boolean NOT NULL DEFAULT false;
+      ALTER TABLE executor_heartbeats ADD COLUMN IF NOT EXISTS executor_session_id text;
+      ALTER TABLE executor_heartbeats ADD COLUMN IF NOT EXISTS revision uuid;
+      UPDATE executor_heartbeats SET revision = md5(executor_id || clock_timestamp()::text)::uuid WHERE revision IS NULL;
+      ALTER TABLE executor_heartbeats ALTER COLUMN revision SET NOT NULL;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lease_id uuid;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lease_executor_session_id text;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lease_heartbeat_revision uuid;
+      ALTER TABLE connector_probe_evidence ADD COLUMN IF NOT EXISTS executor_session_id text;
+      UPDATE connector_probe_evidence SET executor_session_id = 'legacy-untrusted' WHERE executor_session_id IS NULL;
+      ALTER TABLE connector_probe_evidence ALTER COLUMN executor_session_id SET NOT NULL;
+
       CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_api_tokens_executor_id ON api_tokens(executor_id) WHERE executor_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_approvals_task_status ON approvals(task_id, status);
       CREATE INDEX IF NOT EXISTS idx_audit_task_created ON audit_events(task_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_executor_heartbeats_expires ON executor_heartbeats(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_connector_probe_expires ON connector_probe_evidence(expires_at);
     `);
   }
 
@@ -198,22 +305,24 @@ export class PostgresStore {
   async upsertApiToken(record) {
     const id = crypto.randomUUID();
     const { rows } = await this.pool.query(
-      `INSERT INTO api_tokens (id, name, token_hash, scopes, expires_at)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO api_tokens (id, name, token_hash, scopes, executor_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (name) DO UPDATE SET
          token_hash = EXCLUDED.token_hash,
          scopes = EXCLUDED.scopes,
+         executor_id = EXCLUDED.executor_id,
          expires_at = EXCLUDED.expires_at,
          revoked_at = NULL,
          updated_at = now()
        RETURNING *`,
-      [id, record.name, record.tokenHash, json(record.scopes), record.expiresAt]
+      [id, record.name, record.tokenHash, json(record.scopes), record.executorId || null, record.expiresAt]
     );
     return {
       id: rows[0].id,
       name: rows[0].name,
       tokenHash: rows[0].token_hash,
       scopes: rows[0].scopes,
+      executorId: rows[0].executor_id || "",
       expiresAt: rows[0].expires_at,
       revokedAt: rows[0].revoked_at
     };
@@ -228,26 +337,40 @@ export class PostgresStore {
       name: row.name,
       tokenHash: row.token_hash,
       scopes: row.scopes,
+      executorId: row.executor_id || "",
       expiresAt: row.expires_at,
       revokedAt: row.revoked_at
     };
   }
 
-  async upsertExecutorHeartbeat({ executorId, actor, schemaVersion, connectors, ttlMs }) {
+  async upsertExecutorHeartbeat({ executorId, executorSessionId = "", actor, schemaVersion, connectors, ttlMs, trusted = false }) {
+    const revision = crypto.randomUUID();
     const { rows } = await this.pool.query(
       `INSERT INTO executor_heartbeats (
-         executor_id, actor, schema_version, connectors, last_seen_at, expires_at
+         executor_id, executor_session_id, actor, trusted, revision, schema_version, connectors, last_seen_at, expires_at
        )
-       VALUES ($1, $2, $3, $4, now(), now() + ($5::double precision * interval '1 millisecond'))
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now() + ($8::double precision * interval '1 millisecond'))
        ON CONFLICT (executor_id) DO UPDATE SET
+         executor_session_id = EXCLUDED.executor_session_id,
          actor = EXCLUDED.actor,
+         trusted = EXCLUDED.trusted,
+         revision = EXCLUDED.revision,
          schema_version = EXCLUDED.schema_version,
          connectors = EXCLUDED.connectors,
          last_seen_at = EXCLUDED.last_seen_at,
          expires_at = EXCLUDED.expires_at,
          updated_at = now()
        RETURNING *`,
-      [executorId, actor || "executor", schemaVersion, json(connectors), ttlMs]
+      [
+        executorId,
+        executorSessionId || null,
+        actor || "executor",
+        trusted === true,
+        revision,
+        schemaVersion,
+        json(connectors),
+        ttlMs
+      ]
     );
     return rowExecutorHeartbeat(rows[0]);
   }
@@ -258,6 +381,42 @@ export class PostgresStore {
       [limit]
     );
     return rows.map(rowExecutorHeartbeat);
+  }
+
+  async upsertConnectorProbeEvidence(value) {
+    const evidence = normalizeConnectorProbeEvidence(value);
+    if (!evidence) throw new Error("Invalid connector probe evidence.");
+    const { rows } = await this.pool.query(
+      `INSERT INTO connector_probe_evidence (
+         executor_id, executor_session_id, platform, operation, schema_version, capability, outcome,
+         issue_code, task_id, attempt_id, heartbeat_revision, checked_at, expires_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       ON CONFLICT (executor_id, platform, operation) DO UPDATE SET
+         executor_session_id = EXCLUDED.executor_session_id,
+         schema_version = EXCLUDED.schema_version,
+         capability = EXCLUDED.capability,
+         outcome = EXCLUDED.outcome,
+         issue_code = EXCLUDED.issue_code,
+         task_id = EXCLUDED.task_id,
+         attempt_id = EXCLUDED.attempt_id,
+         heartbeat_revision = EXCLUDED.heartbeat_revision,
+         checked_at = EXCLUDED.checked_at,
+         expires_at = EXCLUDED.expires_at,
+         updated_at = now()
+       WHERE connector_probe_evidence.checked_at <= EXCLUDED.checked_at
+       RETURNING *`,
+      connectorProbeParams(evidence)
+    );
+    return rowConnectorProbeEvidence(rows[0]);
+  }
+
+  async listConnectorProbeEvidence({ limit = 100 } = {}) {
+    const { rows } = await this.pool.query(
+      "SELECT * FROM connector_probe_evidence ORDER BY checked_at DESC LIMIT $1",
+      [limit]
+    );
+    return rows.map(rowConnectorProbeEvidence).filter(Boolean);
   }
 
   async createTask({ workflow, input, targets, options, createdBy }) {
@@ -288,32 +447,49 @@ export class PostgresStore {
     return rows.map(rowTask);
   }
 
-  async leaseTask({ executorId, leaseMs }) {
+  async leaseTask({ executorId, executorSessionId = "", leaseMs, connectorProbeKeys = [], heartbeatRevision = "" }) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       const { rows } = await client.query(
         `SELECT * FROM tasks
-         WHERE status = $1 OR (status = $2 AND lease_expires_at < now())
+         WHERE (status = $1 OR (status = $2 AND lease_expires_at < now()))
+           AND (
+             COALESCE(options->>'evidenceIntent', '') <> 'connector_probe'
+             OR ($3::boolean = true AND CONCAT(input->>'platform', '/', input->>'operation') = ANY($4::text[]))
+           )
          ORDER BY created_at ASC
          LIMIT 1
          FOR UPDATE SKIP LOCKED`,
-        [TASK_STATUSES.QUEUED, TASK_STATUSES.RUNNING]
+        [TASK_STATUSES.QUEUED, TASK_STATUSES.RUNNING, Boolean(heartbeatRevision), connectorProbeKeys]
       );
       if (!rows[0]) {
         await client.query("COMMIT");
         return null;
       }
       const taskId = rows[0].id;
+      const leaseId = crypto.randomUUID();
+      const probeTask = rows[0].options?.evidenceIntent === "connector_probe";
       const updated = await client.query(
         `UPDATE tasks
          SET status = $1,
              leased_by = $2,
-             lease_expires_at = now() + ($3 || ' milliseconds')::interval,
+             lease_id = $3,
+             lease_executor_session_id = $4,
+             lease_heartbeat_revision = $5,
+             lease_expires_at = now() + ($6 || ' milliseconds')::interval,
              updated_at = now()
-         WHERE id = $4
+         WHERE id = $7
          RETURNING *`,
-        [TASK_STATUSES.RUNNING, executorId, String(leaseMs), taskId]
+        [
+          TASK_STATUSES.RUNNING,
+          executorId,
+          leaseId,
+          executorSessionId || null,
+          probeTask ? heartbeatRevision : null,
+          String(leaseMs),
+          taskId
+        ]
       );
       await client.query(
         `INSERT INTO audit_events (id, task_id, actor, event_type, detail)
@@ -333,7 +509,8 @@ export class PostgresStore {
   async markTaskNeedsApproval({ taskId, summary, result, approval, artifacts = [], actor }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
-       SET status = $1, summary = $2, result = $3, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       SET status = $1, summary = $2, result = $3, leased_by = NULL, lease_id = NULL,
+           lease_executor_session_id = NULL, lease_heartbeat_revision = NULL, lease_expires_at = NULL, updated_at = now()
        WHERE id = $4
        RETURNING *`,
       [TASK_STATUSES.APPROVAL_REQUIRED, summary || "", json(result || null), taskId]
@@ -356,7 +533,8 @@ export class PostgresStore {
   async completeTask({ taskId, summary, result, artifacts = [], actor }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
-       SET status = $1, summary = $2, result = $3, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       SET status = $1, summary = $2, result = $3, leased_by = NULL, lease_id = NULL,
+           lease_executor_session_id = NULL, lease_heartbeat_revision = NULL, lease_expires_at = NULL, updated_at = now()
        WHERE id = $4
        RETURNING *`,
       [TASK_STATUSES.COMPLETED, summary || "", json(result || null), taskId]
@@ -371,7 +549,8 @@ export class PostgresStore {
   async markTaskNeedsAction({ taskId, summary, result, error, artifacts = [], actor }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
-       SET status = $1, summary = $2, result = $3, error = $4, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       SET status = $1, summary = $2, result = $3, error = $4, leased_by = NULL, lease_id = NULL,
+           lease_executor_session_id = NULL, lease_heartbeat_revision = NULL, lease_expires_at = NULL, updated_at = now()
        WHERE id = $5
        RETURNING *`,
       [TASK_STATUSES.ACTION_REQUIRED, summary || "", json(result || null), json(error || null), taskId]
@@ -386,7 +565,8 @@ export class PostgresStore {
   async failTask({ taskId, error, result, actor }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
-       SET status = $1, error = $2, result = $3, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       SET status = $1, error = $2, result = $3, leased_by = NULL, lease_id = NULL,
+           lease_executor_session_id = NULL, lease_heartbeat_revision = NULL, lease_expires_at = NULL, updated_at = now()
        WHERE id = $4
        RETURNING *`,
       [TASK_STATUSES.FAILED, json(error || {}), json(result || null), taskId]
@@ -395,10 +575,119 @@ export class PostgresStore {
     return rowTask(rows[0]);
   }
 
+  async settleConnectorProbeTask({
+    taskId,
+    executorId,
+    leaseId,
+    taskStatus,
+    summary,
+    result,
+    error,
+    actor,
+    evidence
+  }) {
+    const normalizedEvidence = normalizeConnectorProbeEvidence(evidence);
+    if (
+      !normalizedEvidence
+      || normalizedEvidence.taskId !== taskId
+      || normalizedEvidence.executorId !== executorId
+      || normalizedEvidence.attemptId !== leaseId
+      || ![TASK_STATUSES.COMPLETED, TASK_STATUSES.ACTION_REQUIRED, TASK_STATUSES.FAILED].includes(taskStatus)
+    ) {
+      return null;
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query(
+        `UPDATE tasks
+         SET status = $1,
+             summary = $2,
+             result = $3,
+             error = $4,
+             leased_by = NULL,
+             lease_id = NULL,
+             lease_executor_session_id = NULL,
+             lease_heartbeat_revision = NULL,
+             lease_expires_at = NULL,
+             updated_at = now()
+         WHERE id = $5
+           AND status = $6
+           AND leased_by = $7
+           AND lease_id = $8
+           AND lease_executor_session_id = $9
+           AND lease_heartbeat_revision = $10
+           AND lease_expires_at > now()
+         RETURNING *`,
+        [
+          taskStatus,
+          summary || "",
+          json(result || null),
+          json(error || null),
+          taskId,
+          TASK_STATUSES.RUNNING,
+          executorId,
+          leaseId,
+          normalizedEvidence.executorSessionId,
+          normalizedEvidence.heartbeatRevision
+        ]
+      );
+      if (!updated.rows[0]) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      await client.query(
+        `INSERT INTO connector_probe_evidence (
+           executor_id, executor_session_id, platform, operation, schema_version, capability, outcome,
+           issue_code, task_id, attempt_id, heartbeat_revision, checked_at, expires_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (executor_id, platform, operation) DO UPDATE SET
+           executor_session_id = EXCLUDED.executor_session_id,
+           schema_version = EXCLUDED.schema_version,
+           capability = EXCLUDED.capability,
+           outcome = EXCLUDED.outcome,
+           issue_code = EXCLUDED.issue_code,
+           task_id = EXCLUDED.task_id,
+           attempt_id = EXCLUDED.attempt_id,
+           heartbeat_revision = EXCLUDED.heartbeat_revision,
+           checked_at = EXCLUDED.checked_at,
+           expires_at = EXCLUDED.expires_at,
+           updated_at = now()
+         WHERE connector_probe_evidence.checked_at <= EXCLUDED.checked_at`,
+        connectorProbeParams(normalizedEvidence)
+      );
+      await client.query(
+        `INSERT INTO audit_events (id, task_id, actor, event_type, detail)
+         VALUES ($1, $2, $3, $4, $5), ($6, $2, $3, $7, $8)`,
+        [
+          crypto.randomUUID(),
+          taskId,
+          actor,
+          taskEventType(taskStatus),
+          json({ status: taskStatus }),
+          crypto.randomUUID(),
+          "connector.probe_recorded",
+          json(publicProbeAuditDetail(normalizedEvidence))
+        ]
+      );
+      await client.query("COMMIT");
+      return rowTask(updated.rows[0]);
+    } catch (error_) {
+      await client.query("ROLLBACK");
+      throw error_;
+    } finally {
+      client.release();
+    }
+  }
+
   async retryTask({ taskId, actor, note = "" }) {
     const { rows } = await this.pool.query(
       `UPDATE tasks
-       SET status = $1, error = NULL, leased_by = NULL, lease_expires_at = NULL, updated_at = now()
+       SET status = $1, error = NULL, leased_by = NULL, lease_id = NULL,
+           lease_executor_session_id = NULL, lease_heartbeat_revision = NULL, lease_expires_at = NULL, updated_at = now()
        WHERE id = $2
        RETURNING *`,
       [TASK_STATUSES.QUEUED, taskId]

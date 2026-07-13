@@ -165,6 +165,112 @@ describe("Auth status next action client", () => {
     });
   });
 
+  it("checks only requested platforms and preserves operation-scoped evidence", async () => {
+    await withServer((req, res) => {
+      if (req.url === "/api/auth-status") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          authStatus: {
+            summary: { total: 2, ready: 1, unverified: 1, next_actions: 0 },
+            items: [
+              {
+                platform: "github",
+                status: "ready",
+                connectorStatus: "available",
+                mode: "private",
+                runtimeStatus: "online",
+                operationalStatus: "verified",
+                canRunReal: true,
+                verifiedOperations: ["check_auth"],
+                probe: {
+                  status: "verified",
+                  checkedAt: "2026-07-13T04:00:00.000Z",
+                  expiresAt: "2026-07-13T04:15:00.000Z",
+                  attemptId: "must-not-leak",
+                  heartbeatRevision: "must-not-leak"
+                },
+                reason: "probe_verified",
+                action: "无需处理"
+              },
+              {
+                platform: "xiaohongshu",
+                status: "unverified",
+                reason: "probe_not_run",
+                action: "尚未探测"
+              }
+            ],
+            nextActions: []
+          }
+        }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
+    }, async (baseUrl) => {
+      const result = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--platform", "github"]
+      });
+      const report = JSON.parse(result.stdout);
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(report.summary.ok, true);
+      assert.deepEqual(report.target.platforms, ["github"]);
+      assert.deepEqual(report.authStatus.items.map((item) => item.platform), ["github"]);
+      assert.deepEqual(report.authStatus.items[0].verifiedOperations, ["check_auth"]);
+      assert.equal(report.authStatus.items[0].probe.status, "verified");
+      assert.equal(result.stdout.includes("must-not-leak"), false);
+    });
+  });
+
+  it("fails strict mode for selected manual actions and missing platforms", async () => {
+    await withServer((req, res) => {
+      if (req.url === "/api/auth-status") {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({
+          authStatus: {
+            summary: { total: 1, ready: 0, needs_action: 1, next_actions: 1 },
+            items: [{ platform: "github", status: "needs_action", reason: "credential_missing" }],
+            nextActions: [{
+              platform: "github",
+              status: "needs_action",
+              reason: "credential_missing",
+              severity: "manual"
+            }]
+          }
+        }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end("not found");
+    }, async (baseUrl) => {
+      const manual = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--platform", "github"]
+      });
+      assert.equal(manual.status, 1, manual.stderr);
+      assert.deepEqual(JSON.parse(manual.stdout).blockers, ["github: credential_missing"]);
+
+      const missing = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--platform", "wechat_official"]
+      });
+      assert.equal(missing.status, 1, missing.stderr);
+      assert.deepEqual(JSON.parse(missing.stdout).blockers, ["wechat_official: missing_from_auth_status"]);
+
+      const invalid = await runStatus({
+        baseUrl,
+        env: { AI_LINK_CODEX_TOKEN: "secret-codex-token" },
+        args: ["--json", "--strict", "--platform", "GitHub!"]
+      });
+      assert.equal(invalid.status, 1, invalid.stderr);
+      assert.deepEqual(JSON.parse(invalid.stdout).blockers, ["invalid_platform_filter"]);
+    });
+  });
+
   it("renders a markdown handoff for dependent projects", async () => {
     await withServer((req, res) => {
       if (req.url === "/api/auth-status") {

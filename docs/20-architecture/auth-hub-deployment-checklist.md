@@ -35,7 +35,9 @@ npm run auth-hub:local:stop
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
+- `AI_LINK_EXECUTOR_ID=local-executor`（或另一个受限公开标识，必须与本地执行器一致）
 - `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS=60000`
+- `AI_LINK_CONNECTOR_PROBE_TTL_MS=900000`
 - `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
 - `AI_LINK_ALLOWED_ACCESS_EMAILS`
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
@@ -80,6 +82,7 @@ powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Pr
 ```powershell
 $env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:AI_LINK_EXECUTOR_ID="local-executor"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"
 $env:CF_ACCESS_CLIENT_SECRET="<cloudflare-service-auth-client-secret>"
 npm run auth-hub:executor:start
@@ -94,7 +97,7 @@ npm run auth-hub:executor:start
 
 `auth-hub-executor-runner.ps1` 会包含本地执行器启动所需环境变量，因此必须留在被 Git 忽略的 `runtime/tmp/`，不要复制到公开位置。
 
-执行器会在每轮领取任务前发送最小能力心跳。Auth Hub 默认 60 秒后把未更新的记录标记为 `stale`；心跳失败不阻塞 lease。状态中心显示 online 只证明进程在线且方法已加载，不证明真实账号、Cookie、凭据或平台 API 健康。
+执行器会在每轮领取任务前发送最小能力心跳。Auth Hub 默认 60 秒后把未更新的记录标记为 `stale`；心跳失败不阻塞普通任务 lease。生产 token 绑定固定 executor id，每次执行器启动使用新的进程 session；只有同一身份/session 的新鲜 private heartbeat 才能领取显式 probe。状态中心显示 online 只证明进程在线且方法已加载，不证明真实账号、Cookie、凭据或平台 API 健康。
 
 ## 5. 敏感边界
 
@@ -112,7 +115,8 @@ npm run auth-hub:executor:start
 - 未授权浏览器无法进入控制台。
 - 应用内登录可进入 dashboard。
 - 本地执行器能领取任务并回传结果。
-- `GET /api/connectors` 显示至少一个 online executor heartbeat；没有只读平台探测时，真实能力仍显示 `unverified` 和 `canRunReal=false`。
+- `GET /api/connectors` 显示至少一个 online executor heartbeat；没有显式只读 probe 时，真实能力仍显示 `unverified` 和 `canRunReal=false`。
+- 显式 probe 只允许三项健康操作，并验证 token/executor/session/lease 绑定、重放拒绝、服务端 TTL 与 `verifiedOperations` 操作级口径。
 - `auth-hub:smoke` 可跑通 mock 全链路。
 - 发布动作仍需要审批。
 - `npm run security:scan` 无敏感发现。
@@ -123,6 +127,7 @@ npm run auth-hub:executor:start
 $env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
+$env:AI_LINK_EXECUTOR_ID="local-executor"
 $env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
 $env:AI_LINK_APP_PASSWORD="<app-password-from-secret-store>"
 $env:CF_ACCESS_CLIENT_ID="<cloudflare-service-auth-client-id>"

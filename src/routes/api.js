@@ -5,8 +5,13 @@ import {
   describeConnectorRuntime,
   normalizeExecutorCapabilityHeartbeat
 } from "../connectors/executorCapabilities.js";
+import {
+  buildConnectorProbeSettlement,
+  eligibleConnectorProbeKeys,
+  isConnectorProbeTask
+} from "../connectors/probeEvidence.js";
 import { requireApiScope } from "../security/auth.js";
-import { publicAuditEvent, publicTask, redact } from "../security/redact.js";
+import { publicAuditEvent, publicLeasedTask, publicTask, redact } from "../security/redact.js";
 import { validateTaskInput } from "../domain/workflow.js";
 
 function actorName(req) {
@@ -20,6 +25,13 @@ export function createApiRouter() {
     const parsed = validateTaskInput(req.body || {});
     if (parsed.error) {
       res.status(400).json(parsed);
+      return;
+    }
+    if (
+      parsed.options?.evidenceIntent === "connector_probe"
+      && !req.actor?.scopes?.includes("tasks:approve")
+    ) {
+      res.status(403).json({ error: "connector_probe_approval_required" });
       return;
     }
     const task = await req.app.locals.store.createTask({
@@ -134,12 +146,37 @@ export function createApiRouter() {
   });
 
   router.post("/executor/lease", requireApiScope("executor:lease"), async (req, res) => {
-    const executorId = req.body?.executorId || actorName(req);
+    const claimedExecutorId = req.body?.executorId || actorName(req);
+    if (req.actor?.executorId && req.actor.executorId !== claimedExecutorId) {
+      res.status(403).json({ error: "executor_id_mismatch" });
+      return;
+    }
+    const executorId = req.actor?.executorId || claimedExecutorId;
+    const executorSessionId = String(req.body?.executorSessionId || "");
+    const heartbeats = await req.app.locals.store.listExecutorHeartbeats({ limit: 50 });
+    const currentHeartbeat = heartbeats.find((item) => item.executorId === executorId);
+    const heartbeat = heartbeats.find((item) =>
+      item.executorId === executorId
+      && item.executorSessionId === executorSessionId
+      && item.trusted === true
+    );
+    if (
+      req.actor?.executorId
+      && currentHeartbeat
+      && new Date(currentHeartbeat.expiresAt).getTime() > Date.now()
+      && !heartbeat
+    ) {
+      res.status(409).json({ error: "executor_session_not_active" });
+      return;
+    }
     const task = await req.app.locals.store.leaseTask({
       executorId,
-      leaseMs: req.app.locals.config.leaseMs
+      executorSessionId,
+      leaseMs: req.app.locals.config.leaseMs,
+      connectorProbeKeys: eligibleConnectorProbeKeys({ heartbeat }),
+      heartbeatRevision: heartbeat?.revision || ""
     });
-    res.json({ task: publicTask(task) });
+    res.json({ task: publicLeasedTask(task) });
   });
 
   router.post("/executor/heartbeat", requireApiScope("executor:heartbeat"), async (req, res) => {
@@ -148,15 +185,32 @@ export function createApiRouter() {
       res.status(400).json(parsed);
       return;
     }
+    if (req.actor?.executorId && req.actor.executorId !== parsed.value.executorId) {
+      res.status(403).json({ error: "executor_id_mismatch" });
+      return;
+    }
+    if (!req.actor?.executorId) {
+      const existingHeartbeats = await req.app.locals.store.listExecutorHeartbeats({ limit: 50 });
+      if (existingHeartbeats.some((item) => item.executorId === parsed.value.executorId && item.trusted === true)) {
+        res.status(403).json({ error: "executor_identity_reserved" });
+        return;
+      }
+    }
 
     const heartbeat = await req.app.locals.store.upsertExecutorHeartbeat({
       ...parsed.value,
       actor: actorName(req),
+      trusted: Boolean(
+        req.actor?.executorId
+        && req.actor.executorId === parsed.value.executorId
+        && parsed.value.executorSessionId
+      ),
       ttlMs: req.app.locals.config.executorHeartbeatTtlMs
     });
     res.json({
       accepted: true,
       executorId: heartbeat.executorId,
+      trusted: heartbeat.trusted === true,
       lastSeenAt: heartbeat.lastSeenAt,
       expiresAt: heartbeat.expiresAt
     });
@@ -169,6 +223,36 @@ export function createApiRouter() {
     const task = await req.app.locals.store.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "task_not_found" });
+      return;
+    }
+
+    if (isConnectorProbeTask(task)) {
+      const settlement = buildConnectorProbeSettlement({
+        task,
+        envelope: body,
+        producerExecutorId: req.actor?.executorId || "",
+        ttlMs: req.app.locals.config.connectorProbeTtlMs
+      });
+      if (!settlement) {
+        res.status(409).json({ error: "connector_probe_binding_mismatch" });
+        return;
+      }
+      const settled = await req.app.locals.store.settleConnectorProbeTask({
+        taskId: task.id,
+        executorId: req.actor.executorId,
+        leaseId: body.leaseId,
+        taskStatus: settlement.taskStatus,
+        summary: settlement.summary,
+        result: settlement.result,
+        error: settlement.error,
+        actor,
+        evidence: settlement.evidence
+      });
+      if (!settled) {
+        res.status(409).json({ error: "connector_probe_attempt_stale" });
+        return;
+      }
+      res.json({ task: publicTask(settled), evidenceAccepted: true });
       return;
     }
 
@@ -261,10 +345,14 @@ export function createApiRouter() {
 }
 
 async function runtimeConnectorDescription(req) {
-  const heartbeats = await req.app.locals.store.listExecutorHeartbeats({ limit: 50 });
+  const [heartbeats, probes] = await Promise.all([
+    req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
+    req.app.locals.store.listConnectorProbeEvidence({ limit: 100 })
+  ]);
   return describeConnectorRuntime({
     registry: req.app.locals.connectorRegistry,
-    heartbeats
+    heartbeats,
+    probes
   });
 }
 

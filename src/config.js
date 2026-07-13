@@ -26,6 +26,10 @@ export function loadConfig(env = process.env) {
   const sessionSecret = env.AI_LINK_SESSION_SECRET || (isProduction ? "" : devSecret("session"));
   const adminToken = env.AI_LINK_ADMIN_TOKEN || (isProduction ? "" : "dev-admin-token");
   const executorToken = env.AI_LINK_EXECUTOR_TOKEN || (isProduction ? "" : "dev-executor-token");
+  const executorId = String(env.AI_LINK_EXECUTOR_ID || "").trim();
+  if (executorId && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(executorId)) {
+    throw new Error("AI_LINK_EXECUTOR_ID has an invalid format.");
+  }
   const codexToken = env.AI_LINK_CODEX_TOKEN || (isProduction ? "" : "dev-codex-token");
 
   if (isProduction) {
@@ -34,6 +38,7 @@ export function loadConfig(env = process.env) {
     if (!sessionSecret) missing.push("AI_LINK_SESSION_SECRET");
     if (!adminToken) missing.push("AI_LINK_ADMIN_TOKEN");
     if (!executorToken) missing.push("AI_LINK_EXECUTOR_TOKEN");
+    if (!executorId) missing.push("AI_LINK_EXECUTOR_ID");
     if (missing.length > 0) {
       throw new Error(`Missing required production secrets: ${missing.join(", ")}`);
     }
@@ -53,6 +58,12 @@ export function loadConfig(env = process.env) {
       60000,
       15000,
       600000
+    ),
+    connectorProbeTtlMs: boundedInteger(
+      env.AI_LINK_CONNECTOR_PROBE_TTL_MS,
+      900000,
+      60000,
+      86400000
     ),
     retention: {
       artifactDays: Number(env.AI_LINK_ARTIFACT_RETENTION_DAYS || 7),
@@ -87,6 +98,7 @@ export function loadConfig(env = process.env) {
       {
         name: "executor",
         token: executorToken,
+        executorId,
         scopes: ["executor:lease", "executor:result", "executor:heartbeat", "audit:write"]
       },
       {

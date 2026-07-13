@@ -256,11 +256,23 @@ describe("platform authorization connector contracts", () => {
       workflow: "platform_auth_collect",
       input: { platform: "xiaohongshu", operation: "publish" }
     });
+    const probe = validateTaskInput({
+      workflow: "platform_auth_collect",
+      input: { platform: "github", operation: "check_auth", scope: "repo_read" },
+      options: { evidenceIntent: "connector_probe" }
+    });
+    const deniedSearchProbe = validateTaskInput({
+      workflow: "platform_auth_collect",
+      input: { platform: "xiaohongshu", operation: "search_content", query: "育儿热点" },
+      options: { evidenceIntent: "connector_probe" }
+    });
 
     assert.equal(parsed.error, undefined);
     assert.deepEqual(parsed.targets, ["xiaohongshu"]);
     assert.equal(parsed.input.cookie, undefined);
     assert.equal(denied.error, "unsupported_platform_operation");
+    assert.equal(probe.options.evidenceIntent, "connector_probe");
+    assert.equal(deniedSearchProbe.error, "unsupported_probe_operation");
   });
 
   it("runs a GitHub authorization check through the P0.2 platform auth workflow", async () => {

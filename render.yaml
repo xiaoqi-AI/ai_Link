@@ -23,8 +23,12 @@ services:
         sync: false
       - key: AI_LINK_EXECUTOR_TOKEN
         sync: false
+      - key: AI_LINK_EXECUTOR_ID
+        sync: false
       - key: AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS
         value: "60000"
+      - key: AI_LINK_CONNECTOR_PROBE_TTL_MS
+        value: "900000"
       - key: AI_LINK_CODEX_TOKEN
         sync: false
       - key: AI_LINK_REQUIRE_CLOUDFLARE_ACCESS

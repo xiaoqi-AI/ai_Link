@@ -11,6 +11,7 @@ export async function seedConfiguredTokens(store, tokens) {
       name: token.name,
       tokenHash: hashToken(token.token),
       scopes: token.scopes,
+      executorId: token.executorId || "",
       expiresAt: token.expiresAt || null
     });
   }
@@ -43,7 +44,8 @@ export function requireApiScope(scope) {
     req.actor = {
       type: "api_token",
       name: record.name,
-      scopes: record.scopes
+      scopes: record.scopes,
+      executorId: record.executorId || ""
     };
     next();
   };

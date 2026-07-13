@@ -37,16 +37,18 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard", requireAppSession, async (req, res) => {
-    const [tasks, actionTasks, approvalTasks, approvals, heartbeats] = await Promise.all([
+    const [tasks, actionTasks, approvalTasks, approvals, heartbeats, probes] = await Promise.all([
       req.app.locals.store.listTasks({ limit: 50 }),
       req.app.locals.store.listTasks({ status: "action_required", limit: 20 }),
       req.app.locals.store.listTasks({ status: "approval_required", limit: 20 }),
       req.app.locals.store.listApprovals({ status: "pending" }),
-      req.app.locals.store.listExecutorHeartbeats({ limit: 50 })
+      req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
+      req.app.locals.store.listConnectorProbeEvidence({ limit: 100 })
     ]);
     const connectorDescription = describeConnectorRuntime({
       registry: req.app.locals.connectorRegistry,
-      heartbeats
+      heartbeats,
+      probes
     });
     const { connectors } = connectorDescription;
     const authStatus = summarizeConnectorAuthStatus({
@@ -68,14 +70,16 @@ export function createUiRouter() {
   });
 
   router.get("/dashboard/connectors", requireAppSession, async (req, res) => {
-    const [heartbeats, actionTasks, approvalTasks] = await Promise.all([
+    const [heartbeats, probes, actionTasks, approvalTasks] = await Promise.all([
       req.app.locals.store.listExecutorHeartbeats({ limit: 50 }),
+      req.app.locals.store.listConnectorProbeEvidence({ limit: 100 }),
       req.app.locals.store.listTasks({ status: "action_required", limit: 50 }),
       req.app.locals.store.listTasks({ status: "approval_required", limit: 50 })
     ]);
     const connectorDescription = describeConnectorRuntime({
       registry: req.app.locals.connectorRegistry,
-      heartbeats
+      heartbeats,
+      probes
     });
     res.send(connectorsPage({
       ...connectorDescription,
