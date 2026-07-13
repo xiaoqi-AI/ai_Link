@@ -258,13 +258,27 @@ describe("platform authorization connector contracts", () => {
     });
     const probe = validateTaskInput({
       workflow: "platform_auth_collect",
-      input: { platform: "github", operation: "check_auth", scope: "repo_read" },
+      input: {
+        platform: "github",
+        operation: "check_auth",
+        owner: "xiaoqi-AI",
+        repo: "ai_Link",
+        scope: "repo_read"
+      },
       options: { evidenceIntent: "connector_probe" }
     });
     const deniedSearchProbe = validateTaskInput({
       workflow: "platform_auth_collect",
       input: { platform: "xiaohongshu", operation: "search_content", query: "育儿热点" },
       options: { evidenceIntent: "connector_probe" }
+    });
+    const missingGitHubTarget = validateTaskInput({
+      workflow: "platform_auth_collect",
+      input: { platform: "github", operation: "check_auth", scope: "actions_read" }
+    });
+    const partialGitHubTarget = validateTaskInput({
+      workflow: "platform_auth_collect",
+      input: { platform: "github", operation: "check_auth", owner: "xiaoqi-AI" }
     });
 
     assert.equal(parsed.error, undefined);
@@ -273,6 +287,8 @@ describe("platform authorization connector contracts", () => {
     assert.equal(denied.error, "unsupported_platform_operation");
     assert.equal(probe.options.evidenceIntent, "connector_probe");
     assert.equal(deniedSearchProbe.error, "unsupported_probe_operation");
+    assert.equal(missingGitHubTarget.error, "github_repository_required");
+    assert.equal(partialGitHubTarget.error, "github_repository_required");
   });
 
   it("runs a GitHub authorization check through the P0.2 platform auth workflow", async () => {

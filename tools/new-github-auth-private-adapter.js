@@ -61,6 +61,8 @@ function buildReport() {
     safety: [
       "The generated file is written under runtime/private and must not be committed.",
       "The adapter reads GH_TOKEN or GITHUB_TOKEN from the current process only; it never writes token values.",
+      "repo_read, actions_read and pull_request_read use separate GET-only endpoints that require Contents, Actions and Pull requests read permission respectively.",
+      "Use a reviewed non-critical private repository for a live scope acceptance check because public repository endpoints may also be readable without authentication.",
       "The adapter only performs a GitHub authorization health check and does not merge PRs, change repository settings, or dispatch provider-live workflows."
     ]
   };
@@ -91,32 +93,36 @@ async function checkGitHubAuth({ owner, repo, scope }) {
   }
 
   const endpoint = endpointFor({ owner, repo, scope });
-  const response = await fetch(endpoint, {
-    headers: {
-      authorization: \`Bearer \${token}\`,
-      accept: "application/vnd.github+json",
-      "x-github-api-version": "2022-11-28",
-      "user-agent": "ai-link-auth-health"
-    },
-    signal: AbortSignal.timeout(Number(process.env.AI_LINK_GITHUB_AUTH_TIMEOUT_MS || 15000))
-  });
+  if (!endpoint) {
+    return result({
+      status: "needs_action",
+      sessionState: "blocked",
+      checkedAt,
+      code: "connector_contract_failed"
+    });
+  }
 
-  if (response.status === 401 || response.status === 403) {
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        authorization: \`Bearer \${token}\`,
+        accept: "application/vnd.github+json",
+        "x-github-api-version": "2022-11-28",
+        "user-agent": "ai-link-auth-health"
+      },
+      signal: AbortSignal.timeout(Number(process.env.AI_LINK_GITHUB_AUTH_TIMEOUT_MS || 15000))
+    });
+  } catch {
     return result({
       status: "needs_action",
       sessionState: "blocked",
       checkedAt,
-      code: "credential_invalid"
+      code: "platform_unavailable"
     });
   }
-  if (response.status === 404 && owner && repo) {
-    return result({
-      status: "needs_action",
-      sessionState: "blocked",
-      checkedAt,
-      code: "credential_invalid"
-    });
-  }
+
   if (response.status === 429 || response.headers.get("x-ratelimit-remaining") === "0") {
     return result({
       status: "needs_action",
@@ -126,13 +132,28 @@ async function checkGitHubAuth({ owner, repo, scope }) {
       retryAfterSeconds: retryAfterSeconds(response)
     });
   }
+  if ([401, 403, 404].includes(response.status)) {
+    return result({
+      status: "needs_action",
+      sessionState: "blocked",
+      checkedAt,
+      code: "credential_invalid"
+    });
+  }
+  if (response.status >= 500) {
+    return result({
+      status: "needs_action",
+      sessionState: "blocked",
+      checkedAt,
+      code: "platform_unavailable"
+    });
+  }
   if (!response.ok) {
     return result({
       status: "needs_action",
       sessionState: "blocked",
       checkedAt,
-      code: "platform_rate_limited",
-      retryAfterSeconds: retryAfterSeconds(response)
+      code: "platform_unavailable"
     });
   }
 
@@ -144,10 +165,12 @@ async function checkGitHubAuth({ owner, repo, scope }) {
 }
 
 function endpointFor({ owner, repo, scope }) {
-  if (owner && repo && ["repo_read", "actions_read", "pull_request_read"].includes(scope)) {
-    return \`\${GITHUB_API}/repos/\${encodeURIComponent(owner)}/\${encodeURIComponent(repo)}\`;
-  }
-  return \`\${GITHUB_API}/user\`;
+  if (!owner || !repo) return "";
+  const repository = \`\${GITHUB_API}/repos/\${encodeURIComponent(owner)}/\${encodeURIComponent(repo)}\`;
+  if (scope === "repo_read") return \`\${repository}/branches?per_page=1\`;
+  if (scope === "actions_read") return \`\${repository}/actions/runs?per_page=1\`;
+  if (scope === "pull_request_read") return \`\${repository}/pulls?state=all&per_page=1\`;
+  return "";
 }
 
 function result({ status, sessionState, checkedAt, code = "", retryAfterSeconds = 0 }) {

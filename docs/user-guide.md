@@ -201,7 +201,11 @@ GitHub P0.2 的最小任务输入示例：
 }
 ```
 
-`scope` 只允许 `repo_read`、`actions_read` 或 `pull_request_read`。该检查只回答“GitHub 授权是否可用/是否需要密钥负责人处理”，不自动修改 GitHub 设置、不合并 PR、不触发 provider-live workflow。
+`owner` 与 `repo` 都是必填项；`scope` 只允许 `repo_read`、`actions_read` 或 `pull_request_read`。三者分别调用 `GET /repos/{owner}/{repo}/branches?per_page=1`、`GET /repos/{owner}/{repo}/actions/runs?per_page=1` 和 `GET /repos/{owner}/{repo}/pulls?state=all&per_page=1`，对应 fine-grained token 的 Contents、Actions 和 Pull requests 只读权限。列表为空仍表示端点可读，不会被误判为失败。
+
+官方权限说明：[List branches](https://docs.github.com/en/rest/branches/branches#list-branches)、[List workflow runs for a repository](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-repository)、[List pull requests](https://docs.github.com/en/rest/pulls/pulls#list-pull-requests)。
+
+该检查只回答“指定目标与 GitHub 只读授权是否可用/是否需要密钥负责人处理”，不自动修改 GitHub 设置、不合并 PR、不触发 provider-live workflow。GitHub 的公开资源端点可能无需认证即可读取，因此正式 scope 验收应选择经审查的非关键私有仓，并逐个 scope 验证；公开仓结果只能作为连通性证据，不能单独证明 fine-grained token 权限完整。
 
 维护者可以生成本机私有 GitHub 授权健康检查适配器：
 
@@ -213,7 +217,7 @@ $env:AI_LINK_PRIVATE_CONNECTOR_MODULE="runtime/private/github-auth-adapter.mjs"
 npm run auth-hub:executor:start
 ```
 
-生成文件位于 `runtime/private/github-auth-adapter.mjs`，不会进入 Git。适配器只读 GitHub `/user` 或 `/repos/{owner}/{repo}`，用于判断 token 是否可用或是否限流；不会合并 PR、修改仓库设置、写 GitHub Secrets、触发 Actions 或 provider-live。
+生成文件位于 `runtime/private/github-auth-adapter.mjs`，不会进入 Git。适配器只执行上述三个 GET 探针；限流优先映射为可重试状态，401/403/404 映射为凭据或目标访问问题，5xx 与网络异常映射为平台不可用。它不会读取响应正文、合并 PR、修改仓库设置、写 GitHub Secrets、触发 Actions 或 provider-live。
 
 公众号 P0.3 可以先生成只读健康检查适配器，不需要把真实凭据写进仓库：
 
