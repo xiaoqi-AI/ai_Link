@@ -11,6 +11,7 @@ $renderPath = Join-Path $root $RenderYaml
 
 $requiredEnv = @(
   "AI_LINK_BASE_URL",
+  "DATABASE_URL",
   "AI_LINK_APP_PASSWORD",
   "AI_LINK_SESSION_SECRET",
   "AI_LINK_ADMIN_TOKEN",
@@ -20,7 +21,6 @@ $requiredEnv = @(
 
 $optionalEnv = @(
   "AI_LINK_CODEX_TOKEN",
-  "DATABASE_URL",
   "SMTP_URL",
   "APPROVAL_EMAIL_TO",
   "APPROVAL_EMAIL_FROM",
@@ -103,6 +103,26 @@ if (Test-Path -LiteralPath $renderPath) {
   } else {
     Add-Result $results "Render health check" "fail" "healthCheckPath should point to /healthz."
   }
+  if ($renderText -match "autoDeployTrigger:\s*checksPass") {
+    Add-Result $results "Render auto deploy" "pass" "Deploys wait for linked CI checks to pass."
+  } else {
+    Add-Result $results "Render auto deploy" "fail" "Set autoDeployTrigger to checksPass."
+  }
+  if ($renderText -match "(?s)databases:.*?plan:\s*basic-256mb") {
+    Add-Result $results "Render Postgres plan" "pass" "Blueprint uses the current basic-256mb database plan."
+  } else {
+    Add-Result $results "Render Postgres plan" "fail" "Use a current Render Postgres plan such as basic-256mb; legacy starter cannot create a new database."
+  }
+  if ($renderText -match "(?s)databases:.*?ipAllowList:\s*\[\]") {
+    Add-Result $results "Render Postgres public access" "pass" "Database public IP allow list is empty."
+  } else {
+    Add-Result $results "Render Postgres public access" "fail" "Set database ipAllowList to [] so only private network connections are allowed."
+  }
+  if ($renderText -match "(?s)key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false") {
+    Add-Result $results "Cloudflare service-token decision" "pass" "Blueprint requires an explicit service-token policy decision."
+  } else {
+    Add-Result $results "Cloudflare service-token decision" "fail" "Do not enable service-token access implicitly in the public blueprint."
+  }
 } else {
   Add-Result $results "render.yaml" "fail" "Render blueprint file is missing."
 }
@@ -169,7 +189,8 @@ if ($effectiveBaseUrl) {
     Add-Result $results "base url host" "pass" "Base URL host matches expected deployment mode."
   }
 } else {
-  Add-Result $results "base url" "warn" "No BaseUrl parameter or AI_LINK_BASE_URL found."
+  $status = if ($Production) { "fail" } else { "warn" }
+  Add-Result $results "base url" $status "No BaseUrl parameter or AI_LINK_BASE_URL found."
 }
 
 if ($Production) {

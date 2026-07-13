@@ -144,6 +144,10 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - 可选：`AI_LINK_CODEX_TOKEN`
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
+生产模式缺少 `DATABASE_URL` 会在配置加载阶段拒绝启动，不允许退回 `MemoryStore`。公开蓝图中的数据库使用当前可新建的 `basic-256mb` 规格并设置 `ipAllowList: []`，只允许 Render 私网连接；Web Service 使用 `autoDeployTrigger: checksPass`。`AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN` 使用 `sync: false`，必须由部署负责人明确选择，不能因模板默认值静默开放。Render service 与数据库 region 创建后不可修改，蓝图暂不替负责人选择，部署前必须确认。
+
+Render 官方参考：[Blueprint YAML Reference](https://render.com/docs/blueprint-spec)、[Render Postgres flexible plans](https://render.com/docs/postgresql-refresh)。
+
 Cloudflare Access 应限制独立 Auth Hub 域名只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access JWT 的 RS256 签名、issuer 和 audience。用户身份只取已验证 JWT 的 `email`，若转发邮件头存在则必须与 JWT 一致；服务令牌只接受已验证 JWT 的 `common_name`，且必须显式开启 service-token 访问。任何 JWT 校验参数缺失、身份不一致或签名失败都会拒绝请求，不退化为信任请求头。应用内登录作为第二层门禁，其签名会话包含服务端校验的绝对过期时间，默认 8 小时。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖；建议候选为 `auth.xiao-qi-ai.com`，最终域名仍需负责人确认。
 
 部署前检查见 `docs/20-architecture/auth-hub-deployment-checklist.md`。
@@ -167,7 +171,7 @@ npm run auth-hub:remote:next
 npm run auth-hub:remote:smoke
 ```
 
-`auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、执行器在线心跳、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。脚本会在 smoke 进程中显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，确保不接入真实微信、小红书、公众号、GitHub 或其他平台账号。
+`auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、执行器在线心跳、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。应用密码、Admin token 和受限 Codex token 缺失会直接失败；Executor token 只有在显式 `-SkipExecutor` 时可省略。脚本会在 smoke 进程中显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，确保不接入真实微信、小红书、公众号、GitHub 或其他平台账号。
 `auth-hub:remote:next` 是更轻量的 go/no-go 检查，只读取 `/healthz`、公开 `render.yaml` 和当前进程环境变量是否存在，不打印任何 secret 值；它会告诉维护者下一步应先修域名/Render、补 secret，还是可以进入 `auth-hub:remote:smoke`。
 
 生产验收时建议在当前终端临时注入真实值，值本身不要写入文件或聊天记录：

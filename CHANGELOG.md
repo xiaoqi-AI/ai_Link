@@ -17,6 +17,7 @@ AI Link v0.1.0 is the first public MVP for routing Codex tasks to configured mod
 - BWS run wrapper npm entry for running approved AI Link commands through `bws run` without saving token values.
 - BWS acceptance JSON report for machine-readable pass/warn/pending/skip handoff without printing token values.
 - Auth Hub public MVP skeleton with mock connectors, local executor, audit handoff, deployment checks, and safety boundaries.
+- Auth Hub remote deployment fail-closed defaults: current Render Postgres plan, private-only database ingress, CI-gated deploys, explicit service-token policy, required production database, and strict remote smoke credentials.
 - Google Search Console connector contract with mock Google API data, live read-only public crawlability checks, normalized URL states, Chinese reports, and an Auth Hub `gsc_monitor` task.
 - Google Search Console Desktop OAuth PKCE/loopback authorization, in-memory access-token refresh, and live read-only Sites, URL Inspection, and Sitemaps REST client.
 - Redacted GSC snapshot history, Chinese change summaries, and a plan-first Windows daily monitoring task installer.

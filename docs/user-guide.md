@@ -245,7 +245,9 @@ npm run auth-hub:executor:start
 
 执行器启动后会在每轮领取任务前发送能力心跳。Auth Hub 只保存每个执行器的最新白名单快照，并由服务端写入 `lastSeenAt` 与 `expiresAt`；默认 60 秒过期，可用 `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS` 在 15 秒至 10 分钟内调整。心跳失败不会阻塞任务领取，旧版 Hub 也能继续工作；但状态中心会把缺失或过期证据标成 `unverified`。心跳不执行 `check_session`、`check_health`、`check_auth` 或任何平台方法，因此 `canRunReal=false` 是预期结果。
 
-远程 Auth Hub 必须使用独立域名；当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖。建议候选是 `auth.xiao-qi-ai.com`，最终地址、授权邮箱范围和 Cloudflare Access 配置需要负责人确认。部署后可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，只加载公开 mock 连接器，并验证执行器在线心跳、任务闭环、审批、权限边界和脱敏审计；它不会探测真实账号。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
+远程 Auth Hub 必须使用独立域名；当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖。建议候选是 `auth.xiao-qi-ai.com`，最终地址、授权邮箱范围、不可变 region 和 Cloudflare Access 配置需要负责人确认。生产必须使用 Postgres；缺少 `DATABASE_URL` 时应用拒绝启动，不会静默退回内存存储。公开 Render 蓝图使用当前 `basic-256mb` 数据库规格、`ipAllowList: []` 私网入口和 `checksPass` 自动部署策略，service-token 许可保留为人工填写项。
+
+部署后可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，只加载公开 mock 连接器，并要求应用密码、Admin token、受限 Codex token 以及未跳过执行器时的 Executor token；缺少关键凭据会失败，不再把跳过检查当作成功。它只验证执行器在线心跳、任务闭环、审批、权限边界和脱敏审计，不会探测真实账号。生产 token、Cloudflare Access Service Auth 凭据、数据库连接串和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
 停止本地执行器和控制台：
 

@@ -21,6 +21,7 @@ export function loadConfig(env = process.env) {
   const nodeEnv = env.NODE_ENV || "development";
   const isProduction = nodeEnv === "production";
   const baseUrl = env.AI_LINK_BASE_URL || `http://localhost:${env.PORT || 10000}`;
+  const databaseUrl = String(env.DATABASE_URL || "").trim();
 
   const appPassword = env.AI_LINK_APP_PASSWORD || (isProduction ? "" : "dev-password");
   const sessionSecret = env.AI_LINK_SESSION_SECRET || (isProduction ? "" : devSecret("session"));
@@ -44,6 +45,7 @@ export function loadConfig(env = process.env) {
 
   if (isProduction) {
     const missing = [];
+    if (!databaseUrl) missing.push("DATABASE_URL");
     if (!appPassword) missing.push("AI_LINK_APP_PASSWORD");
     if (!sessionSecret) missing.push("AI_LINK_SESSION_SECRET");
     if (!adminToken) missing.push("AI_LINK_ADMIN_TOKEN");
@@ -72,7 +74,7 @@ export function loadConfig(env = process.env) {
     isProduction,
     port: Number(env.PORT || 10000),
     baseUrl,
-    databaseUrl: env.DATABASE_URL || "",
+    databaseUrl,
     appPassword,
     sessionSecret,
     sessionMaxAgeSeconds: boundedInteger(

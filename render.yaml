@@ -5,6 +5,7 @@ services:
     plan: starter
     buildCommand: npm ci
     startCommand: npm start
+    autoDeployTrigger: checksPass
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
@@ -38,7 +39,7 @@ services:
       - key: AI_LINK_ALLOWED_ACCESS_EMAILS
         sync: false
       - key: AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN
-        value: "true"
+        sync: false
       - key: AI_LINK_CLOUDFLARE_ACCESS_AUD
         sync: false
       - key: AI_LINK_CLOUDFLARE_TEAM_DOMAIN
@@ -46,4 +47,5 @@ services:
 
 databases:
   - name: ai-link-postgres
-    plan: starter
+    plan: basic-256mb
+    ipAllowList: []

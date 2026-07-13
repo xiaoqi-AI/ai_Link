@@ -189,10 +189,10 @@ try {
   } elseif ($login.statusCode -eq 200) {
     Add-Check "login page" "pass" "Application login page is reachable."
   } else {
-    Add-Check "login page" "warn" "Login response returned HTTP $($login.statusCode)."
+    Add-Check "login page" "fail" "Login response returned HTTP $($login.statusCode)."
   }
 } catch {
-  Add-Check "login page" "warn" $_.Exception.Message
+  Add-Check "login page" "fail" $_.Exception.Message
 }
 
 if ($AppPassword) {
@@ -223,7 +223,7 @@ if ($AppPassword) {
     Add-Check "app login" "fail" $_.Exception.Message
   }
 } else {
-  Add-Check "app login" "warn" "App password not provided; dashboard session check skipped."
+  Add-Check "app login" "fail" "App password is required for a complete remote smoke."
 }
 
 if ($AdminToken) {
@@ -282,7 +282,7 @@ if ($AdminToken) {
         Add-Check "codex executor denied" "fail" $_.Exception.Message
       }
     } else {
-      Add-Check "codex token boundary" "warn" "Codex token not provided; restricted-token boundary checks skipped."
+      Add-Check "codex token boundary" "fail" "Restricted Codex token is required for a complete remote smoke."
     }
 
     if (-not $SkipExecutor) {
@@ -408,7 +408,7 @@ if ($AdminToken) {
     Add-Check "api task create" "fail" $_.Exception.Message
   }
 } else {
-  Add-Check "api token" "warn" "Admin token not provided; API task create skipped."
+  Add-Check "api token" "fail" "Admin token is required for a complete remote smoke."
 }
 
 $failed = @($result.checks | Where-Object { $_.status -eq "fail" })

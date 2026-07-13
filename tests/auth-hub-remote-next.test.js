@@ -6,6 +6,8 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const remoteNextScript = fileURLToPath(new URL("../tools/show-auth-hub-remote-next.js", import.meta.url));
+const remoteSmokeScript = fileURLToPath(new URL("../tools/test-auth-hub-remote.ps1", import.meta.url));
+const deploymentCheckScript = fileURLToPath(new URL("../tools/check-auth-hub-deployment.ps1", import.meta.url));
 
 async function withServer(handler, fn) {
   const server = http.createServer(handler);
@@ -50,7 +52,26 @@ describe("Auth Hub remote next report", () => {
 
     assert.match(blueprint, /key:\s*AI_LINK_BASE_URL\s+sync:\s*false/);
     assert.match(blueprint, /key:\s*AI_LINK_SESSION_MAX_AGE_SECONDS\s+value:\s*"28800"/);
+    assert.match(blueprint, /autoDeployTrigger:\s*checksPass/);
+    assert.match(blueprint, /key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false/);
+    assert.match(blueprint, /databases:\s+[\s\S]*?plan:\s*basic-256mb/);
+    assert.match(blueprint, /databases:\s+[\s\S]*?ipAllowList:\s*\[\]/);
     assert.equal(blueprint.includes("voice.xiao-qi-ai.com"), false);
+  });
+
+  it("fails remote smoke closed when critical credentials are omitted", async () => {
+    const [smoke, deploymentCheck] = await Promise.all([
+      readFile(remoteSmokeScript, "utf8"),
+      readFile(deploymentCheckScript, "utf8")
+    ]);
+
+    assert.match(smoke, /AI_LINK_PRIVATE_CONNECTOR_MODULE\s*=\s*""/);
+    assert.match(smoke, /Add-Check "app login" "fail" "App password is required/);
+    assert.match(smoke, /Add-Check "codex token boundary" "fail" "Restricted Codex token is required/);
+    assert.match(smoke, /Add-Check "api token" "fail" "Admin token is required/);
+    assert.match(deploymentCheck, /"DATABASE_URL"/);
+    assert.match(deploymentCheck, /Render Postgres plan/);
+    assert.match(deploymentCheck, /Render Postgres public access/);
   });
 
   it("reports remote smoke readiness without leaking secret values", async () => {

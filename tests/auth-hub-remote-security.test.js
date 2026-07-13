@@ -51,12 +51,28 @@ describe("Auth Hub remote access security", () => {
       AI_LINK_EXECUTOR_TOKEN: "test-remote-executor-token",
       AI_LINK_EXECUTOR_ID: "remote-executor",
       AI_LINK_REQUIRE_CLOUDFLARE_ACCESS: "true",
+      AI_LINK_CLOUDFLARE_ACCESS_AUD: AUDIENCE,
+      AI_LINK_CLOUDFLARE_ACCESS_ISSUER: "https://test-team.cloudflareaccess.com",
+      AI_LINK_ALLOWED_ACCESS_EMAILS: "owner@example.com"
+    }), /DATABASE_URL/);
+
+    assert.throws(() => loadConfig({
+      NODE_ENV: "production",
+      AI_LINK_BASE_URL: "https://auth.example.com",
+      DATABASE_URL: "postgres://test-only.invalid/auth_hub",
+      AI_LINK_APP_PASSWORD: "test-remote-app-password",
+      AI_LINK_SESSION_SECRET: SESSION_SECRET,
+      AI_LINK_ADMIN_TOKEN: ADMIN_TOKEN,
+      AI_LINK_EXECUTOR_TOKEN: "test-remote-executor-token",
+      AI_LINK_EXECUTOR_ID: "remote-executor",
+      AI_LINK_REQUIRE_CLOUDFLARE_ACCESS: "true",
       AI_LINK_ALLOWED_ACCESS_EMAILS: "owner@example.com"
     }), /AI_LINK_CLOUDFLARE_ACCESS_AUD/);
 
     assert.throws(() => loadConfig({
       NODE_ENV: "production",
       AI_LINK_BASE_URL: "https://auth.example.com",
+      DATABASE_URL: "postgres://test-only.invalid/auth_hub",
       AI_LINK_APP_PASSWORD: "test-remote-app-password",
       AI_LINK_SESSION_SECRET: SESSION_SECRET,
       AI_LINK_ADMIN_TOKEN: ADMIN_TOKEN,
