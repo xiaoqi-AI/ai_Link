@@ -291,6 +291,9 @@ if ($AdminToken) {
       } else {
         $env:AI_LINK_BASE_URL = $BaseUrl
         $env:AI_LINK_EXECUTOR_TOKEN = $ExecutorToken
+        # This command is the public mock smoke. Real private connector checks
+        # require a separate, explicitly approved workflow.
+        $env:AI_LINK_PRIVATE_CONNECTOR_MODULE = ""
         if ($CfAccessClientId -and $CfAccessClientSecret) {
           $env:CF_ACCESS_CLIENT_ID = $CfAccessClientId
           $env:CF_ACCESS_CLIENT_SECRET = $CfAccessClientSecret
@@ -304,6 +307,18 @@ if ($AdminToken) {
 
         $firstRun = npm run auth-hub:executor:once
         $afterFirstRun = Invoke-Json -Uri "$BaseUrl/api/tasks/$($task.task.id)" -Headers $adminHeaders
+
+        try {
+          $runtime = Invoke-Json -Uri "$BaseUrl/api/connectors" -Headers $adminHeaders
+          $runtimeJson = ($runtime.executorRuntime | ConvertTo-Json -Depth 10).ToLowerInvariant()
+          if ($runtime.executorRuntime.summary.online -ge 1 -and -not ($runtimeJson -match '"mode"\s*:\s*"private"')) {
+            Add-Check "executor heartbeat" "pass" "Mock executor heartbeat is visible and contains no private connector mode."
+          } else {
+            Add-Check "executor heartbeat" "fail" "Expected a fresh mock-only executor heartbeat."
+          }
+        } catch {
+          Add-Check "executor heartbeat" "fail" $_.Exception.Message
+        }
 
         if ($Workflow -eq "read_detect") {
           if ($afterFirstRun.task.status -eq "completed") {

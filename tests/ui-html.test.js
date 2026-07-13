@@ -1,9 +1,56 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { publicAuditEvent } from "../src/security/redact.js";
-import { auditPage, taskPage } from "../src/ui/html.js";
+import { auditPage, connectorsPage, taskPage } from "../src/ui/html.js";
 
 describe("console task detail page", () => {
+  it("separates contract, executor heartbeat, and real-platform evidence", () => {
+    const html = connectorsPage({
+      connectors: [{
+        platform: "xiaohongshu",
+        status: "reserved",
+        mode: "reserved",
+        capabilities: [],
+        issues: []
+      }],
+      issues: [],
+      executorRuntime: {
+        summary: { online: 1, stale: 0, total: 1 },
+        executors: [{
+          executorId: "local-executor",
+          status: "online",
+          lastSeenAt: "2026-07-12T12:00:00.000Z",
+          expiresAt: "2026-07-12T12:01:00.000Z"
+        }],
+        connectors: [{
+          platform: "xiaohongshu",
+          status: "available",
+          mode: "private",
+          source: "executor",
+          runtime: { status: "online" },
+          canRunReal: false
+        }]
+      },
+      authStatus: {
+        items: [{
+          platform: "xiaohongshu",
+          status: "unverified",
+          reason: "probe_not_run",
+          action: "能力已加载，尚未完成只读健康检查",
+          relatedTaskIds: []
+        }],
+        nextActions: []
+      }
+    });
+
+    assert.match(html, /连接器契约基线/);
+    assert.match(html, /本机执行器状态/);
+    assert.match(html, /执行器能力证据/);
+    assert.match(html, /真实可运行/);
+    assert.match(html, /未验证/);
+    assert.match(html, /local-executor/);
+  });
+
   it("renders AI Link audit summaries as scan-friendly tables", () => {
     const html = taskPage({
       task: {

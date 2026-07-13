@@ -75,6 +75,18 @@ function rowAudit(row) {
   };
 }
 
+function rowExecutorHeartbeat(row) {
+  if (!row) return null;
+  return {
+    executorId: row.executor_id,
+    actor: row.actor,
+    schemaVersion: row.schema_version,
+    connectors: row.connectors || [],
+    lastSeenAt: row.last_seen_at?.toISOString?.() || row.last_seen_at,
+    expiresAt: row.expires_at?.toISOString?.() || row.expires_at
+  };
+}
+
 export class PostgresStore {
   constructor({ connectionString }) {
     this.pool = new Pool({ connectionString });
@@ -103,6 +115,18 @@ export class PostgresStore {
         metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS executor_heartbeats (
+        executor_id text PRIMARY KEY,
+        actor text NOT NULL,
+        schema_version text NOT NULL,
+        connectors jsonb NOT NULL,
+        last_seen_at timestamptz NOT NULL,
+        expires_at timestamptz NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT executor_heartbeats_id_format CHECK (executor_id ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$'),
+        CONSTRAINT executor_heartbeats_expiry CHECK (expires_at > last_seen_at)
       );
 
       CREATE TABLE IF NOT EXISTS tasks (
@@ -163,6 +187,7 @@ export class PostgresStore {
       CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
       CREATE INDEX IF NOT EXISTS idx_approvals_task_status ON approvals(task_id, status);
       CREATE INDEX IF NOT EXISTS idx_audit_task_created ON audit_events(task_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_executor_heartbeats_expires ON executor_heartbeats(expires_at);
     `);
   }
 
@@ -206,6 +231,33 @@ export class PostgresStore {
       expiresAt: row.expires_at,
       revokedAt: row.revoked_at
     };
+  }
+
+  async upsertExecutorHeartbeat({ executorId, actor, schemaVersion, connectors, ttlMs }) {
+    const { rows } = await this.pool.query(
+      `INSERT INTO executor_heartbeats (
+         executor_id, actor, schema_version, connectors, last_seen_at, expires_at
+       )
+       VALUES ($1, $2, $3, $4, now(), now() + ($5::double precision * interval '1 millisecond'))
+       ON CONFLICT (executor_id) DO UPDATE SET
+         actor = EXCLUDED.actor,
+         schema_version = EXCLUDED.schema_version,
+         connectors = EXCLUDED.connectors,
+         last_seen_at = EXCLUDED.last_seen_at,
+         expires_at = EXCLUDED.expires_at,
+         updated_at = now()
+       RETURNING *`,
+      [executorId, actor || "executor", schemaVersion, json(connectors), ttlMs]
+    );
+    return rowExecutorHeartbeat(rows[0]);
+  }
+
+  async listExecutorHeartbeats({ limit = 50 } = {}) {
+    const { rows } = await this.pool.query(
+      "SELECT * FROM executor_heartbeats ORDER BY last_seen_at DESC LIMIT $1",
+      [limit]
+    );
+    return rows.map(rowExecutorHeartbeat);
   }
 
   async createTask({ workflow, input, targets, options, createdBy }) {

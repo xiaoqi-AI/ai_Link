@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 const args = new Set(process.argv.slice(2));
 const outputJson = args.has("--json");
 const baseUrlArg = valueAfter("--base-url");
-const baseUrl = trimSlash(baseUrlArg || process.env.AI_LINK_BASE_URL || "https://voice.xiao-qi-ai.com");
+const baseUrl = trimSlash(baseUrlArg || process.env.AI_LINK_BASE_URL || "https://auth.xiao-qi-ai.com");
 
 const requiredRenderRefs = [
   "AI_LINK_BASE_URL",
@@ -14,6 +14,7 @@ const requiredRenderRefs = [
   "AI_LINK_SESSION_SECRET",
   "AI_LINK_ADMIN_TOKEN",
   "AI_LINK_EXECUTOR_TOKEN",
+  "AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS",
   "AI_LINK_CODEX_TOKEN",
   "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
   "AI_LINK_ALLOWED_ACCESS_EMAILS",
@@ -106,7 +107,7 @@ const report = {
   manualActions: [
     {
       owner: "Infrastructure maintainer",
-      action: "Point voice.xiao-qi-ai.com to the Render Web Service created from render.yaml, then confirm /healthz returns the AI Link Auth Hub payload."
+      action: "Confirm a dedicated Auth Hub hostname (recommended: auth.xiao-qi-ai.com), point it to the Render Web Service, then confirm /healthz returns the AI Link Auth Hub payload."
     },
     {
       owner: "Secret owner",
@@ -128,10 +129,10 @@ const report = {
       "npm run auth-hub:deploy:check"
     ],
     productionPreflight: [
-      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://voice.xiao-qi-ai.com\""
+      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://auth.xiao-qi-ai.com\""
     ],
     remoteSmoke: [
-      "$env:AI_LINK_BASE_URL=\"https://voice.xiao-qi-ai.com\"",
+      "$env:AI_LINK_BASE_URL=\"https://auth.xiao-qi-ai.com\"",
       "$env:AI_LINK_ADMIN_TOKEN=\"<admin-token-from-secret-store>\"",
       "$env:AI_LINK_EXECUTOR_TOKEN=\"<executor-token-from-secret-store>\"",
       "$env:AI_LINK_CODEX_TOKEN=\"<codex-token-from-secret-store>\"",
@@ -150,7 +151,7 @@ const report = {
   safety: [
     "This report only records whether environment variables are present, never their values.",
     "Do not put .env, tokens, DATABASE_URL, Cloudflare credentials, cookies, browser Profile, QR codes, screenshots, raw platform content, or runtime/private files in Git, docs, the knowledge mirror, issue/PR text, or chat.",
-    "A local fallback smoke is useful evidence for code health, but it does not prove voice.xiao-qi-ai.com is deployed."
+    "A local fallback smoke is useful evidence for code health, but it does not prove the dedicated remote Auth Hub hostname is deployed."
   ]
 };
 

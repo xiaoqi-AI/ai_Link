@@ -59,7 +59,7 @@ const actions = [
     commands: [
       "npm run auth-hub:remote:next",
       "npm run auth-hub:deploy:check",
-      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://voice.xiao-qi-ai.com\"",
+      "powershell -ExecutionPolicy Bypass -File tools/check-auth-hub-deployment.ps1 -Production -BaseUrl \"https://auth.xiao-qi-ai.com\"",
       "npm run auth-hub:secrets:new",
       "npm run auth-hub:remote:smoke",
       "powershell -ExecutionPolicy Bypass -File tools/test-auth-hub-remote.ps1 -ExpectAccessGate"
@@ -67,7 +67,7 @@ const actions = [
     evidence: [
       "Render Web Service and Postgres are configured from render.yaml.",
       "npm run auth-hub:remote:next reports remoteReady=yes and smokeReady=yes before final smoke.",
-      "https://voice.xiao-qi-ai.com/healthz returns the AI Link Auth Hub health payload.",
+      "The confirmed dedicated Auth Hub hostname /healthz returns the AI Link Auth Hub health payload.",
       "Unauthenticated browser access is blocked or redirected by Cloudflare Access.",
       "Application login reaches the dashboard after Cloudflare Access.",
       "npm run auth-hub:remote:smoke completes a full_chain mock task with approval and final completed status.",

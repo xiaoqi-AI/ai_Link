@@ -69,13 +69,14 @@ AI Link 的后续推进遵循 `docs/00-governance/iteration-boundaries.md`：
 
 ### 需求
 
-- 让 `voice.xiao-qi-ai.com` 承载私有控制台，但第一阶段只跑 mock 或脱敏任务。
+- 让独立 Auth Hub 域名承载私有控制台，但第一阶段只跑 mock 或脱敏任务。当前 voice 站点不覆盖，建议候选为 `auth.xiao-qi-ai.com`，最终地址待负责人确认。
 - 验证 Render、Postgres、Cloudflare Access、应用内登录和本地执行器远端连接。
 
 ### 预期开发工作
 
 - 整理 Render 环境变量和 Cloudflare Access 配置清单。
 - 配置执行器通过远端 URL 和 token 领取任务。
+- 验证执行器最小能力心跳、TTL 过期和 `unverified` 失败关闭。
 - 补齐远端 smoke 脚本所需的安全提示和失败诊断。
 - 保持控制台只展示脱敏结果、审批状态、连接器状态和审计摘要。
 

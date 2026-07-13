@@ -79,6 +79,7 @@ if (Test-Path -LiteralPath $renderPath) {
     "AI_LINK_SESSION_SECRET",
     "AI_LINK_ADMIN_TOKEN",
     "AI_LINK_EXECUTOR_TOKEN",
+    "AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS",
     "AI_LINK_REQUIRE_CLOUDFLARE_ACCESS",
     "AI_LINK_ALLOWED_ACCESS_EMAILS",
     "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN",
@@ -154,8 +155,10 @@ if ($effectiveBaseUrl) {
     Add-Result $results "base url scheme" "pass" "Base URL scheme is acceptable for this mode."
   }
 
-  if ($Production -and $effectiveBaseUrl -notmatch "voice\.xiao-qi-ai\.com") {
-    Add-Result $results "base url host" "warn" "Production target is not voice.xiao-qi-ai.com."
+  if ($Production -and $effectiveBaseUrl -match "voice\.xiao-qi-ai\.com") {
+    Add-Result $results "base url host" "fail" "voice.xiao-qi-ai.com currently serves another application. Configure a dedicated Auth Hub hostname instead."
+  } elseif ($Production -and $effectiveBaseUrl -notmatch "auth\.xiao-qi-ai\.com") {
+    Add-Result $results "base url host" "warn" "Production target differs from the recommended dedicated hostname auth.xiao-qi-ai.com."
   } else {
     Add-Result $results "base url host" "pass" "Base URL host matches expected deployment mode."
   }

@@ -130,20 +130,20 @@ npm run auth-hub:executor:start
 
 本地默认开发密码和令牌只用于试跑。公网部署前必须改用强随机值，并把控制台放在 Cloudflare Access 后面，同时开启应用自身的 Access origin guard。真实平台账号、浏览器 Profile、Cookie、二维码、截图和未脱敏内容只能放在本机私有位置，例如 `runtime/private/`。
 
-控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 也可读取平台能力契约，用来确认微信、朱雀AI和预留平台当前是可用、预留还是配置异常。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
+控制台首页会展示公开安全的连接器状态；只读 API `GET /api/connectors` 的顶层 `connectors` 是服务端静态能力契约，`executorRuntime` 是本地执行器带过期时间的能力证据。静态契约只能说明代码合同存在，执行器心跳只能说明进程在线且方法已加载，两者都不能证明真实账号、凭据或平台 API 当前可用。执行器回传 AI Link `audit` 摘要后，任务详情页、控制台审计页和 `GET /api/audit` 会显示 provider、model、policy、审批、预算和 usage estimate，便于复盘但不暴露原始输入、输出或密钥。本地 run record 也可以用 `npm run ai-link -- runs submit-audit latest --task-id <auth-hub-task-id>` 追加到授权中枢审计日志；需要只看 AI Link 审计时，可打开 `/dashboard/audit?eventType=ai_link.audit` 或调用 `GET /api/audit?eventType=ai_link.audit`。要验证整条本地交接链路，可直接运行 `npm run auth-hub:audit-smoke`，它会用 dry-run workflow 生成本地记录并回传审计。
 
-如果要从项目负责人视角判断“现在是否需要人工续登或配置授权”，打开 `/dashboard` 或 `/dashboard/connectors` 的“授权/登录关注项”。其他项目可用只读 API `GET /api/auth-status` 读取同一份摘要：它只返回平台、状态、公开错误码、处理建议、行动负责人、处理说明和关联任务 ID，不返回 Cookie、Profile、token、账号详情或原始平台响应。ParentingGame、Hermes Agent 等项目应把这个接口当作“是否需要暂停自动化并提醒维护者”的信号，而不是直接读取真实登录态。`authStatus.nextActions` 是给项目负责人和外部项目消费的行动清单：`owner` 表示账号负责人、维护者、密钥负责人、平台管理员或连接器维护者；`retryAfterAction` 表示人工处理后是否可以重试关联任务。
+如果要从项目负责人视角判断“现在是否需要人工续登或配置授权”，打开 `/dashboard` 或 `/dashboard/connectors` 的“授权/登录关注项”。其他项目可用只读 API `GET /api/auth-status` 读取同一份摘要：它只返回平台、状态、公开错误码、处理建议、行动负责人、处理说明和关联任务 ID，不返回 Cookie、Profile、token、账号详情或原始平台响应。ParentingGame、Hermes Agent 等项目应把这个接口当作“是否需要暂停自动化并提醒维护者”的信号，而不是直接读取真实登录态。`unverified` 表示缺少新鲜执行器心跳或真实只读探测证据，此时不能继续需要真实平台的自动化；`authStatus.nextActions` 则列出已经明确需要人处理的事项。
 
 跨项目只读消费可以直接运行：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前由负责人确认
 $env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
 npm run auth-hub:status
 npm run auth-hub:status:json
 ```
 
-如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应或 `runtime/private` 路径。外部项目的默认处理规则是：`nextActions` 为空时继续自动化；存在 `manual` 或 `approval` 时暂停相关平台任务并提醒对应 owner；存在 `blocked` 时先修 AI Link/平台授权，不要在业务项目里盲目重试。
+如果远程 Auth Hub 放在 Cloudflare Access 后面，并且使用 Service Auth 给本地执行器或其他项目做只读检查，可以只在当前终端临时注入 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。`auth-hub:status` 只调用 `GET /api/auth-status`，不会输出 token、Cookie、Profile、二维码、截图、账号详情、原始响应或 `runtime/private` 路径。外部项目需要真实平台能力时应使用 `npm run auth-hub:status:strict`：只有不存在 `unverified`、`manual`、`approval` 或 `blocked` 才继续；否则暂停相关平台任务并提醒对应 owner。普通代码、文档、UI 和本地测试无需调用该状态接口。
 
 `platform_auth_collect` 用于统一处理小红书会话/只读搜索、公众号官方 API 健康检查和 GitHub 授权健康检查。公开仓只提供安全脚手架，不携带真实登录态；维护者只能把已审查的模块放入 `runtime/private/`。单平台排障时可以让 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 直接指向一个适配器；三平台同时启用时，应先生成 `runtime/private/platform-connectors.mjs` 组合入口，再让该变量只指向组合入口。不要把模块路径放进任务输入，也不要把 Cookie、Profile、二维码、公众号凭据、GitHub token 或原始响应发到远端 Auth Hub。具体合同、允许的操作和错误代码见 `docs/20-architecture/connector-contracts.md`。
 
@@ -228,7 +228,9 @@ npm run auth-hub:executor:start
 
 默认组合 `github-auth-adapter.mjs`、`wechat-official-health-adapter.mjs` 和 `xiaohongshu-readonly-adapter.mjs`。也可以重复传入 `--module <runtime/private 下的文件>` 定制模块集合。生成器不会导入模块或读取凭据；它拒绝越界、缺失、重复文件和输出自身。组合入口在运行时拒绝缺少工厂、非法导出和两个模块同时拥有同一平台，任一模块失败都会让整体加载失败，避免后加载模块静默覆盖已审查能力。任一子模块更新后，重新运行 `auth-hub:private-bundle:new -- --force` 并重启本地执行器，以刷新模块版本。
 
-远端部署到 `voice.xiao-qi-ai.com` 后，可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会创建 `full_chain` mock 任务，让本地执行器领取任务并回写结果，检查发布前审批、审批后完成、应用内登录、连接器状态、受限 Codex token 权限边界和脱敏审计日志。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
+执行器启动后会在每轮领取任务前发送能力心跳。Auth Hub 只保存每个执行器的最新白名单快照，并由服务端写入 `lastSeenAt` 与 `expiresAt`；默认 60 秒过期，可用 `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS` 在 15 秒至 10 分钟内调整。心跳失败不会阻塞任务领取，旧版 Hub 也能继续工作；但状态中心会把缺失或过期证据标成 `unverified`。心跳不执行 `check_session`、`check_health`、`check_auth` 或任何平台方法，因此 `canRunReal=false` 是预期结果。
+
+远程 Auth Hub 必须使用独立域名；当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖。建议候选是 `auth.xiao-qi-ai.com`，最终地址、授权邮箱范围和 Cloudflare Access 配置需要负责人确认。部署后可先用 `npm run auth-hub:remote:next` 判断域名、部署蓝图和当前终端环境是否已准备好，再用 `npm run auth-hub:remote:smoke` 做 mock 空跑验收。smoke 脚本会显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，只加载公开 mock 连接器，并验证执行器在线心跳、任务闭环、审批、权限边界和脱敏审计；它不会探测真实账号。生产 token、Cloudflare Access Service Auth 凭据和应用密码只允许临时放在当前终端环境变量或 secret manager 中，不要写入仓库、知识库或聊天记录。
 
 停止本地执行器和控制台：
 

@@ -188,13 +188,15 @@ npm run auth-hub:audit-smoke
 npm run auth-hub:executor:start
 ```
 
-默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN` 和 Cloudflare Access origin guard。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
+默认本地开发令牌只适合本机试跑；部署到 Render 或其他公网环境前，必须配置 `AI_LINK_APP_PASSWORD`、`AI_LINK_SESSION_SECRET`、`AI_LINK_ADMIN_TOKEN`、`AI_LINK_EXECUTOR_TOKEN`、`AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS` 和 Cloudflare Access origin guard。高价值平台的浏览器登录态应放在本机 `runtime/private/`，不上传 Render、不进 Git、不进知识库。
 
-第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。`auth-hub:audit-smoke` 会启动或复用本地授权中枢，创建测试任务，运行 AI Link dry-run workflow 生成本地 run record，再用 `runs submit-audit` 回传审计并验证 `GET /api/audit?eventType=ai_link.audit`。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同状态；真实平台连接器应放在私有配置或私有仓中实现。
+第一版只启用 mock 微信/朱雀连接器，能跑通任务创建、执行器领取、模拟取材检测、草稿摘要、发布前确认和发布后完成状态。`auth-hub:audit-smoke` 会启动或复用本地授权中枢，创建测试任务，运行 AI Link dry-run workflow 生成本地 run record，再用 `runs submit-audit` 回传审计并验证 `GET /api/audit?eventType=ai_link.audit`。控制台和 `GET /api/connectors` 会展示公开安全的连接器合同基线；真实平台连接器应放在私有配置或私有仓中实现。
 
 平台授权 P0.2 已具备 `platform_auth_collect` 合同、人工登录审批门禁、小红书只读命令适配器脚手架，以及 GitHub、公众号、小红书三套私有适配器的安全组合生成器。小红书只允许会话检查、批准后的可见登录和只读搜索；公众号首批只增加官方 API 健康检查。受信任代码必须位于 `runtime/private/`，组合后由 `AI_LINK_PRIVATE_CONNECTOR_MODULE` 仅注入本地执行器；公开结果只保留稳定状态、1 至 4 条具体链接、数量和有限诊断。脚手架不等于真实账号已验收，真实扫码、验证码、凭据和平台调用仍需独立人工门禁。完整范围见 `docs/10-product/platform-auth-connectors-p0.md` 与 `docs/20-architecture/connector-contracts.md`。
 
-部署到 `voice.xiao-qi-ai.com` 后，先用 `auth-hub:remote:next` 检查远端 `/healthz`、公开部署蓝图和当前进程的环境变量存在性；再用 `auth-hub:remote:smoke` 通过 `full_chain` mock 任务验收远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、本地执行器领取和回写、发布前审批、审批后完成、受限 Codex token 权限边界、脱敏任务详情和审计日志。这些脚本只验证 mock 链路，不读取真实平台账号、不保存浏览器 Profile、不上传截图或 Cookie。
+本地执行器每轮领取任务前会以最小白名单向 `POST /api/executor/heartbeat` 报告“执行器在线且已加载哪些方法”。`GET /api/connectors` 的顶层 `connectors` 始终是服务端静态合同，`executorRuntime` 才是带过期时间的执行器证据；心跳不调用真实平台，不读取或上传 Cookie、token、Profile、路径、账号或原始响应。没有单独的只读健康探测时，`canRunReal` 必须保持 `false`，状态看板显示 `unverified`，不能把“代码已加载”当成“真实账号可用”。
+
+远程 Auth Hub 必须使用独立域名，避免覆盖当前承载其他应用的 `voice.xiao-qi-ai.com`；建议候选为 `auth.xiao-qi-ai.com`，最终地址仍需人工确认。域名确认并部署后，先用 `auth-hub:remote:next` 检查远端 `/healthz`、公开部署蓝图和当前进程的环境变量存在性；再用 `auth-hub:remote:smoke` 通过 `full_chain` mock 任务验收远端闭环。远程 smoke 会显式禁用私有连接器模块，只验证 mock 链路，不读取真实平台账号、不保存浏览器 Profile、不上传截图或 Cookie。
 
 停止本地服务：
 

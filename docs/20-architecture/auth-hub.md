@@ -1,6 +1,6 @@
 # 统一授权中枢 MVP
 
-状态：公开骨架已实现，真实平台连接器仍需私有配置和人工授权。
+状态：公开骨架与执行器能力心跳已实现；真实平台只读探测、账号验收和远程部署仍需独立人工门禁。
 
 ## 目标
 
@@ -70,6 +70,7 @@ npm run auth-hub:local:stop
 - `POST /api/tasks/:id/approve`：确认或拒绝发布、交互登录等高风险或人工协助动作。
 - `POST /api/tasks/:id/retry`：人工处理完成后，把 `action_required` 或失败任务重新排队。
 - `POST /api/tasks/:id/audit`：Codex 追加 AI Link run record 审计摘要，不改变任务状态。
+- `POST /api/executor/heartbeat`：本地执行器上报严格白名单化的能力快照，由服务端写入接收时间和过期时间。
 - `POST /api/executor/lease`：本地执行器领取任务。
 - `POST /api/executor/tasks/:id/result`：本地执行器回传完成、失败、待人工处理或待审批结果。
 - `GET /api/audit`：读取审计日志，支持 `taskId`、`eventType` 和 `limit` 查询参数。
@@ -78,12 +79,25 @@ npm run auth-hub:local:stop
 
 所有 API 使用 Bearer token；token 只以哈希形式入库。
 
+## 三层状态证据
+
+Auth Hub 把连接器状态拆成三个互不替代的层次：
+
+1. `contract`：服务端公开 registry 的静态合同，只说明平台和方法在当前版本中被声明为已实现、预留或异常。
+2. `executor`：本地执行器心跳，只说明某个执行器进程在线，并且启动时加载了哪些方法和 capability mode。
+3. `probe`：真实平台的只读健康探测，例如 `checkSession`、`checkHealth` 或 `checkAuth`。本轮尚未自动执行，状态固定为 `not_run`。
+
+`GET /api/connectors` 顶层 `connectors` 与 `issues` 保留服务端静态合同；`executorRuntime` 单独返回执行器证据、在线/过期计数和合并后的平台视图。没有新鲜执行器心跳时，不能用静态合同补成在线；没有成功的只读平台探测时，`operationalStatus` 必须为 `unverified`，`canRunReal` 必须为 `false`。
+
+执行器心跳是 best-effort：它在每轮 lease 前发送，失败不会阻塞任务领取，也不会调用任何 connector 方法。心跳只允许 schema version、受限 executor id、平台、合同状态、模式、能力名、可用布尔值、capability mode 和稳定问题码；拒绝额外字段。服务端只保留每个 executor id 的最新快照，并用服务端时间设置 TTL。executor id 当前是同一 executor token 下的公开标签，不是设备证明，因此心跳只用于观察，不参与能力感知调度或安全授权。
+
 ## 数据与安全边界
 
 - 公开仓只保存代码、文档、mock 连接器和 `.env.example`。
 - 真实 `.env`、API key、Cookie、浏览器 Profile、二维码、登录态、截图和平台原始内容不进入 Git。
 - 高价值账号的浏览器 Profile 放在本机 `runtime/private/`。
 - Render 暂不保存浏览器登录态；若未来使用持久盘，必须重新评估加密、备份和删除策略。
+- 执行器心跳不包含 hostname、用户名、模块路径、Cookie、token、Profile、账号详情或原始平台响应，也不保存历史快照流水。
 - 邮件提醒只包含任务 ID、审批 ID、摘要和控制台链接，不包含原文、截图、Cookie、token 或账号细节。
 - 发布策略固定为每次确认发布：系统可自动创建草稿摘要，但正式发布必须通过控制台或 API 审批。
 
@@ -97,6 +111,7 @@ npm run auth-hub:local:stop
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
+- `AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS`，默认 `60000`，允许范围为 15 秒至 10 分钟
 - `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS=true`
 - `AI_LINK_ALLOWED_ACCESS_EMAILS`
 - `AI_LINK_CLOUDFLARE_ACCESS_AUD`
@@ -104,7 +119,7 @@ npm run auth-hub:local:stop
 - 可选：`AI_LINK_CODEX_TOKEN`
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
-Cloudflare Access 应限制 `voice.xiao-qi-ai.com` 只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access header/JWT，应用内登录作为第二层门禁。
+Cloudflare Access 应限制独立 Auth Hub 域名只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access header/JWT，应用内登录作为第二层门禁。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖；建议候选为 `auth.xiao-qi-ai.com`，最终域名仍需负责人确认。
 
 部署前检查见 `docs/20-architecture/auth-hub-deployment-checklist.md`。
 
@@ -127,13 +142,13 @@ npm run auth-hub:remote:next
 npm run auth-hub:remote:smoke
 ```
 
-`auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。它不会接入真实微信、朱雀AI或其他平台账号。
+`auth-hub:remote:smoke` 默认使用 `full_chain` mock 流程验证远端闭环：健康检查、Cloudflare Access/应用内登录、任务创建、连接器状态、执行器在线心跳、受限 Codex token 读取边界、本地执行器领取任务、发布前审批、审批后再次执行、脱敏任务详情和审计日志。脚本会在 smoke 进程中显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`，确保不接入真实微信、小红书、公众号、GitHub 或其他平台账号。
 `auth-hub:remote:next` 是更轻量的 go/no-go 检查，只读取 `/healthz`、公开 `render.yaml` 和当前进程环境变量是否存在，不打印任何 secret 值；它会告诉维护者下一步应先修域名/Render、补 secret，还是可以进入 `auth-hub:remote:smoke`。
 
 生产验收时建议在当前终端临时注入真实值，值本身不要写入文件或聊天记录：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_ADMIN_TOKEN="<admin-token-from-secret-store>"
 $env:AI_LINK_EXECUTOR_TOKEN="<executor-token-from-secret-store>"
 $env:AI_LINK_CODEX_TOKEN="<codex-token-from-secret-store>"
@@ -172,16 +187,18 @@ npm audit --audit-level=high
 - 待人工处理状态：执行器可回传 `needs_action`，控制台会单独列出 `action_required` 任务，管理员处理后可 retry 重新排队。
 - 待人工审批状态：执行器可回传 `needs_approval`，控制台会创建 `approval_required` 任务；`platform_interactive_login` 审批通过后，才允许本机执行器进入交互式登录步骤。
 - 连接器契约：微信、朱雀AI和预留平台会输出统一的能力状态，供 API 和控制台只读展示。
+- 执行器心跳：严格字段白名单、TTL 过期、缺失/过期失败关闭、旧版 Hub 兼容和心跳失败不阻塞 lease。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。
 
 ## 授权/登录状态看板
 
-Auth Hub 控制台在任务首页和 `/dashboard/connectors` 提供“授权/登录关注项”摘要，用于项目负责人快速判断哪些平台当前可用，哪些需要本机续登、验证码、凭据配置或连接器维护。
+Auth Hub 控制台在任务首页和 `/dashboard/connectors` 提供“授权/登录关注项”摘要，用于项目负责人区分静态合同、执行器在线证据和真实平台验证，并快速判断哪些平台需要本机续登、验证码、凭据配置或连接器维护。
 
 该摘要只读取公开安全信息：
 
 - connector registry 中的平台、状态、模式、能力和稳定问题代码。
+- 最新执行器心跳中的平台、能力模式、在线/过期状态和服务端时间戳。
 - `action_required` 与 `approval_required` 任务中的公开错误码、平台名和任务 ID。
 - 已脱敏的任务摘要。
 
@@ -194,13 +211,14 @@ GET /api/auth-status
 Authorization: Bearer <token with connectors:read>
 ```
 
-返回内容包含 `connectors`、`issues` 和 `authStatus`。`authStatus.summary` 给出 `ready`、`needs_action`、`reserved`、`blocked` 计数；`authStatus.items` 按平台给出状态、处理建议、公开原因码和最多 5 个关联任务 ID。
+返回内容包含 `connectors`、`issues`、`executorRuntime` 和 `authStatus`。`authStatus.summary` 给出 `ready`、`unverified`、`needs_action`、`reserved`、`blocked` 计数；`authStatus.items` 按平台给出状态、证据来源、执行器状态、是否能声称真实可运行、处理建议、公开原因码和最多 5 个关联任务 ID。
 
 状态口径：
 
-- `ready`：公开能力契约可用，当前没有相关人工处理任务。
+- `ready`：仅在未来同时具备新鲜执行器证据和成功只读平台探测时使用；当前心跳迭代不会产生该状态。
+- `unverified`：合同或方法可能存在，但执行器心跳缺失/过期，或尚未执行真实只读健康探测；需要真实平台能力的上游应失败关闭。
 - `needs_action`：已有关联 `action_required` 或 `approval_required` 任务，例如 `login_expired`、`captcha_required`、`credential_missing`、`interactive_approval_required`。
 - `reserved`：公开仓仅预留合同位，暂未接入真实账号。
 - `blocked`：connector 契约缺失或配置异常，需要维护者修复。
 
-该入口的目标不是替代真实平台会话探测，而是把“已经被执行器发现、已经脱敏、需要人处理或批准”的事项集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试。
+该入口的目标不是替代真实平台会话探测，而是把“合同声明、执行器在线证据、已经被执行器发现且需要人处理或批准的事项”集中展示。其他项目可以读取该接口决定是否暂停自动化、提示维护者或等待 AI Link 本地执行器完成续登后重试；普通代码和文档任务不需要轮询该接口。

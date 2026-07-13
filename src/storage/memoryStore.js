@@ -16,6 +16,7 @@ export class MemoryStore {
     this.artifacts = new Map();
     this.auditEvents = [];
     this.apiTokens = new Map();
+    this.executorHeartbeats = new Map();
   }
 
   async init() {}
@@ -40,6 +41,27 @@ export class MemoryStore {
 
   async findApiTokenByHash(tokenHash) {
     return clone(this.apiTokens.get(tokenHash));
+  }
+
+  async upsertExecutorHeartbeat({ executorId, actor, schemaVersion, connectors, ttlMs }) {
+    const now = new Date();
+    const heartbeat = {
+      executorId,
+      actor: actor || "executor",
+      schemaVersion,
+      connectors,
+      lastSeenAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + ttlMs).toISOString()
+    };
+    this.executorHeartbeats.set(executorId, heartbeat);
+    return clone(heartbeat);
+  }
+
+  async listExecutorHeartbeats({ limit = 50 } = {}) {
+    return [...this.executorHeartbeats.values()]
+      .sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt))
+      .slice(0, limit)
+      .map(clone);
   }
 
   async createTask({ workflow, input, targets, options, createdBy }) {

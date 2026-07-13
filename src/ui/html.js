@@ -29,10 +29,10 @@ export function layout({ title, body }) {
     code { padding:2px 5px; }
     pre { padding:12px; overflow:auto; white-space:pre-wrap; }
     .status { display:inline-flex; min-width:96px; justify-content:center; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; color:var(--muted); background:#fff; }
-    .status.completed, .status.ready { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
+    .status.completed, .status.ready, .status.online { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
     .status.failed, .status.cancelled, .status.misconfigured, .status.blocked { color:var(--danger); border-color:#fecdca; background:#fef3f2; }
     .status.approval_required { color:#9a6700; border-color:#fedf89; background:#fffaeb; }
-    .status.action_required, .status.needs_action { color:#b54708; border-color:#fed7aa; background:#fff7ed; }
+    .status.action_required, .status.needs_action, .status.unverified, .status.stale { color:#b54708; border-color:#fed7aa; background:#fff7ed; }
     .status.available { color:var(--ok); border-color:#abefc6; background:#ecfdf3; }
     .status.reserved { color:var(--muted); border-color:var(--line); background:#f8fafc; }
     button, .button { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; padding:9px 12px; font-weight:600; cursor:pointer; }
@@ -74,7 +74,14 @@ export function loginPage({ error = "", next = "/dashboard" } = {}) {
   });
 }
 
-export function dashboardPage({ tasks, actionTasks = [], approvals, connectors = [], authStatus = null }) {
+export function dashboardPage({
+  tasks,
+  actionTasks = [],
+  approvals,
+  connectors = [],
+  executorRuntime = null,
+  authStatus = null
+}) {
   const statusCounts = countTaskStatuses(tasks);
   const taskRows = tasks.map((task) => `<tr>
     <td><a href="/dashboard/tasks/${escapeHtml(task.id)}">${escapeHtml(task.id.slice(0, 8))}</a></td>
@@ -101,6 +108,8 @@ export function dashboardPage({ tasks, actionTasks = [], approvals, connectors =
   const connectorRows = connectorRowsHtml(connectors);
   const authStatusRows = authStatusRowsHtml(authStatus);
   const authNextActionRows = authNextActionRowsHtml(authStatus);
+  const executorRows = executorRowsHtml(executorRuntime?.executors || []);
+  const runtimeConnectorRows = runtimeConnectorRowsHtml(executorRuntime?.connectors || []);
 
   return layout({
     title: "任务",
@@ -131,8 +140,22 @@ export function dashboardPage({ tasks, actionTasks = [], approvals, connectors =
       <table><thead><tr><th>平台</th><th>状态</th><th>处理建议</th><th>原因</th><th>关联任务</th></tr></thead><tbody>${authStatusRows || "<tr><td colspan=\"5\">暂无授权/登录关注项</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
-      <h2>连接器状态</h2>
+      <h2>本机执行器状态</h2>
+      <p class="muted">心跳只证明执行器在线及连接器方法已加载，不代表账号已登录、凭据有效或真实平台可调用。</p>
+      <div class="stats">
+        <div class="stat"><strong>${escapeHtml(executorRuntime?.summary?.online || 0)}</strong><span class="muted">在线执行器</span></div>
+        <div class="stat"><strong>${escapeHtml(executorRuntime?.summary?.stale || 0)}</strong><span class="muted">心跳已过期</span></div>
+      </div>
+      <table><thead><tr><th>执行器</th><th>状态</th><th>最近心跳</th><th>有效期至</th></tr></thead><tbody>${executorRows || "<tr><td colspan=\"4\">尚未收到执行器心跳</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>连接器契约基线</h2>
+      <p class="muted">这里表示公开契约是否实现，不等于真实账号或平台已经验证可用。</p>
       <table><thead><tr><th>平台</th><th>状态</th><th>能力</th><th>问题</th></tr></thead><tbody>${connectorRows || "<tr><td colspan=\"4\">暂无连接器状态</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>执行器能力证据</h2>
+      <table><thead><tr><th>平台</th><th>来源</th><th>心跳</th><th>实现模式</th><th>真实可运行</th></tr></thead><tbody>${runtimeConnectorRows || "<tr><td colspan=\"5\">暂无执行器能力证据</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>待确认动作</h2>
@@ -167,6 +190,25 @@ function authStatusRowsHtml(authStatus) {
   </tr>`).join("");
 }
 
+function executorRowsHtml(executors) {
+  return executors.map((executor) => `<tr>
+    <td>${escapeHtml(executor.executorId)}</td>
+    <td><span class="status ${escapeHtml(executor.status)}">${escapeHtml(executorRuntimeLabel(executor.status))}</span></td>
+    <td>${escapeHtml(executor.lastSeenAt)}</td>
+    <td>${escapeHtml(executor.expiresAt)}</td>
+  </tr>`).join("");
+}
+
+function runtimeConnectorRowsHtml(connectors) {
+  return connectors.map((connector) => `<tr>
+    <td>${escapeHtml(connector.platform)}</td>
+    <td>${escapeHtml(connector.source === "executor" ? "本机执行器" : "服务端契约")}</td>
+    <td><span class="status ${escapeHtml(connector.runtime?.status || "unreported")}">${escapeHtml(executorRuntimeLabel(connector.runtime?.status || "unreported"))}</span></td>
+    <td>${escapeHtml(connector.mode || "-")}</td>
+    <td>${escapeHtml(connector.canRunReal === true ? "已验证" : "未验证")}</td>
+  </tr>`).join("");
+}
+
 function authNextActionRowsHtml(authStatus) {
   return (authStatus?.nextActions || []).map((action) => `<tr>
     <td>${escapeHtml(action.platform)}</td>
@@ -187,6 +229,7 @@ function authTaskLinks(taskIds = []) {
 function authStatusLabel(status) {
   return {
     ready: "可用",
+    unverified: "未验证",
     needs_action: "需要处理",
     reserved: "预留",
     blocked: "阻塞"
@@ -201,17 +244,26 @@ function connectorStatusLabel(status) {
   }[status] || status;
 }
 
+function executorRuntimeLabel(status) {
+  return {
+    online: "在线",
+    stale: "已过期",
+    unreported: "未上报"
+  }[status] || status;
+}
+
 function authActionOwnerLabel(owner) {
   return {
     account_owner: "账号负责人",
     maintainer: "维护者",
     secret_owner: "密钥负责人",
     platform_admin: "平台管理员",
+    task_owner: "任务负责人",
     connector_maintainer: "连接器维护者"
   }[owner] || owner;
 }
 
-export function connectorsPage({ connectors = [], issues = [], authStatus = null }) {
+export function connectorsPage({ connectors = [], issues = [], executorRuntime = null, authStatus = null }) {
   const issueRows = issues.map((issue) => `<tr>
     <td>${escapeHtml(issue.platform)}</td>
     <td>${escapeHtml(issue.severity)}</td>
@@ -219,13 +271,25 @@ export function connectorsPage({ connectors = [], issues = [], authStatus = null
     <td>${escapeHtml(issue.capability || "")}</td>
   </tr>`).join("");
   const authNextActionRows = authNextActionRowsHtml(authStatus);
+  const executorRows = executorRowsHtml(executorRuntime?.executors || []);
+  const runtimeConnectorRows = runtimeConnectorRowsHtml(executorRuntime?.connectors || []);
 
   return layout({
     title: "连接器",
     body: `<section class="panel">
       <p><a href="/dashboard">返回任务列表</a></p>
-      <h1>连接器状态</h1>
+      <h1>连接器契约基线</h1>
+      <p class="muted">契约已实现不代表真实平台已通过登录、凭据或网络健康检查。</p>
       <table><thead><tr><th>平台</th><th>状态</th><th>能力</th><th>问题</th></tr></thead><tbody>${connectorRowsHtml(connectors) || "<tr><td colspan=\"4\">暂无连接器状态</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>本机执行器状态</h2>
+      <p class="muted">心跳内容经过严格白名单重建，不包含 Cookie、token、账号、Profile、私有路径或原始响应。</p>
+      <table><thead><tr><th>执行器</th><th>状态</th><th>最近心跳</th><th>有效期至</th></tr></thead><tbody>${executorRows || "<tr><td colspan=\"4\">尚未收到执行器心跳</td></tr>"}</tbody></table>
+    </section>
+    <section class="panel">
+      <h2>执行器能力证据</h2>
+      <table><thead><tr><th>平台</th><th>来源</th><th>心跳</th><th>实现模式</th><th>真实可运行</th></tr></thead><tbody>${runtimeConnectorRows || "<tr><td colspan=\"5\">暂无执行器能力证据</td></tr>"}</tbody></table>
     </section>
     <section class="panel">
       <h2>授权/登录关注项</h2>

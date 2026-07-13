@@ -296,11 +296,11 @@ checkContains("tools/show-auth-hub-remote-next.js", "Auth Hub remote next report
   "AI Link Auth Hub Remote Next",
   "auth-hub:remote:next",
   "auth-hub:remote:smoke",
-  "voice.xiao-qi-ai.com",
+  "auth.xiao-qi-ai.com",
   "AI_LINK_ADMIN_TOKEN",
   "CF_ACCESS_CLIENT_SECRET",
   "This report only records whether environment variables are present, never their values",
-  "A local fallback smoke is useful evidence for code health, but it does not prove voice.xiao-qi-ai.com is deployed"
+  "A local fallback smoke is useful evidence for code health, but it does not prove the dedicated remote Auth Hub hostname is deployed"
 ]);
 
 checkContains("src/executor/localExecutor.js", "Auth Hub executor Access test headers", [
@@ -318,7 +318,8 @@ checkContains("docs/20-architecture/auth-hub.md", "Auth Hub remote mock dry-run 
   "full_chain",
   "受限 Codex token",
   "脱敏任务详情",
-  "不会接入真实微信",
+  "显式清除 `AI_LINK_PRIVATE_CONNECTOR_MODULE`",
+  "不接入真实微信、小红书、公众号、GitHub",
   "test-auth-hub-remote.ps1",
   "ExpectAccessGate"
 ]);
@@ -331,7 +332,7 @@ checkContains("docs/20-architecture/auth-hub-deployment-checklist.md", "Auth Hub
   "完整远端 mock 空跑",
   "受限 Codex token",
   "任务详情和审计日志只包含脱敏摘要",
-  "真实微信、朱雀AI、抖音、小红书、知乎、头条账号登录和正式发布不属于本轮验收"
+  "真实微信、公众号、GitHub、小红书、朱雀AI、抖音、知乎、头条账号登录、只读探测和正式发布不属于本轮验收"
 ]);
 
 checkContains("tools/show-release-manual-gates.js", "release manual gates report", [

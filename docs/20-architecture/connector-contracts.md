@@ -75,7 +75,7 @@ Authorization: Bearer <token with connectors:read>
 外部项目或本地维护者可以用只读命令消费同一合同：
 
 ```powershell
-$env:AI_LINK_BASE_URL="https://voice.xiao-qi-ai.com"
+$env:AI_LINK_BASE_URL="https://auth.xiao-qi-ai.com" # 建议候选，部署前确认
 $env:AI_LINK_CODEX_TOKEN="<read-only-codex-token>"
 npm run auth-hub:status
 npm run auth-hub:status:json
@@ -134,6 +134,20 @@ npm run auth-hub:status:json
 `begin_login` 是 interactive 方法。执行器不会在普通任务、定时任务或未审批 retry 中直接调用它；首次运行会返回 `approval_required/interactive_approval_required`，只有审批通过并把任务推进到 `platform_interactive_login` 步骤后，才允许调用受信任私有连接器。
 
 公开合同使用 allowlist 重建结果：小红书只接受 `xiaohongshu.com` 的具体笔记路径，移除查询参数和 fragment；每条素材必须声明 `source_reachability.status=verified` 和 `acquisition_provider=ai_link_xhs_readonly`。额外字段不会进入 Auth Hub。
+
+## Executor Capability Evidence
+
+连接器合同状态不等于运行时可用。Auth Hub 使用执行器能力心跳补充一层公开安全证据：
+
+- 服务端静态 registry 继续决定公开平台合同和 baseline，响应位于 `GET /api/connectors` 的顶层 `connectors`。
+- 本地执行器从已加载 registry 构造严格白名单快照，通过 `POST /api/executor/heartbeat` 上报；它不会调用 `checkSession`、`checkHealth`、`checkAuth`、`readContent` 或写操作。
+- 服务端设置 `lastSeenAt` 与 `expiresAt`，只保存每个 executor id 的最新记录；过期记录只显示为 `stale`，不能覆盖服务端 baseline。
+- 合并后的公开视图位于 `executorRuntime.connectors`，并明确给出 `evidence.contract`、`evidence.executor`、`evidence.probe`、`operationalStatus` 和 `canRunReal`。
+- 在真实只读探测结果另行实现并验收前，`evidence.probe=not_run`、`operationalStatus=unverified`、`canRunReal=false`。
+
+心跳允许保留 `live-read-only`、`approval-required-local`、`mock` 等 capability mode，但拒绝未知顶层字段、未知平台、重复能力、矛盾状态和越界 issue code。禁止上报 hostname、用户名、私有模块路径、凭据存在性、Cookie、token、Profile、账号详情、原始响应或 connector 异常栈。heartbeat scope 与 lease/result scope 分开；心跳失败是 best-effort，不阻塞执行器继续向兼容的旧 Hub 领取任务。
+
+当前 executor id 只是同一执行器凭据下的公开标签，不构成机器身份认证。因此该证据只服务状态中心和故障判断，不得用于自动选择“有能力的执行器”、授权真实调用或绕过人工审批。能力感知调度必须等 executor credential、executor identity、lease 和 result 形成强绑定后另立迭代。
 
 ## Private Connector Injection
 

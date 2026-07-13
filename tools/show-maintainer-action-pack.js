@@ -153,7 +153,7 @@ const sections = [
     currentBlockers: reports.authHubRemoteNext?.blockers ?? [],
     recommendedNext: reports.authHubRemoteNext?.summary?.recommendedNext ?? "",
     stopBefore: [
-      "Do not treat a local mock smoke as proof that voice.xiao-qi-ai.com is deployed.",
+      "Do not treat a local mock smoke as proof that the dedicated remote Auth Hub hostname is deployed.",
       "Do not store production tokens, Cloudflare credentials, DATABASE_URL, Cookie, browser Profile, QR code, screenshot, or platform content in Git, docs, issue/PR text, knowledge mirror, or chat.",
       "Do not connect real WeChat, Zhuque AI, Douyin, Xiaohongshu, Zhihu, or Toutiao accounts in this iteration."
     ],

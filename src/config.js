@@ -7,6 +7,12 @@ function readCsv(value) {
     .filter(Boolean);
 }
 
+function boundedInteger(value, fallback, minimum, maximum) {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(maximum, Math.max(minimum, Math.floor(parsed)));
+}
+
 function devSecret(label) {
   return `dev-${label}-${crypto.createHash("sha256").update(label).digest("hex").slice(0, 24)}`;
 }
@@ -42,6 +48,12 @@ export function loadConfig(env = process.env) {
     appPassword,
     sessionSecret,
     leaseMs: Number(env.AI_LINK_LEASE_MS || 120000),
+    executorHeartbeatTtlMs: boundedInteger(
+      env.AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS,
+      60000,
+      15000,
+      600000
+    ),
     retention: {
       artifactDays: Number(env.AI_LINK_ARTIFACT_RETENTION_DAYS || 7),
       auditDays: Number(env.AI_LINK_AUDIT_RETENTION_DAYS || 180)
@@ -75,7 +87,7 @@ export function loadConfig(env = process.env) {
       {
         name: "executor",
         token: executorToken,
-        scopes: ["executor:lease", "executor:result", "audit:write"]
+        scopes: ["executor:lease", "executor:result", "executor:heartbeat", "audit:write"]
       },
       {
         name: "codex",
