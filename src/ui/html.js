@@ -6,7 +6,11 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-export function layout({ title, body }) {
+function csrfInput(csrfToken) {
+  return `<input type="hidden" name="csrfToken" value="${escapeHtml(csrfToken)}">`;
+}
+
+export function layout({ title, body, csrfToken = "" }) {
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -22,6 +26,8 @@ export function layout({ title, body }) {
     a { color:var(--accent); text-decoration:none; }
     .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px; margin-bottom:16px; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .inline-form { display:inline; margin:0; }
+    .inline-form button { display:inline; border:0; background:none; color:var(--accent); padding:0; font:inherit; font-weight:400; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
     th, td { border-bottom:1px solid var(--line); padding:10px 8px; text-align:left; vertical-align:top; }
     th { color:var(--muted); font-weight:600; }
@@ -50,20 +56,21 @@ export function layout({ title, body }) {
 <body>
   <header>
     <strong>AI Link 授权中枢</strong>
-    <nav><a href="/dashboard">任务</a> · <a href="/dashboard/audit">审计</a> · <a href="/dashboard/connectors">连接器</a> · <a href="/logout">退出</a></nav>
+    <nav><a href="/dashboard">任务</a> · <a href="/dashboard/audit">审计</a> · <a href="/dashboard/connectors">连接器</a>${csrfToken ? ` · <form class="inline-form" method="post" action="/logout">${csrfInput(csrfToken)}<button type="submit">退出</button></form>` : ""}</nav>
   </header>
   <main>${body}</main>
 </body>
 </html>`;
 }
 
-export function loginPage({ error = "", next = "/dashboard" } = {}) {
+export function loginPage({ error = "", next = "/dashboard", csrfToken = "" } = {}) {
   return layout({
     title: "登录",
     body: `<section class="panel" style="max-width:420px;margin:40px auto;">
       <h1>登录控制台</h1>
       ${error ? `<p class="error">${escapeHtml(error)}</p>` : ""}
       <form method="post" action="/login">
+        ${csrfInput(csrfToken)}
         <input type="hidden" name="next" value="${escapeHtml(next)}">
         <label for="password">控制台密码</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
@@ -80,7 +87,8 @@ export function dashboardPage({
   approvals,
   connectors = [],
   executorRuntime = null,
-  authStatus = null
+  authStatus = null,
+  csrfToken = ""
 }) {
   const statusCounts = countTaskStatuses(tasks);
   const taskRows = tasks.map((task) => `<tr>
@@ -113,6 +121,7 @@ export function dashboardPage({
 
   return layout({
     title: "任务",
+    csrfToken,
     body: `<section class="panel">
       <div class="toolbar">
         <div>
@@ -277,7 +286,7 @@ function authActionOwnerLabel(owner) {
   }[owner] || owner;
 }
 
-export function connectorsPage({ connectors = [], issues = [], executorRuntime = null, authStatus = null }) {
+export function connectorsPage({ connectors = [], issues = [], executorRuntime = null, authStatus = null, csrfToken = "" }) {
   const issueRows = issues.map((issue) => `<tr>
     <td>${escapeHtml(issue.platform)}</td>
     <td>${escapeHtml(issue.severity)}</td>
@@ -290,6 +299,7 @@ export function connectorsPage({ connectors = [], issues = [], executorRuntime =
 
   return layout({
     title: "连接器",
+    csrfToken,
     body: `<section class="panel">
       <p><a href="/dashboard">返回任务列表</a></p>
       <h1>连接器契约基线</h1>
@@ -319,7 +329,7 @@ export function connectorsPage({ connectors = [], issues = [], executorRuntime =
   });
 }
 
-export function auditPage({ auditEvents = [], filters = {} }) {
+export function auditPage({ auditEvents = [], filters = {}, csrfToken = "" }) {
   const eventRows = auditEvents.map((event) => `<tr>
     <td>${escapeHtml(event.createdAt)}</td>
     <td>${event.taskId ? `<a href="/dashboard/tasks/${escapeHtml(event.taskId)}">${escapeHtml(event.taskId.slice(0, 8))}</a>` : "-"}</td>
@@ -334,6 +344,7 @@ export function auditPage({ auditEvents = [], filters = {} }) {
 
   return layout({
     title: "审计",
+    csrfToken,
     body: `<section class="panel">
       <div class="toolbar">
         <div>
@@ -369,12 +380,14 @@ export function auditPage({ auditEvents = [], filters = {} }) {
   });
 }
 
-export function newTaskPage() {
+export function newTaskPage({ csrfToken = "" } = {}) {
   return layout({
     title: "新建任务",
+    csrfToken,
     body: `<section class="panel">
       <h1>新建全链路任务</h1>
       <form method="post" action="/dashboard/tasks">
+        ${csrfInput(csrfToken)}
         <label for="url">素材链接</label>
         <input id="url" name="url" placeholder="https://mp.weixin.qq.com/...">
         <label for="title">标题</label>
@@ -393,7 +406,7 @@ export function newTaskPage() {
   });
 }
 
-export function taskPage({ task, approvals, artifacts, auditEvents }) {
+export function taskPage({ task, approvals, artifacts, auditEvents, csrfToken = "" }) {
   const pendingApproval = approvals.find((item) => item.status === "pending");
   const needsAction = task.status === "action_required";
   const resultAuditRows = aiLinkAuditRows(task.result?.aiLinkAudit, "task.result");
@@ -402,6 +415,7 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
     .flatMap((event) => aiLinkAuditRows(event.detail?.audit, event.detail?.recordId || event.id, event.detail?.status));
   return layout({
     title: `任务 ${task.id.slice(0, 8)}`,
+    csrfToken,
     body: `<section class="panel">
       <p><a href="/dashboard">返回任务列表</a></p>
       <h1>任务 ${escapeHtml(task.id)}</h1>
@@ -415,6 +429,7 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
       <p>${escapeHtml(task.summary || "暂无摘要")}</p>
       ${task.error ? `<h2>待处理事项</h2><pre>${escapeHtml(JSON.stringify(task.error, null, 2))}</pre>` : ""}
       ${needsAction ? `<form method="post" action="/dashboard/tasks/${escapeHtml(task.id)}/retry">
+        ${csrfInput(csrfToken)}
         <label for="retry-note">处理备注</label>
         <input id="retry-note" name="note" placeholder="例如：已续登、已完成验证码、稍后重试">
         <button type="submit">已处理，重新执行</button>
@@ -423,6 +438,7 @@ export function taskPage({ task, approvals, artifacts, auditEvents }) {
       <pre>${escapeHtml(JSON.stringify(task.result || {}, null, 2))}</pre>
       ${resultAuditRows ? `<h2>AI Link Audit</h2>${auditSummaryTable(resultAuditRows)}` : ""}
       ${pendingApproval ? `<form method="post" action="/dashboard/tasks/${escapeHtml(task.id)}/approve">
+        ${csrfInput(csrfToken)}
         <input type="hidden" name="approvalId" value="${escapeHtml(pendingApproval.id)}">
         <label for="note">确认备注</label>
         <input id="note" name="note" placeholder="可选">

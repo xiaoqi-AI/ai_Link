@@ -137,6 +137,63 @@ describe("Auth Hub remote access security", () => {
     }
   });
 
+  it("binds browser sessions to verified Access users and rejects service identities", async () => {
+    const server = await startHub({
+      AI_LINK_ALLOWED_ACCESS_EMAILS: "owner@example.com,other@example.com"
+    });
+    try {
+      const ownerJwt = await accessJwt({ email: "owner@example.com", sub: "owner-subject" });
+      const ownerHeaders = accessHeaders(ownerJwt);
+      const page = await fetch(`${server.baseUrl}/login`, { headers: ownerHeaders });
+      assert.equal(page.status, 200);
+      assert.equal(page.headers.get("x-frame-options"), "DENY");
+      assert.match(page.headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
+      const csrfCookie = responseCookie(page, "ai_link_csrf");
+      const csrfToken = (await page.text()).match(/name="csrfToken" value="([^"]+)"/)?.[1];
+      assert.ok(csrfCookie);
+      assert.ok(csrfToken);
+
+      const login = await fetch(`${server.baseUrl}/login`, {
+        method: "POST",
+        headers: {
+          ...ownerHeaders,
+          origin: server.baseUrl,
+          cookie: csrfCookie,
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          password: "test-remote-app-password",
+          next: "/dashboard",
+          csrfToken
+        }),
+        redirect: "manual"
+      });
+      assert.equal(login.status, 303);
+      const sessionCookie = responseCookie(login, "ai_link_session");
+      assert.ok(sessionCookie);
+
+      const ownerDashboard = await fetch(`${server.baseUrl}/dashboard`, {
+        headers: { ...ownerHeaders, cookie: sessionCookie }
+      });
+      assert.equal(ownerDashboard.status, 200);
+
+      const otherJwt = await accessJwt({ email: "other@example.com", sub: "other-subject" });
+      const mismatched = await fetch(`${server.baseUrl}/dashboard`, {
+        headers: { ...accessHeaders(otherJwt), cookie: sessionCookie }
+      });
+      assert.equal(mismatched.status, 403);
+      assert.equal(await mismatched.text(), "Session identity mismatch.");
+
+      const serviceJwt = await accessJwt({ common_name: "service-client.access", sub: "" });
+      const serviceLogin = await fetch(`${server.baseUrl}/login`, {
+        headers: accessHeaders(serviceJwt)
+      });
+      assert.equal(serviceLogin.status, 403);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("enforces signed server-side console session expiry and handles malformed cookies", () => {
     const issuedAt = Date.parse("2026-07-13T00:00:00.000Z");
     const header = createSessionCookie({
@@ -210,4 +267,14 @@ async function apiTasks(baseUrl, assertion, forwardedEmail = "") {
     }
   });
   return { response, data: await response.json() };
+}
+
+function accessHeaders(assertion) {
+  return { "cf-access-jwt-assertion": assertion };
+}
+
+function responseCookie(response, name) {
+  const header = response.headers.get("set-cookie") || "";
+  const match = header.match(new RegExp(`(?:^|,\\s*)${name}=([^;]*)`));
+  return match ? `${name}=${match[1]}` : "";
 }

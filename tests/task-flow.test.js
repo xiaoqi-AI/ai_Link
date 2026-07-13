@@ -318,14 +318,10 @@ describe("AI Link task flow", () => {
     assert.equal(empty.response.status, 200);
     assert.equal(empty.data.auditEvents.length, 0);
 
-    const login = await fetch(`${server.baseUrl}/login`, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ password: "test-password", next: "/dashboard/audit" }),
-      redirect: "manual"
+    const cookie = await loginConsole(server.baseUrl, {
+      password: "test-password",
+      next: "/dashboard/audit"
     });
-    const cookie = login.headers.get("set-cookie")?.split(";")[0];
-    assert.ok(cookie);
 
     const page = await fetch(`${server.baseUrl}/dashboard/audit?taskId=${created.data.task.id}&eventType=ai_link.audit`, {
       headers: { cookie }
@@ -813,14 +809,10 @@ describe("AI Link task flow", () => {
     assert.equal(serialized.includes("private-profile"), false);
     assert.equal(serialized.includes("private-token"), false);
 
-    const login = await fetch(`${server.baseUrl}/login`, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ password: "test-password", next: "/dashboard/connectors" }),
-      redirect: "manual"
+    const cookie = await loginConsole(server.baseUrl, {
+      password: "test-password",
+      next: "/dashboard/connectors"
     });
-    const cookie = login.headers.get("set-cookie")?.split(";")[0];
-    assert.ok(cookie);
 
     const page = await fetch(`${server.baseUrl}/dashboard/connectors`, {
       headers: { cookie }
@@ -961,3 +953,32 @@ describe("AI Link task flow", () => {
     }
   });
 });
+
+async function loginConsole(baseUrl, { password, next }) {
+  const page = await fetch(`${baseUrl}/login`);
+  const csrfCookie = responseCookie(page, "ai_link_csrf");
+  const csrfToken = (await page.text()).match(/name="csrfToken" value="([^"]+)"/)?.[1];
+  assert.ok(csrfCookie);
+  assert.ok(csrfToken);
+
+  const response = await fetch(`${baseUrl}/login`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      origin: baseUrl,
+      cookie: csrfCookie
+    },
+    body: new URLSearchParams({ password, next, csrfToken }),
+    redirect: "manual"
+  });
+  assert.equal(response.status, 303);
+  const sessionCookie = responseCookie(response, "ai_link_session");
+  assert.ok(sessionCookie);
+  return sessionCookie;
+}
+
+function responseCookie(response, name) {
+  const header = response.headers.get("set-cookie") || "";
+  const match = header.match(new RegExp(`(?:^|,\\s*)${name}=([^;]*)`));
+  return match ? `${name}=${match[1]}` : "";
+}

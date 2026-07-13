@@ -101,6 +101,10 @@ export function createApiRouter() {
       res.status(404).json({ error: "approval_not_found" });
       return;
     }
+    if (!decision.changed) {
+      res.status(409).json({ error: "approval_already_decided" });
+      return;
+    }
     res.json({ task: publicTask(decision.task), approval: decision.approval });
   });
 
@@ -115,6 +119,10 @@ export function createApiRouter() {
       actor: actorName(req),
       note: req.body?.note || ""
     });
+    if (!retried) {
+      res.status(409).json({ error: "task_not_retryable" });
+      return;
+    }
     res.json({ task: publicTask(retried) });
   });
 

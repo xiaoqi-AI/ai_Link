@@ -198,11 +198,24 @@ try {
 if ($AppPassword) {
   try {
     $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    $form = "password=$([uri]::EscapeDataString($AppPassword))&next=%2Fdashboard"
+    $loginPage = Invoke-WebRequest `
+      -Uri "$BaseUrl/login" `
+      -Headers (New-CommonHeaders) `
+      -WebSession $session `
+      -UseBasicParsing `
+      -TimeoutSec 30
+    $csrfMatch = [regex]::Match($loginPage.Content, 'name="csrfToken" value="([^"]+)"')
+    if (-not $csrfMatch.Success) {
+      throw "Login page did not provide a request token."
+    }
+    $csrfToken = $csrfMatch.Groups[1].Value
+    $form = "password=$([uri]::EscapeDataString($AppPassword))&next=%2Fdashboard&csrfToken=$([uri]::EscapeDataString($csrfToken))"
+    $loginPostHeaders = New-CommonHeaders
+    $loginPostHeaders["Origin"] = $BaseUrl
     $loginResult = Invoke-WebRequest `
       -Uri "$BaseUrl/login" `
       -Method "Post" `
-      -Headers (New-CommonHeaders) `
+      -Headers $loginPostHeaders `
       -Body $form `
       -ContentType "application/x-www-form-urlencoded" `
       -WebSession $session `

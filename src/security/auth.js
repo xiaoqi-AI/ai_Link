@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { parseCookies, verifySessionCookie } from "./session.js";
+import { browserSessionActor } from "./loginRateLimit.js";
 
 export function hashToken(token) {
   return crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -58,9 +59,16 @@ export function requireAppSession(req, res, next) {
     res.redirect(`/login?next=${encodeURIComponent(req.originalUrl || "/dashboard")}`);
     return;
   }
+  const expectedActor = browserSessionActor(req, req.app.locals.config.sessionSecret);
+  if (!expectedActor || session.actor !== expectedActor) {
+    res.status(403).send("Session identity mismatch.");
+    return;
+  }
   req.actor = {
     type: "app_session",
     name: session.actor || "console"
   };
+  req.appSession = session;
+  req.appSessionCookie = cookies.ai_link_session;
   next();
 }

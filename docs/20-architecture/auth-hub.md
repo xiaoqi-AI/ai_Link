@@ -132,6 +132,11 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - `AI_LINK_APP_PASSWORD`
 - `AI_LINK_SESSION_SECRET`
 - `AI_LINK_SESSION_MAX_AGE_SECONDS`，默认 `28800`，允许范围为 5 分钟至 24 小时
+- `AI_LINK_CSRF_TOKEN_TTL_SECONDS`，默认 `900`，允许范围为 5 至 60 分钟
+- `AI_LINK_LOGIN_MAX_FAILURES`，默认 `5`，允许范围为 3 至 20
+- `AI_LINK_LOGIN_WINDOW_SECONDS`，默认 `900`，允许范围为 1 至 60 分钟
+- `AI_LINK_LOGIN_BLOCK_SECONDS`，默认 `900`，允许范围为 1 分钟至 24 小时
+- `AI_LINK_LOGIN_MAX_KEYS`，默认 `1000`，允许范围为 100 至 10000
 - `AI_LINK_ADMIN_TOKEN`
 - `AI_LINK_EXECUTOR_TOKEN`
 - `AI_LINK_EXECUTOR_ID`，必须与本地执行器使用的 ID 一致
@@ -144,11 +149,11 @@ Auth Hub 把连接器状态拆成三个互不替代的层次：
 - 可选：`AI_LINK_CODEX_TOKEN`
 - 可选：`SMTP_URL`、`APPROVAL_EMAIL_TO`、`APPROVAL_EMAIL_FROM`
 
-生产模式缺少 `DATABASE_URL` 会在配置加载阶段拒绝启动，不允许退回 `MemoryStore`。公开蓝图中的数据库使用当前可新建的 `basic-256mb` 规格并设置 `ipAllowList: []`，只允许 Render 私网连接；Web Service 使用 `autoDeployTrigger: checksPass`。`AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN` 使用 `sync: false`，必须由部署负责人明确选择，不能因模板默认值静默开放。Render service 与数据库 region 创建后不可修改，蓝图暂不替负责人选择，部署前必须确认。
+生产模式缺少 `DATABASE_URL` 会在配置加载阶段拒绝启动，不允许退回 `MemoryStore`。公开蓝图中的数据库使用当前可新建的 `basic-256mb` 规格并设置 `ipAllowList: []`，只允许 Render 私网连接；Web Service 使用 `autoDeployTrigger: checksPass` 并固定 `numInstances: 1`。单实例约束来自当前登录限流使用进程内有界状态；若要横向扩容，必须先迁移到 Postgres、Cloudflare 或其他共享限流层。`AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN` 使用 `sync: false`，必须由部署负责人明确选择，不能因模板默认值静默开放。Render service 与数据库 region 创建后不可修改，蓝图暂不替负责人选择，部署前必须确认。
 
 Render 官方参考：[Blueprint YAML Reference](https://render.com/docs/blueprint-spec)、[Render Postgres flexible plans](https://render.com/docs/postgresql-refresh)。
 
-Cloudflare Access 应限制独立 Auth Hub 域名只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access JWT 的 RS256 签名、issuer 和 audience。用户身份只取已验证 JWT 的 `email`，若转发邮件头存在则必须与 JWT 一致；服务令牌只接受已验证 JWT 的 `common_name`，且必须显式开启 service-token 访问。任何 JWT 校验参数缺失、身份不一致或签名失败都会拒绝请求，不退化为信任请求头。应用内登录作为第二层门禁，其签名会话包含服务端校验的绝对过期时间，默认 8 小时。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖；建议候选为 `auth.xiao-qi-ai.com`，最终域名仍需负责人确认。
+Cloudflare Access 应限制独立 Auth Hub 域名只能由授权邮箱访问；应用自身还会通过 `AI_LINK_REQUIRE_CLOUDFLARE_ACCESS` 校验 Access JWT 的 RS256 签名、issuer 和 audience。用户身份只取已验证 JWT 的 `email`，若转发邮件头存在则必须与 JWT 一致；服务令牌只接受已验证 JWT 的 `common_name`，且必须显式开启 service-token 访问。任何 JWT 校验参数缺失、身份不一致或签名失败都会拒绝请求，不退化为信任请求头。应用内登录作为第二层门禁，其签名会话包含服务端校验的绝对过期时间，默认 8 小时，并绑定当前已验证 Access 用户；service token 不能进入浏览器控制台。所有控制台写操作还要求同源来源和会话绑定 CSRF token，退出只接受 POST。当前 `voice.xiao-qi-ai.com` 承载的不是 Auth Hub，不应覆盖；建议候选为 `auth.xiao-qi-ai.com`，最终域名仍需负责人确认。
 
 部署前检查见 `docs/20-architecture/auth-hub-deployment-checklist.md`。
 
@@ -220,6 +225,7 @@ npm audit --audit-level=high
 - 执行器心跳：严格字段白名单、TTL 过期、缺失/过期失败关闭、旧版 Hub 兼容和心跳失败不阻塞 lease。
 - 显式 probe：token/executor/session/lease 全链绑定、mock 不可领取、服务端重验、结果重放拒绝、最新失败覆盖、TTL 失败关闭和敏感内部字段不外泄。
 - 远程访问：Access JWT 签名/issuer/audience 校验、邮件身份绑定、服务令牌分类、缺失配置失败关闭，以及控制台会话服务端绝对过期。
+- 浏览器写入防护：同源校验、会话绑定 CSRF、登录失败限流、安全本地跳转、POST 退出、非法/重复审批拒绝，以及不可重试状态拒绝。
 - Codex token 无法执行审批。
 - 敏感字段和原始内容脱敏。
 

@@ -83,6 +83,13 @@ export function loadConfig(env = process.env) {
       300,
       86400
     ),
+    csrfTokenTtlSeconds: boundedInteger(env.AI_LINK_CSRF_TOKEN_TTL_SECONDS, 900, 300, 3600),
+    loginRateLimit: {
+      maxFailures: boundedInteger(env.AI_LINK_LOGIN_MAX_FAILURES, 5, 3, 20),
+      windowMs: boundedInteger(env.AI_LINK_LOGIN_WINDOW_SECONDS, 900, 60, 3600) * 1000,
+      blockMs: boundedInteger(env.AI_LINK_LOGIN_BLOCK_SECONDS, 900, 60, 86400) * 1000,
+      maxKeys: boundedInteger(env.AI_LINK_LOGIN_MAX_KEYS, 1000, 100, 10000)
+    },
     leaseMs: Number(env.AI_LINK_LEASE_MS || 120000),
     executorHeartbeatTtlMs: boundedInteger(
       env.AI_LINK_EXECUTOR_HEARTBEAT_TTL_MS,

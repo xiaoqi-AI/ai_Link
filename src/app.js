@@ -6,6 +6,8 @@ import { createApiRouter } from "./routes/api.js";
 import { createUiRouter } from "./routes/ui.js";
 import { NotificationService } from "./notifications/email.js";
 import { requireCloudflareAccess } from "./security/cloudflareAccess.js";
+import { LoginRateLimiter } from "./security/loginRateLimit.js";
+import { browserSecurityHeaders } from "./security/browserHeaders.js";
 import { createConnectorRegistry } from "./connectors/registry.js";
 
 export async function createApp(options = {}) {
@@ -16,15 +18,22 @@ export async function createApp(options = {}) {
 
   const notifier = options.notifier || new NotificationService({ config, store });
   const connectorRegistry = options.connectorRegistry || createConnectorRegistry();
+  const loginRateLimiter = options.loginRateLimiter || new LoginRateLimiter({
+    ...config.loginRateLimit,
+    clock: options.clock || (() => Date.now())
+  });
   const app = express();
   app.disable("x-powered-by");
   app.locals.config = config;
   app.locals.store = store;
   app.locals.notifier = notifier;
   app.locals.connectorRegistry = connectorRegistry;
+  app.locals.loginRateLimiter = loginRateLimiter;
+  app.locals.clock = options.clock || (() => Date.now());
 
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+  app.use(browserSecurityHeaders);
 
   app.get("/healthz", (req, res) => {
     res.json({ ok: true, service: "ai-link-auth-hub" });

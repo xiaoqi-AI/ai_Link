@@ -309,7 +309,7 @@ export class MemoryStore {
 
   async retryTask({ taskId, actor, note = "" }) {
     const task = this.tasks.get(taskId);
-    if (!task) return null;
+    if (!task || ![TASK_STATUSES.ACTION_REQUIRED, TASK_STATUSES.FAILED].includes(task.status)) return null;
     task.status = TASK_STATUSES.QUEUED;
     task.error = null;
     task.leasedBy = null;

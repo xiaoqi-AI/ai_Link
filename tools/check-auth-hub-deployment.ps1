@@ -25,6 +25,11 @@ $optionalEnv = @(
   "APPROVAL_EMAIL_TO",
   "APPROVAL_EMAIL_FROM",
   "AI_LINK_SESSION_MAX_AGE_SECONDS",
+  "AI_LINK_CSRF_TOKEN_TTL_SECONDS",
+  "AI_LINK_LOGIN_MAX_FAILURES",
+  "AI_LINK_LOGIN_WINDOW_SECONDS",
+  "AI_LINK_LOGIN_BLOCK_SECONDS",
+  "AI_LINK_LOGIN_MAX_KEYS",
   "AI_LINK_ALLOWED_ACCESS_EMAILS",
   "AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN",
   "AI_LINK_CLOUDFLARE_ACCESS_ISSUER",
@@ -81,6 +86,11 @@ if (Test-Path -LiteralPath $renderPath) {
     "AI_LINK_APP_PASSWORD",
     "AI_LINK_SESSION_SECRET",
     "AI_LINK_SESSION_MAX_AGE_SECONDS",
+    "AI_LINK_CSRF_TOKEN_TTL_SECONDS",
+    "AI_LINK_LOGIN_MAX_FAILURES",
+    "AI_LINK_LOGIN_WINDOW_SECONDS",
+    "AI_LINK_LOGIN_BLOCK_SECONDS",
+    "AI_LINK_LOGIN_MAX_KEYS",
     "AI_LINK_ADMIN_TOKEN",
     "AI_LINK_EXECUTOR_TOKEN",
     "AI_LINK_EXECUTOR_ID",
@@ -107,6 +117,11 @@ if (Test-Path -LiteralPath $renderPath) {
     Add-Result $results "Render auto deploy" "pass" "Deploys wait for linked CI checks to pass."
   } else {
     Add-Result $results "Render auto deploy" "fail" "Set autoDeployTrigger to checksPass."
+  }
+  if ($renderText -match "numInstances:\s*1") {
+    Add-Result $results "Render web instances" "pass" "Blueprint keeps one web instance for the in-process login limiter."
+  } else {
+    Add-Result $results "Render web instances" "fail" "Keep numInstances at 1 until login rate limits use a shared store."
   }
   if ($renderText -match "(?s)databases:.*?plan:\s*basic-256mb") {
     Add-Result $results "Render Postgres plan" "pass" "Blueprint uses the current basic-256mb database plan."
