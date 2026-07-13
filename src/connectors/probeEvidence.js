@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   getPlatformAuthOperation,
   normalizePlatformConnectorResult,
@@ -13,6 +13,7 @@ const OPAQUE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const PROBE_OUTCOMES = new Set(["verified", "action_required", "blocked", "unverified"]);
 const INTERNAL_ISSUE_CODES = new Set(["probe_result_invalid", "probe_source_untrusted"]);
 const GITHUB_SCOPES = new Set(["repo_read", "actions_read", "pull_request_read"]);
+const GITHUB_TARGET_PATTERN = /^[A-Za-z0-9_.-]{1,100}$/;
 const SUBJECT_KEY_PATTERN = /^[a-f0-9]{64}$/;
 const PRIVATE_CAPABILITY_MODES = new Set([
   "private",
@@ -103,7 +104,7 @@ export function buildConnectorProbeSettlement({
   const capability = PROBE_OPERATIONS[platform]?.[operation];
   const operationContract = getPlatformAuthOperation(platform, operation);
   if (!capability || operationContract?.mode !== "read_only") return null;
-  const binding = probeBinding({ platform, operation, input: task.input, subjectSecret });
+  const binding = buildConnectorProbeBinding({ platform, operation, input: task.input, subjectSecret });
   if (!binding) return null;
 
   let normalizedResult = null;
@@ -256,19 +257,34 @@ export function normalizeConnectorProbeEvidence(value) {
   };
 }
 
-function probeBinding({ platform, operation, input, subjectSecret }) {
+export function buildConnectorProbeBinding({ platform, operation, input, subjectSecret }) {
   if (platform !== "github" || operation !== "check_auth") {
     return { qualifier: "", subjectKey: "" };
   }
-  const qualifier = String(input?.scope || "");
+  const target = normalizeGitHubProbeTarget(input);
+  const secret = String(subjectSecret || "");
+  if (!target || secret.length < 16) return null;
+  return {
+    qualifier: target.scope,
+    subjectKey: createHmac("sha256", secret).update(`github:${target.owner}/${target.repo}`).digest("hex")
+  };
+}
+
+export function normalizeGitHubProbeTarget(input) {
   const owner = String(input?.owner || "").trim().toLowerCase();
   const repo = String(input?.repo || "").trim().toLowerCase();
-  const secret = String(subjectSecret || "");
-  if (!GITHUB_SCOPES.has(qualifier) || !owner || !repo || secret.length < 16) return null;
-  return {
-    qualifier,
-    subjectKey: createHmac("sha256", secret).update(`github:${owner}/${repo}`).digest("hex")
-  };
+  const scope = String(input?.scope || "").trim();
+  if (!GITHUB_TARGET_PATTERN.test(owner) || !GITHUB_TARGET_PATTERN.test(repo) || !GITHUB_SCOPES.has(scope)) {
+    return null;
+  }
+  return { owner, repo, scope };
+}
+
+export function connectorProbeSubjectMatches(left, right) {
+  if (!SUBJECT_KEY_PATTERN.test(String(left || "")) || !SUBJECT_KEY_PATTERN.test(String(right || ""))) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 
 function validProbeBinding({ platform, operation, qualifier, subjectKey }) {

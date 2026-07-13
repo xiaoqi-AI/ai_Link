@@ -46,3 +46,21 @@ npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:strict -- --require-opera
 - 不新增真实平台调用。
 - 不改变 Auth Hub 审批门。
 - 这是跨项目状态消费入口，不是小红书、公众号或 GitHub 的真实 connector 实现。
+
+## 2026-07-13 当前口径补充
+
+本节取代上文关于“命令只调用 GET”和“仓库级核验等待后续实现”的当前使用口径，但保留原文作为历史记录。
+
+GitHub 仓库级自动放行现在必须同时声明 operation、scope 和精确目标：
+
+```powershell
+$env:AI_LINK_GITHUB_REPOSITORY="<owner>/<repo>"
+npm.cmd --prefix $env:AI_LINK_HOME run auth-hub:status:strict -- --require-operation "github=check_auth:repo_read:target_bound" --github-target-env AI_LINK_GITHUB_REPOSITORY
+```
+
+- 命令总是先读取 `GET /api/auth-status`；只有通用状态具备候选证据时，才调用 `POST /api/auth-status/verify-targets` 做服务端精确目标比较。
+- 精确目标 POST 同时要求 `connectors:read` 与独立 `connectors:verify-target`；普通状态查看 token 不应获得后一个 scope。
+- 当前 GET 只发布 `check_auth:<scope>:target_verification_required:v1` 候选标记，不发布会被旧客户端误判为已经精确通过的 `target_bound`。
+- `--github-target-env` 接收环境变量名，不能直接接收 `owner/repo`。原始目标只短暂存在于调用进程环境和认证 POST 请求体，不进入 URL、API 响应、CLI 报告、watcher 快照或服务端 probe 证据存储。
+- `target_bound` 仍不能单独放行；只有对应 `operationRequirements[].status=verified` 才表示 operation、scope 和当前目标均匹配。
+- 两个状态接口都不创建 probe、不访问 GitHub、不改变审批门；缺目标、错误目标、接口过旧或合同异常全部失败关闭。

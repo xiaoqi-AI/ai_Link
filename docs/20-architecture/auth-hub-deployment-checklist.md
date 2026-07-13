@@ -204,7 +204,7 @@ npm run auth-hub:local:stop
 - `AI_LINK_CLOUDFLARE_TEAM_DOMAIN` 或 `AI_LINK_CLOUDFLARE_ACCESS_ISSUER`
 - `AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN=true`（仅当负责人批准本地执行器使用 Service Auth 时）
 - `AI_LINK_CODEX_TOKEN`：Blueprint 中为 `sync: false`；本项目需要受限项目客户端能力，因此首次部署必须填写，远程 smoke 也会校验
-- `AI_LINK_CODEX_SCOPES=tasks:create,tasks:read,connectors:read,audit:write`：受限项目客户端可提交任务、读脱敏状态并追加审计，但不能领取执行器任务或批准发布
+- `AI_LINK_CODEX_SCOPES=tasks:create,tasks:read,connectors:read,connectors:verify-target,audit:write`：受限项目客户端可提交任务、读脱敏状态、执行 GitHub 精确目标门禁并追加审计，但不能领取执行器任务或批准发布；不需要精确目标核验的状态 token 不应获得 `connectors:verify-target`
 
 邮件提醒可选配置：
 

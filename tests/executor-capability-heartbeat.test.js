@@ -182,7 +182,7 @@ describe("executor capability heartbeat", () => {
         runtime: { status: "online" },
         operationalStatus: "verified",
         canRunReal: true,
-        verifiedOperations: ["check_auth:repo_read:target_bound"],
+          verifiedOperations: ["check_auth:repo_read:target_verification_required:v1"],
         probe: {
           status: "verified",
           checkedAt: "2026-07-12T12:01:00.000Z",

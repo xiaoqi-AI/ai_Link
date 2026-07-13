@@ -107,7 +107,7 @@ describe("Auth Hub remote next report", () => {
     assert.match(blueprint, /key:\s*AI_LINK_LOGIN_WINDOW_SECONDS\s+value:\s*"900"/);
     assert.match(blueprint, /key:\s*AI_LINK_LOGIN_BLOCK_SECONDS\s+value:\s*"900"/);
     assert.match(blueprint, /key:\s*AI_LINK_LOGIN_MAX_KEYS\s+value:\s*"1000"/);
-    assert.match(blueprint, /key:\s*AI_LINK_CODEX_SCOPES\s+value:\s*"tasks:create,tasks:read,connectors:read,audit:write"/);
+    assert.match(blueprint, /key:\s*AI_LINK_CODEX_SCOPES\s+value:\s*"tasks:create,tasks:read,connectors:read,connectors:verify-target,audit:write"/);
     assert.match(blueprint, /numInstances:\s*1/);
     assert.match(blueprint, /autoDeployTrigger:\s*checksPass/);
     assert.match(blueprint, /key:\s*AI_LINK_CLOUDFLARE_ACCESS_ALLOW_SERVICE_TOKEN\s+sync:\s*false/);

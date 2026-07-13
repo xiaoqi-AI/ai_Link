@@ -45,12 +45,15 @@ export async function createApp(options = {}) {
 
   app.use((err, req, res, next) => {
     void next;
-    console.error(err);
+    const invalidBody = err?.type === "entity.parse.failed";
+    const status = invalidBody ? 400 : 500;
+    const errorCode = invalidBody ? "invalid_json_body" : "internal_error";
+    console.error("Auth Hub request failed", { error: errorCode, status });
     if (req.path.startsWith("/api")) {
-      res.status(500).json({ error: "internal_error" });
+      res.status(status).json({ error: errorCode });
       return;
     }
-    res.status(500).send("Internal error");
+    res.status(status).send(invalidBody ? "Invalid request body" : "Internal error");
   });
 
   return { app, store, config };
