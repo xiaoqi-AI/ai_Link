@@ -2,7 +2,7 @@
 
 日期：2026-07-14
 
-状态：本地验收完成，待 GitHub CI 与合并。真实平台调用和远程部署仍未发生。
+状态：PR #38 已创建，本地验收完成，待 GitHub 必需检查与合并。真实平台调用和远程部署仍未发生。
 
 ## 背景
 
@@ -70,14 +70,15 @@ Auth Hub 已具备任务、状态、审批、审计和 connector 运行槽位，
 ## 本地验证
 
 - `npm run check`：通过。
-- `npm test`：通过；Auth Hub `245/245`，Postgres 集成在本机无测试数据库时跳过。
+- `npm test`：通过；基础测试 `74/74`、Auth Hub `246/246`，Postgres 集成在本机无测试数据库时跳过。
 - `npm run package:check`：`41/41` 通过。
 - `npm run package:install-smoke`：`19/19` 通过，安装后的 `ai-link-auth-hub --help` 可运行。
 - `npm run security:scan`：通过，扫描 406 个公开文件。
 - `powershell -ExecutionPolicy Bypass -File tools/check-governance.ps1`：通过。
+- `npm run verify:fresh`：通过；从干净目录克隆、安装并复跑公开验证链路成功。
 
 ## 待完成
 
-- 创建公开 PR，等待 `Verify` 与真实 Postgres integration 必需检查。
+- PR #38 已创建，等待 `Verify` 与真实 Postgres integration 必需检查。
 - 必需检查全部通过后按既有授权自行合并，不绕过 `main` 保护。
 - 合并后同步并验证 AI Link 知识库镜像，再更新项目总监控制面与本账本的 GitHub 结果。
