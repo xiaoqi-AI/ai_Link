@@ -199,6 +199,14 @@ JSON 输出同时给出 `accepted`、`ready` 和 `ok`。合法任务被 Auth Hub
 
 客户端只允许 `xiaohongshu/check_session`、`xiaohongshu/search_content`、`wechat_official/check_health` 和 `github/check_auth`。它不允许 `begin_login`、`evidenceIntent=connector_probe`、审批、retry、发布或写操作；普通任务完成也不会自动变成 Auth Status 的 probe 证据。遇到登录、验证码、凭据、费用、平台写入或远程部署事项时，必须回到 Auth Hub 管理员和人工决策流程。
 
+#### 下游项目本地/mock 消费验收
+
+业务项目正式依赖远程 Auth Hub 前，应先在自己的仓库完成一次安装包级黑盒验收，而不是只引用 AI Link 仓库内的单元测试。推荐最小链路是：临时打包并安装 `@xiaoqi-ai/ai-link`、启动 loopback 内存态 Hub、为调用方配置一次性项目身份、提交 `wechat_official/check_health`、运行公开 mock 执行器、读取完成结果，再验证相同 `requestId` 幂等复用、另一个项目无法读取任务、未支持写操作失败关闭，且所有输出不含一次性凭据。
+
+该验收只证明项目客户端合同可消费，不证明真实平台授权、远程 Access、数据库、费用或生产密钥已经就绪。下游验收程序必须删除临时目录，不读取现有 OAuth、Cookie、浏览器 Profile 或私有 connector；测试 Hub 应显式绑定 `127.0.0.1`，npm 用户级与全局配置应使用独立空文件，子进程只继承必要环境变量；如果打包会生成或覆盖 `dist`，运行结束必须恢复原状态。真实平台和远程部署仍使用独立人工决策门禁。
+
+2026-07-20，Hermes Agent 已按上述模式完成首个下游黑盒验收，覆盖安装、项目身份、提交、mock 执行、结果回读、幂等复用、跨项目隔离、失败关闭和输出脱敏。公开安全证据见 `docs/project-ledger/session-2026-07-20-hermes-project-client-consumer-acceptance.md`。
+
 GitHub 精确目标状态采用失败关闭口径：`target_missing` 表示未提供目标环境变量，`target_invalid` 表示环境变量名或 `owner/repo` 值畸形，`target_unsupported` 表示请求不属于当前支持的 GitHub `check_auth` 范围，`target_coverage_unverified` 表示服务端过旧、接口不可达或响应合同不完整，`target_unverified` 表示现有新鲜证据没有验证该精确目标与 scope。前四类属于监控配置/覆盖故障，不建立或推进 watcher 基线；最后一类是可提醒的业务门禁信号。所有类别都不会在输出中回显目标。
 
 `auth-hub:status:watch` / `auth-hub:status:watch:json` 用于低频计划任务或 Codex 自动化，不用于每个项目任务的冷启动。首次成功运行只在 `runtime/private/auth-status-notifier/` 下建立按 Auth Hub 地址、平台、所需操作和规范化目标 keyed-HMAC 隔离的脱敏基线，并返回 `notify=false`；之后比较服务端规范化的 `authStatus.nextActions` 与消费端操作要求。watcher 会把人工动作和每一项精确操作作为独立信号，所以同一平台可以同时保留一个人工动作和多个 operation 门禁，不会互相覆盖。目标大小写规范化后复用同一基线，切换仓库则失败关闭并要求新的基线，避免把仓库 A 的状态沿用到仓库 B；持有快照但没有当前受限 token 的一方不能直接做仓库名字典验证。新人工事项、所需操作缺少证据或严重度恶化返回 `notify=true`；事项恢复、改善或同级原因变化只更新基线并返回 `resolved_without_alert` / `changed_without_alert`，避免误报。快照 schema 为版本 3，只包含哈希作用域、信号类型、平台代码、所需操作代码、状态、严重度、公开原因、最近成功检查时间和指纹，不保存 token、Cookie、Profile、二维码、截图、账号、目标仓库、任务 ID、目标 URL、标题、runbook 或原始响应。升级后如已有版本 2 快照，watcher 会以 `state_unreadable` 失败关闭；维护者确认没有并发 watcher 后，应删除或改名旧私有状态文件，再运行一次建立新基线。可用 `--state-file` 改到 `runtime/private/` 或 `runtime/tmp/` 下的其他文件，公共路径会被拒绝。缺 token、接口不可达、Auth Status 覆盖不完整、目标配置缺失/畸形、目标核验失败、HTTP 200 非 JSON/缺字段/字段类型错误、平台/操作范围无效、作用域不匹配、快照损坏或无法写入时，命令返回非零、`monitoringOk=false`、`monitoringAlert=true` 和 `notify=false`，并且不会建立或推进业务基线。该命令只生成提醒信号，不自行发送邮件、不执行 probe、不续登，也不调用真实平台。

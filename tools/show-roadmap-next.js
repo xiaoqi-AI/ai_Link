@@ -5,9 +5,9 @@ const args = new Set(process.argv.slice(2));
 const outputJson = args.has("--json");
 
 const program = {
-  asOf: "2026-07-14",
+  asOf: "2026-07-20",
   objective: "Advance Auth Hub status, platform authorization connectors P0.2, and remote deployment as one governed AI Link program.",
-  recommendedNext: "Run local/mock project-consumption acceptance for the merged project client, then separately decide the first real GitHub read-only acceptance; keep remote deployment behind its decision card.",
+  recommendedNext: "Use the completed Hermes local/mock project-client acceptance as the baseline, then validate ParentingGame as a local consumer of the sanitized GSC report; keep real connectors and remote deployment behind their decision cards.",
   mergeStatus: "complete",
   mergeOrder: ["#22", "#23", "#26", "#24", "#25", "#27", "#28", "#29", "#30"],
   modules: [
@@ -15,8 +15,8 @@ const program = {
       id: "auth-hub-status-center",
       number: 2,
       title: "Auth Hub 状态中枢",
-      status: "project_client_ready",
-      currentStage: "The status-center stack and PR #38 project client are in main; local/mock dependent-project consumption is next, while notification activation and remote evidence remain gated.",
+      status: "dependent_project_verified",
+      currentStage: "The status-center stack and PR #38 project client are in main, and Hermes has completed an installed-package local/mock black-box acceptance; notification activation and remote evidence remain gated.",
       completed: [
         "PR #12, #16, and #17 merged login summaries, public next actions, and the project-facing status client.",
         "PR #22-#25 and #27-#30 are merged with executor heartbeat, operation-bound probe evidence, remote identity hardening, abuse controls, data lifecycle, program control, and low-noise change detection.",
@@ -24,10 +24,11 @@ const program = {
         "The local public-safe status snapshot emits notify=true only for new or worsened attention signals without querying AI Link during ordinary project work.",
         "PR #31 records maintainer authorization for future in-scope PR merges without bypassing required checks.",
         "PR #33-#37 tightened operator trust, exact operation status, and exact GitHub target evidence.",
-        "PR #38 merged project identities, persistent idempotency, own-task reads, and a packaged bounded task client after Verify and Postgres integration passed."
+        "PR #38 merged project identities, persistent idempotency, own-task reads, and a packaged bounded task client after Verify and Postgres integration passed.",
+        "Hermes completed a downstream installed-package black-box acceptance for wechat_official/check_health, including submit, mock execution, result reads, idempotent replay, cross-project isolation, fail-closed behavior, and redaction."
       ],
       pending: [
-        "Validate one dependent project through local/mock submission and status reads without introducing a real account or remote endpoint.",
+        "Validate ParentingGame as a local consumer of the sanitized GSC report without moving OAuth or monitor logic into the business project.",
         "Choose one approved low-frequency notification channel and schedule only after a stable local or remote Auth Hub endpoint exists.",
         "Collect the first operation-bound real connector evidence without moving credentials or login state into the public repository.",
         "Do not claim the remote status center is deployed until Cloudflare Access and Render smoke evidence exists."
@@ -45,20 +46,20 @@ const program = {
       number: 5,
       title: "平台授权连接器 P0.2",
       status: "manual_acceptance",
-      currentStage: "Public contracts, private adapter scaffolds, and the PR #38 governed project client are merged; real account acceptance remains gated.",
+      currentStage: "Public contracts, private adapter scaffolds, and the governed project client are merged; Hermes has verified the local/mock consumer path, while real account acceptance remains gated.",
       completed: [
         "PR #9 and #13 merged platform contracts and the interactive-login approval gate.",
         "PR #18-#21 merged GitHub and WeChat private scaffolds plus the combined Xiaohongshu read-only bridge entry.",
         "PR #26 merged target-required, scope-specific GitHub read-only evidence checks.",
         "PR #33-#37 hardened exact operation and GitHub repository/scope evidence boundaries.",
         "PR #38 merged project policies bound to approved connector operations and exact GitHub targets without exposing login state.",
+        "Hermes verified the public mock WeChat health operation through an installed project client without reading an existing credential or calling the real platform.",
         "Private runtime state stays under runtime/private and public task results are rebuilt through allowlists."
       ],
       pending: [
-        "Complete local/mock project-client consumption before any real connector call.",
         "Run a separately approved low-risk real GitHub read-only acceptance with the existing local authorization.",
         "Separately approve Xiaohongshu account/keywords/time window and WeChat credentials/IP allowlist before real calls.",
-        "Complete Hermes platform_auth_collect consumption acceptance after connector evidence is stable."
+        "Keep Hermes production integration and its existing platform fallbacks unchanged until a stable endpoint and separately approved real evidence exist."
       ],
       decision: {
         background: "The connector framework is implemented, but scaffold success does not prove a real platform account can be used safely.",
@@ -73,15 +74,15 @@ const program = {
       number: 6,
       title: "Auth Hub 远程化",
       status: "deployment_gated",
-      currentStage: "Code, tests, rollback guidance, a Chinese deployment handoff, and the PR #38 remote-ready project client are merged; no production resource or remote smoke evidence exists.",
+      currentStage: "Code, tests, rollback guidance, a Chinese deployment handoff, and the PR #38 remote-ready project client are merged; the client passed a local downstream acceptance, but no production resource or remote smoke evidence exists.",
       completed: [
         "PR #24, #25, #27, and #28 implement Access identity checks, deployment readiness, browser-write protection, credential lifecycle, and retention.",
         "Service Auth target allowlisting, no-redirect health checks, independent browser/service acceptance, and executor target protection are verified.",
         "PR #38 merged an HTTPS-443-only, no-redirect, response-bounded project client with optional Cloudflare Service Auth.",
+        "Hermes verified the packaged client against a loopback memory-store Hub and public mock executor without creating a remote endpoint.",
         "The production preflight deliberately remains NO-GO until deployment decisions are encoded."
       ],
       pending: [
-        "Verify the packaged client against a local/mock endpoint before remote deployment work.",
         "Approve region, custom domain, paid plans, allowed email, Service Auth, secret storage, native-domain policy, retention timing, and backup/PITR.",
         "Create Render and Cloudflare resources only after the approved render.yaml change passes CI.",
         "Run remote mock smoke and browser acceptance separately; real platform calls remain independent gates."
@@ -219,7 +220,7 @@ const phases = [
     title: "Auth Hub and platform connector program",
     status: "active",
     owner: "Product owner, connector owner, and infrastructure maintainer",
-    horizon: "now: manual acceptance and deployment decision",
+    horizon: "now: ParentingGame local consumption, then separate manual acceptance and deployment decisions",
     goal: "Complete modules 2, 5, and 6 without moving platform login state into the remote control plane.",
     outcomes: [
       "Auth Hub exposes task, approval, connector, executor, and audit status while failing closed on stale evidence.",
