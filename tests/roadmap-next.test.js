@@ -58,7 +58,11 @@ describe("roadmap next report", () => {
     ]);
     assert.equal(report.program.mergeStatus, "complete");
     assert.deepEqual(report.program.mergeOrder, ["#22", "#23", "#26", "#24", "#25", "#27", "#28", "#29", "#30"]);
-    assert.match(report.program.recommendedNext, /GitHub read-only acceptance/);
+    assert.match(report.program.recommendedNext, /ParentingGame/);
+    assert.match(report.program.recommendedNext, /GSC report/);
+    assert.equal(report.program.asOf, "2026-07-20");
+    assert.equal(report.program.modules[0].status, "dependent_project_verified");
+    assert.equal(report.program.modules[0].completed.some((item) => /Hermes completed/.test(item)), true);
     assert.equal(report.program.modules.some((module) => module.pending.some((item) => /Merge PR|rebase|retarget/i.test(item))), false);
     assert.equal(report.program.modules.every((module) => (
       module.completed.length > 0
