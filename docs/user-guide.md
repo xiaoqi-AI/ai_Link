@@ -140,7 +140,7 @@ npm.cmd run gsc:check -- `
   --report-output runtime/tmp/gsc-live-domain-report.md
 ```
 
-Domain Property 配置支持 `includeSitemapUrls`，会从 sitemap 自动展开同源 URL 做全量只读监控。真实只读检查默认把最多 90 次脱敏快照保存到 `runtime/private/google-search-console/domain-history.json`，后续报告会输出相对上次检查的改善、退化和状态变化；临时运行可加 `--no-history`。授权完成后可先用 `npm.cmd run gsc:schedule:plan` 预览 Windows 每日任务，计划模式不会注册任务，真正应用仍需显式执行带 `-Apply` 的安装命令。
+Domain Property 配置支持 `includeSitemapUrls`，会从 sitemap 自动展开同源 URL 做全量只读监控。真实只读检查默认把最多 90 次脱敏快照保存到 `runtime/private/google-search-console/domain-history.json`，后续报告会输出相对上次检查的改善、退化和状态变化；临时运行可加 `--no-history`。授权完成后可先用 `npm.cmd run gsc:schedule:plan` 预览 Windows 每日任务，计划模式不会注册任务，真正应用仍需显式执行带 `-Apply` 的安装命令。计划输出里的 `credentialReady` 只表示授权文件存在；如果 `credentialHealth` 显示 `oauth_refresh_failed` 或 `property_not_listed`，`applyReady` 会是 `false`，带 `-Apply` 的命令也会失败关闭。此时先按 `operatorAction` 运行 `gsc:recover` 恢复本机只读授权，再启用或依赖每日监控。
 
 授权命令只申请 `webmasters.readonly`，使用系统浏览器、PKCE、随机 state 和 `127.0.0.1` 一次性回调。首轮验收的 refresh token 只保存在 `runtime/private/`，短期 access token 只驻留当前进程内存；长期自动化应再迁入受控 secret manager。完整 Google Cloud 中文操作、状态口径、Auth Hub `gsc_monitor` 任务格式、历史快照、错误处理、定时运行和 sitemap 写权限门禁见 `docs/20-architecture/google-search-console-connector.md`。
 

@@ -250,7 +250,18 @@ npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780" -ManualCallbackUrl
 npm.cmd run gsc:schedule:plan
 ```
 
-计划会显示运行账号、每日时间、配置、凭据、报告和历史路径，但不会读取或打印凭据内容。只有 `credentialReady` 与 `configReady` 都为 `true` 后才允许应用。
+计划会显示运行账号、每日时间、配置、凭据、报告和历史路径，但不会读取或打印凭据内容。`credentialReady` 只表示本机授权文件存在；真实可用性还要看 `credentialHealth`。如果最近一次脱敏检查报告里出现 `gsc_oauth_refresh_failed` 或 `gsc_property_not_listed`，计划会把 `credentialHealth` 标为 `oauth_refresh_failed` / `property_not_listed`，并在 `operatorAction` 中提示先运行 `gsc:recover`。只有 `credentialReady`、`configReady` 和 `applyReady` 都为 `true` 后才适合应用；如果已知 OAuth 失效，带 `-Apply` 的命令会失败关闭，不注册一个会持续失败的计划任务。
+
+典型恢复提示如下：
+
+```json
+{
+  "credentialReady": true,
+  "credentialHealth": "oauth_refresh_failed",
+  "applyReady": false,
+  "operatorAction": "Run npm.cmd run gsc:recover -- -ProxyUrl \"http://127.0.0.1:4780\" -ManualCallbackUrl, then rerun gsc:schedule:plan."
+}
+```
 
 确认每天本地时间后再执行，例如每天 13:00：
 
