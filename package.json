@@ -114,6 +114,7 @@
     "gsc:check": "npm run build && node dist/connectors/gscCheck.js",
     "gsc:authorize": "npm run build && node dist/connectors/gscAuthorize.js",
     "gsc:recover": "powershell -ExecutionPolicy Bypass -File tools/repair-gsc-oauth.ps1",
+    "gsc:recover:next": "node tools/show-gsc-recovery-next.js",
     "gsc:schedule:plan": "powershell -ExecutionPolicy Bypass -File tools/install-gsc-monitor-task.ps1",
     "start": "node src/server.js",
     "ai-link": "tsx src/cli.ts",
