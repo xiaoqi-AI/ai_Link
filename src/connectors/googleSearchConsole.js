@@ -350,10 +350,7 @@ export class GoogleSearchConsoleConnector {
     lines.push("", "## 仍待 Google 刷新的项", "");
     lines.push(...renderUrlItems(waiting, "暂无等待 Google 刷新的 URL。", (item) => `${item.url}：${statusLabel(item.status)}。`));
     lines.push("", "## 需要人工操作的项", "");
-    lines.push(...renderUrlItems(manual, "当前没有必须人工处理的技术异常。", (item) => {
-      const details = (item.issues || []).map((entry) => entry.message).filter(Boolean).join("；");
-      return `${item.url}：${statusLabel(item.status)}${details ? `；${details}` : ""}。`;
-    }));
+    lines.push(...renderManualActionItems(manual));
     lines.push("", "## 风险", "");
     if (result.googleApi.mode === "mock") {
       lines.push("- Google Search Console 官方 API 当前为 mock；索引状态需在私有 OAuth 适配器接入后复核。");
@@ -860,6 +857,26 @@ function calculateNextCheckAt(now, schedule) {
 
 function renderUrlItems(items, emptyText, formatter) {
   return items.length > 0 ? items.map((item) => `- ${formatter(item)}`) : [`- ${emptyText}`];
+}
+
+function renderManualActionItems(items) {
+  if (items.length === 0) return ["- 当前没有必须人工处理的技术异常。"];
+  return items.map((item) => {
+    const issues = item.issues || [];
+    const details = [];
+    if (issues.some((entry) => entry.code === "gsc_oauth_refresh_failed")) {
+      details.push("AI Link 的 GSC OAuth 授权刷新失败，请重新运行 gsc:authorize 完成本机只读授权");
+    }
+    if (issues.some((entry) => entry.code === "gsc_property_not_listed")) {
+      details.push("当前授权账号看不到配置的 Search Console property，请确认使用能访问该 GSC Domain Property 的 Google 账号");
+    }
+    for (const entry of issues) {
+      if (["gsc_oauth_refresh_failed", "gsc_property_not_listed"].includes(entry.code)) continue;
+      if (entry.message) details.push(entry.message);
+    }
+    const uniqueDetails = [...new Set(details)];
+    return `${item.url}：${statusLabel(item.status)}${uniqueDetails.length ? `；${uniqueDetails.join("；")}` : ""}。`;
+  }).map((line) => `- ${line}`);
 }
 
 function statusLabel(status) {
