@@ -213,6 +213,39 @@ describe("Google Search Console desktop OAuth", () => {
     assert.equal("access_token" in credentials, false);
   });
 
+  it("can accept a same-machine pasted callback URL when browser callback handling is blocked", async () => {
+    let openedUrl = "";
+    const credentials = await authorizeGoogleDesktop({
+      clientConfig: desktopClient,
+      timeoutMs: 5_000,
+      openBrowserImpl: async (url) => {
+        openedUrl = url;
+      },
+      manualCallbackUrlProvider: async ({ authorizationUrl }) => {
+        const authorization = new URL(authorizationUrl);
+        const callback = new URL(authorization.searchParams.get("redirect_uri"));
+        callback.searchParams.set("code", "pasted-authorization-code");
+        callback.searchParams.set("state", authorization.searchParams.get("state"));
+        return callback.toString();
+      },
+      fetchImpl: async (url, options) => {
+        assert.equal(url, "https://oauth2.googleapis.com/token");
+        assert.match(options.body, /code=pasted-authorization-code/);
+        return jsonResponse({
+          access_token: "ephemeral-access-value",
+          refresh_token: "refresh-value",
+          expires_in: 3600,
+          scope: GOOGLE_WEBMASTERS_READONLY_SCOPE,
+          token_type: "Bearer"
+        });
+      }
+    });
+
+    assert.match(openedUrl, /^https:\/\/accounts\.google\.com\//);
+    assert.equal(credentials.refresh_token, "refresh-value");
+    assert.equal("access_token" in credentials, false);
+  });
+
   it("requires repository-local credentials to stay under runtime/private", async () => {
     assert.throws(
       () => resolveCredentialPath("credentials.json"),
