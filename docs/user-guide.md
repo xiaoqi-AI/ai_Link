@@ -96,6 +96,21 @@ npm.cmd run gsc:check -- `
 
 公开默认只使用 Google API mock，不读取 OAuth token，也不会点击 `Request indexing` 或真实提交 sitemap。
 
+如果本机已经出现 `gsc_oauth_refresh_failed`，或确认旧授权账号看不到目标 Search Console property，可以在 AI Link 仓库内用一条命令完成“重新授权 + 授权后私有复核”：
+
+```powershell
+cd D:\codex_workplace\ai_Link
+npm.cmd run gsc:recover
+```
+
+需要代理时使用：
+
+```powershell
+npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780"
+```
+
+该命令仍需要维护者在系统浏览器中选择能访问目标 GSC Domain Property 的 Google 账号；它不会自动点击 `Request indexing`，也不会绕过 Google 配额。
+
 完成 Google Cloud Desktop OAuth client 配置并确认只读授权后，可以在本机运行：
 
 ```powershell

@@ -202,6 +202,30 @@ npm.cmd run gsc:authorize -- `
 
 若授权文件仍未更新，先不要重复修改 ParentingGame 代码；这属于 AI Link / Google OAuth 人工授权门禁。
 
+### 授权恢复后一键复核
+
+当已知问题是 `gsc_oauth_refresh_failed` 或授权账号看不到目标 property 时，可以使用恢复脚本把“重新授权”和“授权后私有监控复核”连在一起：
+
+```powershell
+cd D:\codex_workplace\ai_Link
+npm.cmd run gsc:recover
+```
+
+该脚本会：
+
+1. 使用 `runtime/private/google-search-console/desktop-client.json` 打开系统浏览器完成只读 OAuth 授权。
+2. 默认等待最多 15 分钟，并覆盖旧的本机 `authorized-user.json`。
+3. 授权成功后调用 `tools/run-gsc-monitor.ps1` 生成私有 GSC 检查报告。
+4. 将 JSON 和中文报告写入 `runtime/tmp/`，将脱敏历史写入 `runtime/private/`。
+
+它不会打印 token、authorization code、Google 原始响应或账号列表。需要代理时可传入：
+
+```powershell
+npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780"
+```
+
+如需临时禁用覆盖旧凭据，可传入 `-NoForce`；这通常只用于排查，不适合已确认 token 过期的恢复流程。
+
 ### 第五步：预览并启用 Windows 每日监控
 
 先只生成计划，不创建任务：
