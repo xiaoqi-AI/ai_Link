@@ -178,9 +178,13 @@ describe("Google Search Console desktop OAuth", () => {
 
   it("completes a loopback authorization without printing or persisting the access token", async () => {
     let openedUrl = "";
+    let operatorUrl = "";
     const credentials = await authorizeGoogleDesktop({
       clientConfig: desktopClient,
       timeoutMs: 5_000,
+      onAuthorizationUrl: async (url) => {
+        operatorUrl = url;
+      },
       openBrowserImpl: async (url) => {
         openedUrl = url;
         const authorization = new URL(url);
@@ -204,6 +208,7 @@ describe("Google Search Console desktop OAuth", () => {
     });
 
     assert.match(openedUrl, /^https:\/\/accounts\.google\.com\//);
+    assert.equal(operatorUrl, openedUrl);
     assert.equal(credentials.refresh_token, "refresh-value");
     assert.equal("access_token" in credentials, false);
   });

@@ -72,6 +72,7 @@ export async function authorizeGoogleDesktop({
   clientConfig,
   fetchImpl = globalThis.fetch,
   openBrowserImpl = openSystemBrowser,
+  onAuthorizationUrl,
   timeoutMs = DEFAULT_AUTH_TIMEOUT_MS,
   scope = GOOGLE_WEBMASTERS_READONLY_SCOPE
 } = {}) {
@@ -94,6 +95,9 @@ export async function authorizeGoogleDesktop({
   });
 
   try {
+    if (typeof onAuthorizationUrl === "function") {
+      await onAuthorizationUrl(authorizationUrl);
+    }
     await openBrowserImpl(authorizationUrl);
     const code = await callback.codePromise;
     const token = await exchangeAuthorizationCode({

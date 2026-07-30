@@ -109,7 +109,13 @@ npm.cmd run gsc:recover
 npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780"
 ```
 
-该命令仍需要维护者在系统浏览器中选择能访问目标 GSC Domain Property 的 Google 账号；它不会自动点击 `Request indexing`，也不会绕过 Google 配额。
+如果系统浏览器没有弹出授权页，或弹出了但不容易找到，可以让命令显示一次性本机授权链接：
+
+```powershell
+npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780" -ShowAuthUrl
+```
+
+该链接只应在同一台电脑的浏览器里打开，并且只在命令等待期间有效；不要把它贴到聊天、issue、PR 或知识库。该命令仍需要维护者在系统浏览器中选择能访问目标 GSC Domain Property 的 Google 账号；它不会自动点击 `Request indexing`，也不会绕过 Google 配额。
 
 完成 Google Cloud Desktop OAuth client 配置并确认只读授权后，可以在本机运行：
 

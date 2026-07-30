@@ -8,6 +8,7 @@ param(
   [int]$TimeoutMs = 900000,
   [string]$ProxyUrl = "",
   [switch]$UseEnvProxy,
+  [switch]$ShowAuthUrl,
   [switch]$NoForce
 )
 
@@ -101,6 +102,9 @@ try {
     "--timeout-ms",
     [string]$TimeoutMs
   )
+  if ($ShowAuthUrl) {
+    $AuthorizeArgs += "--show-auth-url"
+  }
   if (-not $NoForce) {
     $AuthorizeArgs += "--force"
   }
