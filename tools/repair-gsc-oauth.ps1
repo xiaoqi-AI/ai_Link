@@ -8,6 +8,7 @@ param(
   [int]$TimeoutMs = 900000,
   [string]$ProxyUrl = "",
   [switch]$UseEnvProxy,
+  [switch]$ManualCallbackUrl,
   [switch]$ShowAuthUrl,
   [switch]$NoForce
 )
@@ -102,6 +103,9 @@ try {
     "--timeout-ms",
     [string]$TimeoutMs
   )
+  if ($ManualCallbackUrl) {
+    $AuthorizeArgs += "--manual-callback-url"
+  }
   if ($ShowAuthUrl) {
     $AuthorizeArgs += "--show-auth-url"
   }

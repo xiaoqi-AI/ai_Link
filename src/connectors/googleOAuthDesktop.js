@@ -72,6 +72,7 @@ export async function authorizeGoogleDesktop({
   clientConfig,
   fetchImpl = globalThis.fetch,
   openBrowserImpl = openSystemBrowser,
+  manualCallbackUrlProvider,
   onAuthorizationUrl,
   timeoutMs = DEFAULT_AUTH_TIMEOUT_MS,
   scope = GOOGLE_WEBMASTERS_READONLY_SCOPE
@@ -93,12 +94,25 @@ export async function authorizeGoogleDesktop({
     codeChallenge: challenge,
     scope
   });
+  let manualCallbackController;
 
   try {
     if (typeof onAuthorizationUrl === "function") {
       await onAuthorizationUrl(authorizationUrl);
     }
     await openBrowserImpl(authorizationUrl);
+    if (typeof manualCallbackUrlProvider === "function") {
+      manualCallbackController = new AbortController();
+      Promise.resolve(manualCallbackUrlProvider({
+        authorizationUrl,
+        redirectUri: callback.redirectUri,
+        signal: manualCallbackController.signal
+      })).then((value) => {
+        if (value) callback.acceptCallbackUrl(value);
+      }).catch((error) => {
+        if (error?.name !== "AbortError") callback.reject(error);
+      });
+    }
     const code = await callback.codePromise;
     const token = await exchangeAuthorizationCode({
       config,
@@ -127,6 +141,7 @@ export async function authorizeGoogleDesktop({
       scope: grantedScopes.join(" ")
     });
   } finally {
+    manualCallbackController?.abort();
     await callback.close();
   }
 }
@@ -296,6 +311,37 @@ async function startLoopbackCallback({ state, timeoutMs }) {
   return {
     redirectUri,
     codePromise,
+    acceptCallbackUrl(value) {
+      const expected = new URL(redirectUri);
+      let url;
+      try {
+        url = new URL(String(value || "").trim());
+      } catch {
+        settleReject(oauthError("gsc_oauth_callback_invalid", "The pasted OAuth callback URL was invalid."));
+        return;
+      }
+      if (url.origin !== expected.origin || url.pathname !== expected.pathname) {
+        settleReject(oauthError("gsc_oauth_callback_mismatch", "The pasted OAuth callback URL did not match the current local authorization session."));
+        return;
+      }
+      if (url.searchParams.get("state") !== state) {
+        settleReject(oauthError("gsc_oauth_state_mismatch", "Google OAuth callback state did not match."));
+        return;
+      }
+      if (url.searchParams.get("error")) {
+        settleReject(oauthError("gsc_oauth_denied", "Google OAuth authorization was not completed."));
+        return;
+      }
+      const code = url.searchParams.get("code");
+      if (!code) {
+        settleReject(oauthError("gsc_oauth_code_missing", "Google OAuth callback did not contain an authorization code."));
+        return;
+      }
+      settleResolve(code);
+    },
+    reject(error) {
+      settleReject(error);
+    },
     async close() {
       clearTimeout(timeout);
       if (!server.listening) return;

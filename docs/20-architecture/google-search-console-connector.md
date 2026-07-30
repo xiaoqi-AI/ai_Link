@@ -232,6 +232,14 @@ npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780" -ShowAuthUrl
 
 该链接包含临时 PKCE/state 和 `127.0.0.1` 回调地址，只能在同一台电脑、同一次命令等待期间用于打开本机浏览器；不要复制到聊天、issue、PR、知识库或远程环境。
 
+如果 Google 授权完成后浏览器无法访问 `127.0.0.1` 回调页，可让命令等待本机终端输入最终回调 URL：
+
+```powershell
+npm.cmd run gsc:recover -- -ProxyUrl "http://127.0.0.1:4780" -ManualCallbackUrl
+```
+
+维护者只把浏览器地址栏里的最终 `127.0.0.1/.../oauth2callback?...` URL 粘贴到本机终端；该 URL 含一次性授权码，不能贴到聊天、issue、PR、知识库或远程环境。AI Link 会校验当前 session 的 state、端口和路径，校验通过后才换取 refresh token。
+
 如需临时禁用覆盖旧凭据，可传入 `-NoForce`；这通常只用于排查，不适合已确认 token 过期的恢复流程。
 
 ### 第五步：预览并启用 Windows 每日监控
