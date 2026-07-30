@@ -177,6 +177,31 @@ runtime/private/google-search-console/history.json
 | `gsc_property_not_listed` | Sites list 未返回配置 property | 核对 `siteUrl` 是否与 GSC 中的 URL-prefix 或 Domain property 完全一致 |
 | `gsc_quota_exceeded` | Google API 配额暂时不可用 | 等待配额恢复，不循环重试、不绕过配额 |
 
+授权超时排查：
+
+`gsc:authorize` 超时通常表示浏览器授权流程没有完成，或者 Google 授权页显示了需要人工处理的错误。命令本身不会打印授权 URL、authorization code、token 或 Google 原始响应；请直接查看系统浏览器里刚打开的标签页。
+
+优先检查：
+
+1. 浏览器是否打开了 Google 授权页；若没有，重新运行授权命令，并确认默认浏览器没有被安全软件或弹窗策略拦截。
+2. 是否登录了拥有目标 GSC property 权限的 Google 账号；`sc-domain:xiao-qi-ai.com` 必须在该账号的 Search Console Sites list 中可见。
+3. 如果 Google 页面显示 `redirect_uri_mismatch`，重新确认 Google Cloud client 类型是 `Desktop app`，不要使用 Web application client JSON。
+4. 如果页面显示应用仍在 Testing，确认当前 Google 账号已加入 Test users。
+5. 如果页面显示 state mismatch，关闭旧的 OAuth 标签页，重新运行授权命令，只使用最新打开的标签页继续。
+6. 授权成功时，浏览器会显示 “Read-only authorization received”；随后 `authorized-user.json` 的修改时间应更新。
+
+长时间授权时可以显式加长等待窗口：
+
+```powershell
+npm.cmd run gsc:authorize -- `
+  --client-config runtime/private/google-search-console/desktop-client.json `
+  --output runtime/private/google-search-console/authorized-user.json `
+  --timeout-ms 900000 `
+  --force
+```
+
+若授权文件仍未更新，先不要重复修改 ParentingGame 代码；这属于 AI Link / Google OAuth 人工授权门禁。
+
 ### 第五步：预览并启用 Windows 每日监控
 
 先只生成计划，不创建任务：

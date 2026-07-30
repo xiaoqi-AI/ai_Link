@@ -115,6 +115,8 @@ Domain Property 配置支持 `includeSitemapUrls`，会从 sitemap 自动展开�
 
 授权命令只申请 `webmasters.readonly`，使用系统浏览器、PKCE、随机 state 和 `127.0.0.1` 一次性回调。首轮验收的 refresh token 只保存在 `runtime/private/`，短期 access token 只驻留当前进程内存；长期自动化应再迁入受控 secret manager。完整 Google Cloud 中文操作、状态口径、Auth Hub `gsc_monitor` 任务格式、历史快照、错误处理、定时运行和 sitemap 写权限门禁见 `docs/20-architecture/google-search-console-connector.md`。
 
+如果 `gsc:authorize` 超时，先查看系统浏览器里 Google 授权页的提示，再按 `docs/20-architecture/google-search-console-connector.md` 中“授权超时排查”处理；不要把 OAuth code、token、client secret、截图或账号信息贴到聊天、issue、PR 或知识库。
+
 ## 统一授权中枢本地试跑
 
 授权中枢用于把跨平台任务拆成“云端私有控制台 + 本地执行器 + 人工确认发布”。本地开发可用：
