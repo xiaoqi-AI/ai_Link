@@ -72,5 +72,17 @@ async function main() {
 main().catch((error) => {
   const code = error?.code ? ` (${error.code})` : "";
   console.error(`gsc-authorize: ${error?.message || "Authorization failed."}${code}`);
+  if (error?.code === "gsc_oauth_timeout") {
+    console.error([
+      "",
+      "Troubleshooting:",
+      "  - Check the Google authorization tab opened in your system browser.",
+      "  - If no tab opened, rerun the command and confirm the default browser was not blocked.",
+      "  - If Google shows redirect_uri_mismatch, use a Desktop app OAuth client JSON, not a Web application client JSON.",
+      "  - If the OAuth app is in Testing, make sure the signed-in Google account is listed as a test user.",
+      "  - If state mismatch appears, close old Google OAuth tabs and rerun the command once.",
+      "  - On success, the browser says \"Read-only authorization received\" and the authorized-user file is updated."
+    ].join("\n"));
+  }
   process.exitCode = 1;
 });

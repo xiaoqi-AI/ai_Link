@@ -124,6 +124,69 @@ describe("connector contracts", () => {
     assert.equal(JSON.stringify(result).includes("<html>"), false);
   });
 
+  it("summarizes private GSC OAuth failures as one operator action", async () => {
+    const siteUrl = "sc-domain:example.com";
+    const publicBaseUrl = "https://voice.example.com/";
+    const articleUrl = "https://voice.example.com/guide";
+    const sitemapUrl = "https://voice.example.com/sitemap.xml";
+    const fixtures = new Map([
+      [
+        "https://voice.example.com/robots.txt",
+        response(`User-agent: *\nAllow: /\nSitemap: ${sitemapUrl}\n`, { url: "https://voice.example.com/robots.txt" })
+      ],
+      [
+        sitemapUrl,
+        response(`<?xml version="1.0"?><urlset><url><loc>${articleUrl}</loc></url></urlset>`, { url: sitemapUrl })
+      ],
+      [
+        articleUrl,
+        response(`<html><head><link href="${articleUrl}" rel="canonical"><meta content="index,follow" name="robots"></head></html>`, { url: articleUrl })
+      ]
+    ]);
+    const oauthError = () => {
+      const error = new Error("Google OAuth token refresh failed.");
+      error.code = "gsc_oauth_refresh_failed";
+      return error;
+    };
+    const apiClient = {
+      mode: "live-read-only",
+      listSites: async () => {
+        throw oauthError();
+      },
+      listSitemaps: async () => {
+        throw oauthError();
+      },
+      inspectUrl: async () => {
+        throw oauthError();
+      }
+    };
+    const connector = new GoogleSearchConsoleConnector({
+      apiClient,
+      fetchImpl: async (url) => {
+        const value = fixtures.get(url);
+        if (!value) throw new Error(`Missing fixture: ${url}`);
+        return value;
+      },
+      resolveHost: async () => [{ address: "93.184.216.34" }],
+      clock: () => new Date("2026-07-11T00:00:00.000Z")
+    });
+
+    const result = await connector.monitorSite({
+      siteUrl,
+      publicBaseUrl,
+      urls: [articleUrl],
+      sitemaps: [sitemapUrl],
+      schedule: "daily"
+    });
+
+    assert.equal(result.urls[0].publicReady, true);
+    assert.equal(result.summary.requiresManualAction, true);
+    assert.equal(result.googleApi.errors.filter((error) => error.code === "gsc_oauth_refresh_failed").length, 3);
+    assert.match(result.reportMarkdown, /重新运行 gsc:authorize/);
+    assert.match(result.reportMarkdown, /授权账号看不到配置的 Search Console property/);
+    assert.equal(result.reportMarkdown.includes("Google Search Console capability inspect_url failed"), false);
+  });
+
   it("keeps sitemap submission behind an explicit approval gate", async () => {
     const connector = new GoogleSearchConsoleConnector({
       resolveHost: async () => [{ address: "93.184.216.34" }]
