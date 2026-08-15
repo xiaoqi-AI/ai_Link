@@ -6,6 +6,8 @@
 
 项目同时使用私有内部 companion 仓 `xiaoqi-AI/ai_Link-internal`。公开仓只承载可公开内容；内部仓用于未公开路线、实验、供应商评估、运维说明和公开发布门禁。
 
+从立项、首发到发布后运营的完整方法和经验总结见 `docs/00-governance/public-project-publishing-playbook.md`。本文保留为每次 GitHub 更新时使用的操作规则。
+
 ## 每次更新必查
 
 - `README.md` 是否仍然准确。
